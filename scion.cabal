@@ -19,8 +19,12 @@ cabal-version:   >= 1.2
 --flag applicative-in-base
 --flag base-3
 
--- library
---   build-depends: base >= 4 && < 5
+library
+  build-depends:   base >= 4 && < 5
+  hs-source-dirs:  src
+  extensions:      Rank2Types
+  exposed-modules:
+                   Scion.Types
 
 executable test
   main-is:       src/Main.hs
