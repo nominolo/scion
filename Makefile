@@ -20,4 +20,4 @@ test:
 	./dist/build/test/test.exe
 
 clean:
-	$(SETUP)
+	$(SETUP) clean
