@@ -1,10 +1,11 @@
-HC=../ghc/ghc/stage2-inplace/ghc.exe
-PKG=../ghc/utils/ghc-pkg/install-inplace/bin/ghc-pkg.exe 
-SETUP=./Setup.exe
+GHC_PATH=../ghc/ng-api/
+HC=$(GHC_PATH)/ghc/stage2-inplace/ghc
+PKG=$(GHC_PATH)/utils/ghc-pkg/install-inplace/bin/ghc-pkg
+SETUP=./Setup
 
 main: build
 
-Setup.exe: Setup.hs
+$(SETUP): Setup.hs
 	$(HC) --make $<
 
 configure:
