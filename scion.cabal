@@ -16,7 +16,8 @@ cabal-version:   >= 1.2
 
 library
   build-depends:   base >= 4 && < 5,
-                   directory >= 1.0 && < 1.1
+                   directory >= 1.0 && < 1.1,
+                   Cabal >= 1.5 && < 1.8
   hs-source-dirs:  src
 --  extensions:      Rank2Types
   exposed-modules:

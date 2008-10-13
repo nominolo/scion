@@ -5,13 +5,18 @@ import HscTypes
 import MonadUtils ( liftIO, MonadIO )
 import Exception
 import qualified GHC
+
+import Distribution.Simple.LocalBuildInfo
+
 import Data.IORef
 
 data SessionState 
-  = SessionState
+  = SessionState {
+      localBuildInfo :: Maybe LocalBuildInfo
+    }
 
 mkSessionState :: IO (IORef SessionState)
-mkSessionState = newIORef SessionState
+mkSessionState = newIORef (SessionState Nothing)
 
 newtype ScionM a
   = ScionM { unScionM :: IORef SessionState -> Ghc a }
