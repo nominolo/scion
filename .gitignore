@@ -3,3 +3,4 @@ dist/*
 *.hi
 *.o
 Setup.exe*
+Setup
