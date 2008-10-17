@@ -12,11 +12,12 @@ import Data.IORef
 
 data SessionState 
   = SessionState {
+      scionLogLevel :: Int,
       localBuildInfo :: Maybe LocalBuildInfo
     }
 
 mkSessionState :: IO (IORef SessionState)
-mkSessionState = newIORef (SessionState Nothing)
+mkSessionState = newIORef (SessionState 1 Nothing)
 
 newtype ScionM a
   = ScionM { unScionM :: IORef SessionState -> Ghc a }
