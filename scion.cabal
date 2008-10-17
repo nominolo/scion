@@ -10,13 +10,13 @@ synopsis:        Haskell IDE library
 category:        Development
 stability:       provisional
 build-type:      Simple
-cabal-version:   >= 1.2
+cabal-version:   >= 1.4
 -- tested-with:     GHC ==6.10.1
 -- extra-source-files: README
 
 library
-  build-depends:   base >= 4 && < 5,
-                   directory >= 1.0 && < 1.1,
+  build-depends:   base == 4.*,
+                   directory == 1.0.*,
                    Cabal >= 1.5 && < 1.8
   hs-source-dirs:  src
 --  extensions:      Rank2Types
@@ -27,8 +27,7 @@ library
 
 executable test
   main-is:       src/Main.hs
-  build-depends: base >= 4 && < 5,
-                 ghc-paths >= 0.1 && < 0.2,
+  build-depends: ghc-paths >= 0.1 && < 0.2,
                  ghc >= 6.10 && < 6.12
 
 executable test_get_imports
@@ -36,9 +35,7 @@ executable test_get_imports
   hs-source-dirs: examples
                   src
 --  extensions:      Rank2Types
-  build-depends: base >= 4 && < 5,
-                 ghc-paths >= 0.1 && < 0.2,
+  build-depends: ghc-paths >= 0.1 && < 0.2,
                  ghc >= 6.10 && < 6.12,
-                 ghc-syb >= 0.1 && < 0.2,
-                 directory >= 1.0 && < 1.1
+                 ghc-syb >= 0.1 && < 0.2
   other-modules: Scion
