@@ -5,8 +5,10 @@ import Scion
 import MonadUtils ( liftIO )
 import qualified StringBuffer as SB
 import Outputable
+import HscTypes
 
 import Data.Maybe
+import Control.Monad
 
 main = runScion $ do
   liftIO $ print "hello"
@@ -14,10 +16,10 @@ main = runScion $ do
   openCabalProject "./dist-stage2"
   setDynFlagsFromCabal Library
   setTargetsFromCabal Library
-  load LoadAllTargets
-  cs <- flip foldModSummaries 0 $ \n ms -> do 
-    let n' = maybe 0 SB.len $ ms_hspp_buf ms
-    liftIO $ print (showSDoc (ppr (ms_mod_name ms)),
-                    n')
-    return $! n + n'
-  liftIO $ print ("total", cs)
+  --load LoadAllTargets
+  flip foldModSummaries () $ \n ms -> do 
+    io $ putStrLn $ 
+       showSDoc $ hang (ppr (ms_mod ms) <+> text (hscSourceString (ms_hsc_src ms)))
+                       4 (ppr (ms_imps ms))
+    return ()
+  --liftIO $ print ("total", cs)
