@@ -75,11 +75,7 @@ setDynFlagsFromCabal component = do
            _ -> error $ "Multiple executables found.  This is weird..."
   let odir = buildDir lbi
   let flags = ghcOptions lbi bi odir
-  (dflags', unknown, warnings) <- parseDynamicFlags dflags (map noLoc flags)
-  unless (null unknown) $
-    io $ putStrLn $ "Unrecognised flags:\n" ++ show (map unLoc unknown)
-  io $ mapM_ putStrLn $ map unLoc warnings
-  setSessionDynFlags dflags'
+  addCmdLineFlags flags
 
 setTargetsFromCabal :: CabalComponent -> ScionM ()
 setTargetsFromCabal Library = do
@@ -108,3 +104,11 @@ foldModSummaries f seed = do
   let mss = flattenSCCs $ topSortModuleGraph False gr Nothing
   foldM f seed mss
 
+addCmdLineFlags :: [String] -> ScionM [PackageId]
+addCmdLineFlags flags = do
+  dflags <- getSessionDynFlags
+  (dflags', unknown, warnings) <- parseDynamicFlags dflags (map noLoc flags)
+  unless (null unknown) $
+    io $ putStrLn $ "Unrecognised flags:\n" ++ show (map unLoc unknown)
+  io $ mapM_ putStrLn $ map unLoc warnings
+  setSessionDynFlags dflags'
