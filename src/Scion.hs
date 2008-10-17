@@ -28,9 +28,16 @@ runScion :: ScionM a -> IO a
 runScion m = do
   runGhc (Just libdir) $ do
     dflags <- getSessionDynFlags
-    setSessionDynFlags dflags
+    setSessionDynFlags (initialScionDynFlags dflags)
     r <- io mkSessionState
     unScionM m r
+
+initialScionDynFlags :: DynFlags -> DynFlags
+initialScionDynFlags dflags =
+  dflags 
+    { hscTarget = HscNothing  -- by default, don't modify anything
+    , ghcLink   = NoLink      -- just to be sure
+    }
 
 setWorkingDir :: FilePath -> ScionM ()
 setWorkingDir home = do
