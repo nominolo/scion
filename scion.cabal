@@ -44,3 +44,11 @@ executable test_call_graph
   build-depends: ghc >= 6.10 && < 6.12,
                  ghc-uniplate == 0.1.*
   other-modules: Scion
+
+executable test_thing_at_point
+  main-is:       ThingAtPoint.hs
+  hs-source-dirs: examples
+                  src
+  build-depends: ghc >= 6.10 && < 6.12,
+                 ghc-uniplate == 0.1.*
+  other-modules: Scion
