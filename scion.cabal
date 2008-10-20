@@ -22,6 +22,7 @@ library
 --  extensions:      Rank2Types
   exposed-modules:
                    Scion.Types,
+                   Scion.Inspect,
                    Scion
 
 
@@ -38,4 +39,12 @@ executable test_get_imports
   build-depends: ghc-paths >= 0.1 && < 0.2,
                  ghc >= 6.10 && < 6.12,
                  ghc-syb >= 0.1 && < 0.2
+  other-modules: Scion
+
+executable test_call_graph
+  main-is:       CallGraph0.hs
+  hs-source-dirs: examples
+                  src
+  build-depends: ghc >= 6.10 && < 6.12,
+                 ghc-uniplate == 0.1.*
   other-modules: Scion

@@ -1,5 +1,8 @@
 {-# LANGUAGE PatternGuards #-}
-module Scion where
+module Scion 
+  ( ScionM
+  , module Scion  -- at least for now
+  ) where
 
 import Scion.Types
 
@@ -97,14 +100,17 @@ setTargetsFromCabal Library = do
 setTargetsFromCabal (Executable n) = do
   error "unimplemented"
 
+modulesInDepOrder :: GhcMonad m => m [ModSummary]
+modulesInDepOrder = do
+  gr <- depanal [] False
+  return $ flattenSCCs $ topSortModuleGraph False gr Nothing
+  
 -- in dep-order
 foldModSummaries :: GhcMonad m =>
                     (a -> ModSummary -> m a) -> a
                  -> m a
-foldModSummaries f seed = do
-  gr <- depanal [] False
-  let mss = flattenSCCs $ topSortModuleGraph False gr Nothing
-  foldM f seed mss
+foldModSummaries f seed =
+  modulesInDepOrder >>= foldM f seed
 
 addCmdLineFlags :: [String] -> ScionM [PackageId]
 addCmdLineFlags flags = do
