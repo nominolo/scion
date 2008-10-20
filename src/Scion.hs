@@ -1,5 +1,8 @@
 {-# LANGUAGE PatternGuards #-}
-module Scion where
+module Scion 
+  ( ScionM
+  , module Scion  -- at least for now
+  ) where
 
 import Scion.Types
 
