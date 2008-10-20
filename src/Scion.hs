@@ -46,6 +46,7 @@ setWorkingDir home = do
 
 openCabalProject :: FilePath -> ScionM ()
 openCabalProject dist_dir = do
+  -- XXX: check that working dir contains a .cabal file
   lbi <- io $ getPersistBuildConfig dist_dir
   -- XXX: do something with old lbi before updating?
   modifySessionState $ \st -> st { localBuildInfo = Just lbi }
