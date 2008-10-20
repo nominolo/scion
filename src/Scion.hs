@@ -72,7 +72,8 @@ setDynFlagsFromCabal component = do
           case [ exe | exe <- PD.executables pd, PD.exeName exe == n ] of
            [ exe ] -> return (PD.buildInfo exe)
            [] -> error $ "Executable " ++ n ++ " not found in package"
-           _ -> error $ "Multiple executables found.  This is weird..."
+           _ -> error $ "Multiple executables, named \"" ++ n ++ 
+                        "\" found.  This is weird..."
   let odir = buildDir lbi
   let flags = ghcOptions lbi bi odir
   addCmdLineFlags flags
