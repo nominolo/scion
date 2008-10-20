@@ -9,11 +9,14 @@ import HscTypes
 
 import Data.Maybe
 import Control.Monad
+import System.Environment
 
 main = runScion $ do
-  liftIO $ print "hello"
-  setWorkingDir "../ghc/compiler"
-  openCabalProject "./dist-stage2"
+  [working_dir, dist_dir] <- io $ getArgs
+  setWorkingDir working_dir
+  liftIO $ print working_dir
+  io $ print dist_dir
+  openCabalProject dist_dir
   setDynFlagsFromCabal Library
   setTargetsFromCabal Library
   --load LoadAllTargets

@@ -18,7 +18,7 @@ install:
 	$(SETUP) install
 
 test:
-	./dist/build/test/test.exe
+	./dist/build/test_get_imports/test_get_imports $(GHC_PATH)/compiler dist-stage2 +RTS -s -RTS
 
 clean:
 	$(SETUP) clean
