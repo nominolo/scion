@@ -23,6 +23,7 @@ library
   exposed-modules:
                    Scion.Types,
                    Scion.Inspect,
+                   Scion.Utils,
                    Scion
 
 
