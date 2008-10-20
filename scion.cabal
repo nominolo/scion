@@ -22,6 +22,7 @@ library
 --  extensions:      Rank2Types
   exposed-modules:
                    Scion.Types,
+                   Scion.Inspect,
                    Scion
 
 
