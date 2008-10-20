@@ -26,11 +26,6 @@ library
                    Scion
 
 
-executable test
-  main-is:       src/Main.hs
-  build-depends: ghc-paths >= 0.1 && < 0.2,
-                 ghc >= 6.10 && < 6.12
-
 executable test_get_imports
   main-is:       GetImports.hs
   hs-source-dirs: examples
