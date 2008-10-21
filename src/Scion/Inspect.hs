@@ -26,4 +26,12 @@ typeFamilyDecls (grp, _, _, _, _) =
 
 namesUsed :: TypecheckedModule -> [Name]
 namesUsed tcm = []
-    
+
+
+data ThingAtPoint
+  = ExprThing (HsExpr Name)
+  | PatThing  (Pat Name)
+  | NoThing
+
+thingAtPoint :: TypecheckedMod m => m -> ThingAtPoint
+thingAtPoint m = NoThing

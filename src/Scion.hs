@@ -49,6 +49,7 @@ setWorkingDir home = do
 
 openCabalProject :: FilePath -> ScionM ()
 openCabalProject dist_dir = do
+  -- XXX: check that working dir contains a .cabal file
   lbi <- io $ getPersistBuildConfig dist_dir
   -- XXX: do something with old lbi before updating?
   modifySessionState $ \st -> st { localBuildInfo = Just lbi }
@@ -75,7 +76,8 @@ setDynFlagsFromCabal component = do
           case [ exe | exe <- PD.executables pd, PD.exeName exe == n ] of
            [ exe ] -> return (PD.buildInfo exe)
            [] -> error $ "Executable " ++ n ++ " not found in package"
-           _ -> error $ "Multiple executables found.  This is weird..."
+           _ -> error $ "Multiple executables, named \"" ++ n ++ 
+                        "\" found.  This is weird..."
   let odir = buildDir lbi
   let flags = ghcOptions lbi bi odir
   addCmdLineFlags flags

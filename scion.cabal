@@ -23,13 +23,9 @@ library
   exposed-modules:
                    Scion.Types,
                    Scion.Inspect,
+                   Scion.Utils,
                    Scion
 
-
-executable test
-  main-is:       src/Main.hs
-  build-depends: ghc-paths >= 0.1 && < 0.2,
-                 ghc >= 6.10 && < 6.12
 
 executable test_get_imports
   main-is:       GetImports.hs
@@ -43,6 +39,14 @@ executable test_get_imports
 
 executable test_call_graph
   main-is:       CallGraph0.hs
+  hs-source-dirs: examples
+                  src
+  build-depends: ghc >= 6.10 && < 6.12,
+                 ghc-uniplate == 0.1.*
+  other-modules: Scion
+
+executable test_thing_at_point
+  main-is:       ThingAtPoint.hs
   hs-source-dirs: examples
                   src
   build-depends: ghc >= 6.10 && < 6.12,
