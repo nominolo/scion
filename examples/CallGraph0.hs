@@ -33,9 +33,10 @@ main = runScion $ do
                map (moduleNameString . unLoc) (ms_srcimps ms)
                 ++ map (moduleNameString . unLoc) (ms_imps ms) )
     io $ writeFile "deps.dot" $ 
-       writeDotGraph [ (mod, imp) | (mod, imps) <- deps
-                                  , imp <- imps ]
-               
+       writeDotGraph [ (Lit mod, Lit imp) 
+                         | (mod, imps) <- deps
+                         , imp <- imps ]
+
 {-
       let binds = bagToList (typecheckedSource mod)
       let Just rn@(grp, _, _, _, _) = renamedSource mod
@@ -51,3 +52,6 @@ print_error_and_exit err = do
 
 pp :: SDoc -> ScionM ()
 pp = io . putStrLn . showSDoc
+
+newtype Lit = Lit String deriving Eq
+instance Show Lit where show (Lit s) = s
