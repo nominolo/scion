@@ -5,3 +5,4 @@ dist/*
 Setup.exe*
 Setup
 TAGS
+config.mk

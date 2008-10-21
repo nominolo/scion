@@ -1,4 +1,4 @@
-GHC_PATH=../ghc/ng-api/
+include config.mk
 HC=$(GHC_PATH)/ghc/stage2-inplace/ghc
 PKG=$(GHC_PATH)/utils/ghc-pkg/install-inplace/bin/ghc-pkg
 SETUP=./Setup
