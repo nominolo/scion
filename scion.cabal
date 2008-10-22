@@ -13,19 +13,24 @@ build-type:      Simple
 cabal-version:   >= 1.4
 -- tested-with:     GHC ==6.10.1
 -- extra-source-files: README
+flag testing
+  description: Enable Debugging things like QuickCheck properties, etc.
+  default: False
 
 library
   build-depends:   base == 4.*,
                    directory == 1.0.*,
                    Cabal >= 1.5 && < 1.8
   hs-source-dirs:  src
---  extensions:      Rank2Types
+  extensions:      CPP, PatternGuards
   exposed-modules:
                    Scion.Types,
                    Scion.Inspect,
                    Scion.Utils,
                    Scion
-
+  if flag(testing)
+    build-depends: QuickCheck == 2.*
+    cpp-options:   -DDEBUG
 
 executable test_get_imports
   main-is:       GetImports.hs
