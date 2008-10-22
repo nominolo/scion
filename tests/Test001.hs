@@ -10,3 +10,7 @@ data Foo = Foo0
 instance Show Foo where
     show Foo0 = "*"
     show (Foo2 f1 f2) = "(" ++ show f1 ++ "-" ++ show f2 ++ ")"
+
+f x ys =
+    [ (x, y) | Just y <- ys
+             , length y > 3 ]
