@@ -11,7 +11,6 @@ import GHC.Paths ( libdir )
 import MonadUtils ( liftIO, MonadIO )
 import Digraph          ( flattenSCCs )
 import System.Directory ( setCurrentDirectory )
-import SrcLoc
 
 import Control.Monad
 import Data.List        ( intercalate )

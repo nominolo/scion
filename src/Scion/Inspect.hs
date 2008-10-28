@@ -3,7 +3,6 @@ module Scion.Inspect where
 
 import GHC
 import GHC.SYB.Instances
-import SrcLoc
 
 import Data.Map ( Map )
 import qualified Data.Map as M
