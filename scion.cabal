@@ -20,7 +20,9 @@ flag testing
 library
   build-depends:   base == 4.*,
                    directory == 1.0.*,
-                   Cabal >= 1.5 && < 1.8
+                   Cabal >= 1.5 && < 1.8,
+                   uniplate == 1.2.*,
+                   ghc-uniplate == 0.1.*
   hs-source-dirs:  src
   extensions:      CPP, PatternGuards
   exposed-modules:
@@ -41,14 +43,21 @@ executable test_get_imports
                  ghc >= 6.10 && < 6.12,
                  ghc-syb >= 0.1 && < 0.2
   other-modules: Scion
+  if flag(testing)
+    build-depends: QuickCheck == 2.*
+    cpp-options:   -DDEBUG
 
 executable test_call_graph
   main-is:       CallGraph0.hs
   hs-source-dirs: examples
                   src
   build-depends: ghc >= 6.10 && < 6.12,
-                 ghc-uniplate == 0.1.*
+                 ghc-uniplate == 0.1.*,
+                 containers == 0.2.*, filepath == 1.1.*
   other-modules: Scion
+  if flag(testing)
+    build-depends: QuickCheck == 2.*
+    cpp-options:   -DDEBUG
 
 executable test_thing_at_point
   main-is:       ThingAtPoint.hs
@@ -57,3 +66,6 @@ executable test_thing_at_point
   build-depends: ghc >= 6.10 && < 6.12,
                  ghc-uniplate == 0.1.*
   other-modules: Scion
+  if flag(testing)
+    build-depends: QuickCheck == 2.*
+    cpp-options:   -DDEBUG
