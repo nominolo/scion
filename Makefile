@@ -9,7 +9,7 @@ $(SETUP): Setup.hs
 	$(HC) --make $<
 
 configure:
-	$(SETUP) configure --with-compiler=$(HC) --with-hc-pkg=$(PKG) --user -ftesting
+	$(SETUP) configure --with-compiler=$(HC) --with-hc-pkg=$(PKG) --user -ftesting -femacs
 
 build:	
 	$(SETUP) build

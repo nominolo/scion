@@ -17,6 +17,10 @@ flag testing
   description: Enable Debugging things like QuickCheck properties, etc.
   default: False
 
+flag emacs
+  description: Build emacs-specific parts
+  default: True
+
 library
   build-depends:   base == 4.*,
                    directory == 1.0.*,
@@ -33,6 +37,12 @@ library
   if flag(testing)
     build-depends: QuickCheck == 2.*
     cpp-options:   -DDEBUG
+
+  if flag(emacs)
+    build-depends: network >= 2.1 && < 2.3,
+                   network-bytestring == 0.1.*,
+                   bytestring == 0.9.*
+    exposed-modules: Scion.Server.Emacs
 
 executable test_get_imports
   main-is:       GetImports.hs
@@ -66,6 +76,16 @@ executable test_thing_at_point
   build-depends: ghc >= 6.10 && < 6.12,
                  ghc-uniplate == 0.1.*
   other-modules: Scion
+  if flag(testing)
+    build-depends: QuickCheck == 2.*
+    cpp-options:   -DDEBUG
+
+executable emacs_server
+  main-is: EmacsServer.hs
+  hs-source-dirs: programs src
+  if !flag(emacs)
+    buildable: False
+  other-modules: Scion.Server.Emacs
   if flag(testing)
     build-depends: QuickCheck == 2.*
     cpp-options:   -DDEBUG
