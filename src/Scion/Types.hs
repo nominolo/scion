@@ -65,3 +65,11 @@ gets sel = getSessionState >>= return . sel
 
 setSessionState :: SessionState -> ScionM ()
 setSessionState s' = ScionM $ \r -> liftIO $ writeIORef r s'
+
+-- | Reflect a computation in the 'ScionM' monad into the 'IO' monad.
+reflectScionM :: ScionM a -> (IORef SessionState, Session) -> IO a
+reflectScionM (ScionM f) = \(st, sess) -> reflectGhc (f st) sess
+
+-- > Dual to 'reflectGhc'.  See its documentation.
+reifyScionM :: ((IORef SessionState, Session) -> IO a) -> ScionM a
+reifyScionM act = ScionM $ \st -> reifyGhc $ \sess -> act (st, sess)
