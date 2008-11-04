@@ -1,3 +1,4 @@
+{-# LANGUAGE ExistentialQuantification #-}
 -- |
 -- Module      : Scion.Server.Protocol
 -- Copyright   : (c) Thomas Schilling 2008
@@ -14,67 +15,85 @@
 --
 module Scion.Server.Protocol where
 
+import Scion.Types
+
 import Text.ParserCombinators.ReadP
-import Data.Char ( isHexDigit, digitToInt )
+import Data.Char ( isHexDigit, digitToInt, isDigit, isSpace )
+import Numeric   ( showInt )
+import Control.Monad ( liftM2 )
 
 ------------------------------------------------------------------------------
 
 -- TODO: Make these a typeclass?
 
 data Request
-  = Hello String
-  | Stop
-  | OpenProject String
-  | TypeofId String
-  deriving (Eq, Ord, Show, Read)
+  = Rex (ScionM String) Int -- Remote EXecute
+  | RQuit
+
+instance Show Request where
+  show (Rex _ i) = "Rex <cmd> " ++ show i
+  show RQuit = "RQuit"
 
 data Response
-  = ROk
-  | RUnknown
-  | RError String
-  | RString String
-  deriving (Eq, Ord, Show)
+  = RReturn String Int
+  | RReaderError String String
+  deriving Show
+
+data Command = Command {
+    getCommand :: ReadP (ScionM String)
+  }
 
 ------------------------------------------------------------------------------
 
 -- * Parsing Requests
 
-parseRequest :: String -> Maybe Request
-parseRequest msg =
-    case readP_to_S messageParser msg of
-      [(m, "")] -> Just m
-      []         -> Nothing
-      _         -> error "Ambiguous grammar for message.  This is a bug."
+parseRequest :: [Command] -> String -> Maybe Request
+parseRequest cmds msg =
+    let rs = readP_to_S (messageParser cmds) msg in
+    trace (show rs) $
+    case [ r | (r, "") <- rs ] of
+      [m] -> Just m
+      []  -> Nothing
+      _   -> error "Ambiguous grammar for message.  This is a bug."
 
 -- | At the moment messages are in a very simple Lisp-style format.  This
 --   should also be easy to parse (and generate) for non-lisp clients.
-messageParser :: ReadP Request
-messageParser =
-  inParens $ choice 
-    [ string "hello" >> sp >> Hello `fmap` getString
-    , string "type-of" >> sp >> TypeofId `fmap` getString
-    , string "hasta-la-vista" >> return Stop
-    ]
-    
+messageParser :: [Command] -> ReadP Request
+messageParser cmds = do
+  r <- inParens $ choice
+         [ string ":quit" >> return RQuit
+         , do string ":emacs-rex"
+              sp
+              c <- inParens (choice (map getCommand cmds))
+              sp
+              i <- getInt
+              return (Rex c i)
+         ]    
+  skipSpaces
+  return r
+
 inParens :: ReadP a -> ReadP a
 inParens = between (char '(') (char ')')
 
 getString :: ReadP String
 getString = decodeEscapes `fmap` (char '"' >> munchmunch False)
   where
-    munchmunch had_backspace = do 
+    munchmunch had_backspace = do
       c <- get
       if c == '"' && not had_backspace 
         then return []
         else do
           (c:) `fmap` munchmunch (c == '\\')
 
+getInt :: ReadP Int
+getInt = munch1 isDigit >>= return . read
+
 decodeEscapes :: String -> String
 decodeEscapes = id -- XXX
 
 -- | One or more spaces.
 sp :: ReadP ()
-sp = skipMany (char ' ')
+sp = skipMany1 (satisfy isSpace)
 
 
 ------------------------------------------------------------------------------
@@ -82,13 +101,16 @@ sp = skipMany (char ' ')
 -- * Writing Responses
 
 showResponse :: Response -> String
-showResponse r = shows' r ""
+showResponse r = shows' r "\n"
   where
-    shows' ROk         = showString "ok"
-    shows' RUnknown    = showString "unknown"
-    shows' (RError e)  = parens (showString "error" <+> putString e)
-    shows' (RString s) = putString s
-
+    shows' (RReturn f i) = 
+       parens (showString ":return" <+> 
+               parens (showString ":ok" <+> showString f)
+               <+> showInt i)
+    shows' (RReaderError s t) = 
+        parens (showString ":reader-error" <+>
+                showString (show s) <+>
+                showString (show t))
 parens :: ShowS -> ShowS
 parens p = showChar '(' . p . showChar ')'
 
