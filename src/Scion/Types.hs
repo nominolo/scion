@@ -10,17 +10,17 @@ import Exception
 import qualified GHC
 
 import Distribution.Simple.LocalBuildInfo
-
+import Control.Monad ( when )
 import Data.IORef
 
 data SessionState 
   = SessionState {
-      scionLogLevel :: Int,
+      scionVerbosity :: Verbosity,
       localBuildInfo :: Maybe LocalBuildInfo
     }
 
 mkSessionState :: IO (IORef SessionState)
-mkSessionState = newIORef (SessionState 1 Nothing)
+mkSessionState = newIORef (SessionState normal Nothing)
 
 newtype ScionM a
   = ScionM { unScionM :: IORef SessionState -> Ghc a }
@@ -68,6 +68,30 @@ gets sel = getSessionState >>= return . sel
 
 setSessionState :: SessionState -> ScionM ()
 setSessionState s' = ScionM $ \r -> liftIO $ writeIORef r s'
+
+data Verbosity
+  = Silent
+  | Normal
+  | Verbose
+  | Deafening
+  deriving (Eq, Ord, Show, Enum, Bounded)
+
+silent :: Verbosity
+silent = Silent
+
+normal :: Verbosity
+normal = Normal
+
+verbose :: Verbosity
+verbose = Verbose
+
+deafening :: Verbosity
+deafening = Deafening
+
+message :: Verbosity -> String -> ScionM ()
+message v s = do
+  v0 <- gets scionVerbosity
+  when (v0 >= v) $ liftIO $ putStrLn s
 
 -- | Reflect a computation in the 'ScionM' monad into the 'IO' monad.
 reflectScionM :: ScionM a -> (IORef SessionState, Session) -> IO a
