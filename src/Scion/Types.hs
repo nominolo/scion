@@ -1,4 +1,7 @@
-module Scion.Types where
+module Scion.Types 
+  ( module Scion.Types
+  , liftIO, MonadIO
+  ) where
 
 import GHC
 import HscTypes
