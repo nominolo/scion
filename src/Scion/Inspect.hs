@@ -1,6 +1,7 @@
 {-# LANGUAGE PatternGuards, CPP,
              FlexibleInstances, FlexibleContexts, MultiParamTypeClasses,
              StandaloneDeriving, TypeSynonymInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 -- |
 -- Module      : Scion.Inspect
 -- Copyright   : (c) Thomas Schilling 2008
