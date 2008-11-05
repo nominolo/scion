@@ -12,24 +12,37 @@
 module Scion.Server.Commands where
 
 import Scion.Types
+import Scion.Session
 import Scion.Server.Protocol
 
 import Text.ParserCombinators.ReadP
 import Numeric   ( showInt )
 
+import qualified Distribution.PackageDescription as PD
+import Distribution.Text ( display )
+
 ------------------------------------------------------------------------------
 
 allCommands :: [Command]
-allCommands = [ connInfo ]
+allCommands = 
+    [ cmdConnectionInfo
+    , cmdOpenCabalProject ]
 
 ------------------------------------------------------------------------------
 
 -- | Used by the client to initialise the connection.
-connInfo :: Command
-connInfo = Command (string "connection-info" >> return c)
+cmdConnectionInfo :: Command
+cmdConnectionInfo = Command (string "connection-info" >> return c)
   where
     c = do let pid = 0
            return $ parens (showString ":version" <+> showInt scionVersion <+>
                             showString ":pid" <+> showInt pid)
                   $ ""
 
+cmdOpenCabalProject :: Command
+cmdOpenCabalProject =
+    Command (string "open-cabal-project" >> sp >> getString >>= return . cmd)
+  where
+    cmd path = do
+        openCabalProject path
+        (show . display . PD.package) `fmap` currentCabalPackage

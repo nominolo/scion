@@ -1194,6 +1194,7 @@ Debugged requests are ignored."
 
 The first argument is dist directory (typically <project-root>/dist/)"
   (interactive "DDist dir: ")
-  (scion-eval-async `(open-cabal-project ,dist-dir)
-		    (lambda (x) nil))
+  (scion-eval-async `(open-cabal-project ,dist-dir) 
+		    (lambda (x)
+		      (message (format "Cabal project loaded: %s" x))))
   nil)

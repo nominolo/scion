@@ -90,3 +90,9 @@ addCmdLineFlags flags = do
     liftIO $ putStrLn $ "Unrecognised flags:\n" ++ show (map unLoc unknown)
   liftIO $ mapM_ putStrLn $ map unLoc warnings
   setSessionDynFlags dflags'
+
+currentCabalPackage :: ScionM PD.PackageDescription
+currentCabalPackage = do
+  lbi <- getLocalBuildInfo
+  return (localPkgDescr lbi)
+    
