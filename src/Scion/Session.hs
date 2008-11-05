@@ -112,3 +112,17 @@ currentCabalPackage :: ScionM PD.PackageDescription
 currentCabalPackage = do
   lbi <- getLocalBuildInfo
   return (localPkgDescr lbi)
+
+-- | List all components in the current cabal project.
+--
+-- This can be used to present the user a list of possible items to load.
+-- 
+availableComponents :: ScionM [CabalComponent]
+availableComponents = do
+  lbi <- getLocalBuildInfo
+  let pd = localPkgDescr lbi
+  return $ (case PD.library pd of
+              Just _ -> [Library]
+              _ -> []) ++
+           [ Executable n 
+                 | PD.Executable {PD.exeName = n} <- PD.executables pd ]
