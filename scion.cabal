@@ -22,10 +22,14 @@ flag emacs
   default: True
 
 library
-  build-depends:   base == 4.*,
-                   directory == 1.0.*,
-                   Cabal >= 1.5 && < 1.8,
-                   uniplate == 1.2.*,
+  build-depends:   ghc          >= 6.10 && < 6.12,
+                   ghc-paths    == 0.1.*,
+                   ghc-syb      == 0.1.*,
+                   base         == 4.*,
+                   containers   == 0.2.*,
+                   directory    == 1.0.*,
+                   Cabal        >= 1.5 && < 1.8,
+                   uniplate     == 1.2.*,
                    ghc-uniplate == 0.1.*
   hs-source-dirs:  src
   extensions:      CPP, PatternGuards
