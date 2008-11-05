@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 -- |
 -- Module      : Scion.Utils
 -- Copyright   : (c) Thomas Schilling 2008
@@ -15,8 +16,10 @@ import Scion.Types
 
 import GHC
 import Digraph          ( flattenSCCs )
+import Bag
 
 import Control.Monad
+import Data.Foldable
 
 thingsAroundPoint :: (Int, Int) -> [Located n] -> [Located n]
 thingsAroundPoint pt ls = [ l | l <- ls, spans (getLoc l) pt ]
@@ -32,3 +35,11 @@ foldModSummaries :: GhcMonad m =>
                  -> m a
 foldModSummaries f seed =
   modulesInDepOrder >>= foldM f seed
+
+
+instance Functor Bag where
+  fmap = mapBag
+
+instance Foldable Bag where
+  foldr = foldrBag
+  foldl = foldlBag
