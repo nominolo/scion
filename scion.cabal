@@ -43,6 +43,7 @@ library
                    network-bytestring == 0.1.*,
                    bytestring == 0.9.*
     exposed-modules: Scion.Server.Emacs
+  ghc-options:  -Wall
 
 executable test_get_imports
   main-is:       GetImports.hs
