@@ -17,9 +17,12 @@ import Scion.Session
 import Scion.Server.Protocol
 
 import GHC
+import HscTypes ( srcErrorMessages )
 
 import Control.Monad
 import Data.Foldable as F
+import Data.IORef
+import Data.Monoid
 import Text.ParserCombinators.ReadP
 import Numeric   ( showInt )
 
@@ -64,17 +67,26 @@ cmdLoadComponent =
       return (cmd comp)
   where
     cmd comp = do
+      -- TODO: group warnings by file
+      ref <- liftIO $ newIORef (mempty, mempty)
       setDynFlagsFromCabal comp
       setTargetsFromCabal comp
-      handleSourceError returnErrors $ do
-        load LoadAllTargets
-        warns <- toList `fmap` getWarnings
-        clearWarnings
-        return $ "(:ok " ++ show (length warns) ++ ")"
+      res <- loadWithLogger (logWarnErr ref) LoadAllTargets
+      (warns, errs) <- liftIO $ readIORef ref
+      case res of
+        Succeeded -> 
+            return $ "(:ok " ++ show (length (toList warns)) ++ ")"
+        Failed ->
+            return $ "(:error " ++
+              show (length (toList errs)) ++ " " ++
+              show (length (toList warns)) ++ ")"
 
-    returnErrors err = do
-       warns <- toList `fmap` getWarnings
-       clearWarnings
-       return $ "(:error " ++
-              show (show err) ++ " " ++
-              show (length warns) ++ ")"
+    logWarnErr ref err = do
+      let errs = case err of
+                   Nothing -> mempty
+                   Just exc -> srcErrorMessages exc
+      warns <- getWarnings
+      clearWarnings
+      liftIO $ modifyIORef ref $ 
+                 \(warns', errs') -> ( warns `mappend` warns'
+                                     , errs `mappend` errs')
