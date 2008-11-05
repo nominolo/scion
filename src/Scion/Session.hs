@@ -1,4 +1,4 @@
-{-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE PatternGuards, DeriveDataTypeable #-}
 -- |
 -- Module      : Scion.Session
 -- Copyright   : (c) Thomas Schilling 2008
@@ -16,8 +16,10 @@ import GHC
 import Scion.Types
 
 import Control.Monad
+import Data.Data
 import Data.List        ( intercalate )
 import System.Directory ( setCurrentDirectory )
+import Control.Exception
 
 import Distribution.ModuleName ( components )
 import Distribution.Simple.Configure
@@ -37,14 +39,28 @@ openCabalProject dist_dir = do
   -- XXX: do something with old lbi before updating?
   modifySessionState $ \st -> st { localBuildInfo = Just lbi }
 
+data NoCurrentCabalProject = NoCurrentCabalProject deriving (Show, Typeable)
+instance Exception NoCurrentCabalProject
+
 getLocalBuildInfo :: ScionM LocalBuildInfo
 getLocalBuildInfo =
   gets localBuildInfo >>= \mb_lbi ->
   case mb_lbi of
-    Nothing -> error "call openCabalProject before loadCabalProject"
+    Nothing -> liftIO $ throwIO NoCurrentCabalProject
+      --error "call openCabalProject before loadCabalProject"
     Just lbi -> return lbi
 
-data CabalComponent = Library | Executable String
+data CabalComponent = Library | Executable String deriving (Show, Typeable)
+
+data ComponentDoesNotExist = ComponentDoesNotExist CabalComponent
+     deriving (Show, Typeable)
+instance Exception ComponentDoesNotExist
+
+noLibError :: ScionM a
+noLibError = liftIO $ throwIO $ ComponentDoesNotExist Library
+
+noExeError :: String -> ScionM a
+noExeError = liftIO . throwIO . ComponentDoesNotExist . Executable 
 
 setDynFlagsFromCabal :: CabalComponent -> ScionM [PackageId]  -- XXX: return modules?
 setDynFlagsFromCabal component = do
@@ -54,11 +70,11 @@ setDynFlagsFromCabal component = do
   bi <- case component of
          Library
           | Just lib <- PD.library pd -> return (PD.libBuildInfo lib)
-          | otherwise -> error "No library in package"
+          | otherwise -> noLibError
          Executable n ->
           case [ exe | exe <- PD.executables pd, PD.exeName exe == n ] of
            [ exe ] -> return (PD.buildInfo exe)
-           [] -> error $ "Executable " ++ n ++ " not found in package"
+           [] -> noExeError n
            _ -> error $ "Multiple executables, named \"" ++ n ++ 
                         "\" found.  This is weird..."
   let odir = buildDir lbi
@@ -68,9 +84,9 @@ setDynFlagsFromCabal component = do
 setTargetsFromCabal :: CabalComponent -> ScionM ()
 setTargetsFromCabal Library = do
   lbi <- getLocalBuildInfo
-  let lib = case PD.library (localPkgDescr lbi) of
-              Just l -> l
-              Nothing -> error "No library in package."
+  lib <- case PD.library (localPkgDescr lbi) of
+           Just l -> return l
+           Nothing -> noLibError
   let modnames = PD.libModules (localPkgDescr lbi)
   let cabal_mod_to_string m =
         intercalate "." (components m)
