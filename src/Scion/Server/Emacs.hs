@@ -17,8 +17,8 @@ import Scion.Types
 import Scion.Server.Protocol
 import Scion.Server.Commands
 
-import MonadUtils
 import Exception
+import MonadUtils
 
 import Control.Exception
 import Control.Monad ( liftM )

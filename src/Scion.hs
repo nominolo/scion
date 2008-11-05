@@ -1,4 +1,14 @@
-{-# LANGUAGE PatternGuards #-}
+-- |
+-- Module      : Scion
+-- Copyright   : (c) Thomas Schilling 2008
+-- License     : BSD-style
+--
+-- Maintainer  : nominolo@gmail.com
+-- Stability   : experimental
+-- Portability : portable
+--
+-- Scion is a library on top of the GHC API to provide IDE-like functionality.
+--
 module Scion 
   ( ScionM
   , liftIO, MonadIO

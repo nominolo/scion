@@ -1,6 +1,17 @@
 {-# LANGUAGE PatternGuards, CPP,
              FlexibleInstances, FlexibleContexts, MultiParamTypeClasses,
              StandaloneDeriving, TypeSynonymInstances #-}
+-- |
+-- Module      : Scion.Inspect
+-- Copyright   : (c) Thomas Schilling 2008
+-- License     : BSD-style
+--
+-- Maintainer  : nominolo@gmail.com
+-- Stability   : experimental
+-- Portability : portable
+--
+-- Functionality to inspect Haskell programs.
+--
 module Scion.Inspect where
 
 import GHC

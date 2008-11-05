@@ -17,10 +17,10 @@ module Scion.Server.Protocol where
 
 import Scion.Types
 
-import Text.ParserCombinators.ReadP
+import Control.Monad ( liftM2 )
 import Data.Char ( isHexDigit, digitToInt, isDigit, isSpace )
 import Numeric   ( showInt )
-import Control.Monad ( liftM2 )
+import Text.ParserCombinators.ReadP
 
 ------------------------------------------------------------------------------
 

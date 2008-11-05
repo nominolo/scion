@@ -1,3 +1,14 @@
+-- |
+-- Module      : Scion.Types
+-- Copyright   : (c) Thomas Schilling 2008
+-- License     : BSD-style
+--
+-- Maintainer  : nominolo@gmail.com
+-- Stability   : experimental
+-- Portability : portable
+--
+-- Core types used throughout Scion. 
+--
 module Scion.Types 
   ( module Scion.Types
   , liftIO, MonadIO

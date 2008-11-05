@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternGuards #-}
 -- |
 -- Module      : Scion.Session
 -- Copyright   : (c) Thomas Schilling 2008
@@ -18,10 +19,10 @@ import Control.Monad
 import Data.List        ( intercalate )
 import System.Directory ( setCurrentDirectory )
 
-import Distribution.Simple.LocalBuildInfo hiding ( libdir )
+import Distribution.ModuleName ( components )
 import Distribution.Simple.Configure
 import Distribution.Simple.GHC ( ghcOptions )
-import Distribution.ModuleName ( components )
+import Distribution.Simple.LocalBuildInfo hiding ( libdir )
 import qualified Distribution.PackageDescription as PD
 
 setWorkingDir :: FilePath -> ScionM ()
@@ -95,4 +96,3 @@ currentCabalPackage :: ScionM PD.PackageDescription
 currentCabalPackage = do
   lbi <- getLocalBuildInfo
   return (localPkgDescr lbi)
-    

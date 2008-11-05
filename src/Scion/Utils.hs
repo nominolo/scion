@@ -1,3 +1,14 @@
+-- |
+-- Module      : Scion.Utils
+-- Copyright   : (c) Thomas Schilling 2008
+-- License     : BSD-style
+--
+-- Maintainer  : nominolo@gmail.com
+-- Stability   : experimental
+-- Portability : portable
+--
+-- Various utilities.
+--
 module Scion.Utils where
 
 import Scion.Types
