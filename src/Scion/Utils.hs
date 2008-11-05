@@ -20,6 +20,7 @@ import Bag
 
 import Control.Monad
 import Data.Foldable
+import Data.Monoid
 
 thingsAroundPoint :: (Int, Int) -> [Located n] -> [Located n]
 thingsAroundPoint pt ls = [ l | l <- ls, spans (getLoc l) pt ]
@@ -43,3 +44,8 @@ instance Functor Bag where
 instance Foldable Bag where
   foldr = foldrBag
   foldl = foldlBag
+
+instance Monoid (Bag a) where
+  mempty = emptyBag
+  mappend = unionBags
+  mconcat = unionManyBags
