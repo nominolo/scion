@@ -28,7 +28,7 @@ import Data.Data ( Typeable )
 import Network ( listenOn, PortID(..) )
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
 import Network.Socket.ByteString
-import Numeric ( showHex, showInt )
+import Numeric ( showHex )
 import Prelude hiding ( log )
 import System.IO.Error (catch, isEOFError)
 import Text.ParserCombinators.ReadP
@@ -50,7 +50,7 @@ runServer =
   where
     loop sock = do
       log 4 "accepting"
-      (sock', addr) <- liftIO $ accept sock
+      (sock', _addr) <- liftIO $ accept sock
       log 4 "starting to serve"
       more <- eventLoop sock'
       log 4 "done serving"
@@ -61,22 +61,22 @@ runServer =
 
 eventLoop :: Socket -> ScionM Bool
 eventLoop sock = 
-    ghandle (\(e :: SocketClosed) -> return True) $ do
+    ghandle (\(_e :: SocketClosed) -> return True) $ do
       (r, s) <- getRequest sock
       case r of
         Nothing -> do
                log 1 "Could not parse request."
-               sendResponse sock (RReaderError s "no parse")
+               sendResponse (RReaderError s "no parse")
                eventLoop sock
         Just req
           | RQuit <- req -> return False
           | otherwise -> do
              resp <- handleRequest req
              log 4 (show resp)
-             sendResponse sock resp
+             sendResponse resp
              eventLoop sock
   where
-    sendResponse sock r = do
+    sendResponse r = do
       let payload = S.pack (showResponse r)
       let hdr = mkHeader (S.length payload)
       liftIO $ do 
@@ -85,7 +85,7 @@ eventLoop sock =
       return ()
 
 myrecv :: MonadIO m => Socket -> Int -> m S.ByteString
-myrecv sock 0 = return S.empty
+myrecv _sock 0 = return S.empty
 myrecv sock len =
     let handler e | isEOFError e = return S.empty
                   | otherwise = ioError e
@@ -117,6 +117,7 @@ parseHex = munch1 isHexDigit >>= return . go 0
 handleRequest :: Request -> ScionM Response
 handleRequest (Rex r i) = do answer <- r
                              return (RReturn answer i)
+handleRequest r = error $ "Unimplemented request type: " ++ show r
 
 mkHeader :: Int -> String
 mkHeader len = reverse . take 6 $ reverse (showHex len "") ++ repeat '0'
