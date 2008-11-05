@@ -24,7 +24,8 @@ import Control.Monad ( liftM2 )
 
 ------------------------------------------------------------------------------
 
--- TODO: Make these a typeclass?
+scionVersion :: Int
+scionVersion = 1
 
 data Request
   = Rex (ScionM String) Int -- Remote EXecute
@@ -50,7 +51,6 @@ data Command = Command {
 parseRequest :: [Command] -> String -> Maybe Request
 parseRequest cmds msg =
     let rs = readP_to_S (messageParser cmds) msg in
-    trace (show rs) $
     case [ r | (r, "") <- rs ] of
       [m] -> Just m
       []  -> Nothing

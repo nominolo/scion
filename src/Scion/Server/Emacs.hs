@@ -15,6 +15,7 @@ module Scion.Server.Emacs where
 
 import Scion.Types
 import Scion.Server.Protocol
+import Scion.Server.Commands
 
 import MonadUtils
 import Exception
@@ -24,7 +25,6 @@ import Control.Monad ( liftM )
 import Data.Bits ( shiftL )
 import Data.Char ( isHexDigit, digitToInt )
 import Data.Data ( Typeable )
-import Debug.Trace ( trace )
 import Network ( listenOn, PortID(..) )
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
 import Network.Socket.ByteString
@@ -124,22 +124,7 @@ mkHeader len = reverse . take 6 $ reverse (showHex len "") ++ repeat '0'
 log :: MonadIO m => Int -> String -> m ()
 log _ s = liftIO $ putStrLn s
 
-------------------------------------------------------------------------------
--- * Commands
---
--- TODO: Move into separate module. 
 
-scionVersion :: Int
-scionVersion = 1
 
-connInfo :: Command
-connInfo = Command (string "connection-info" >> return c)
-  where
-    c = do let pid = 0
-           return $ parens (showString ":version" <+> showInt scionVersion <+>
-                            showString ":pid" <+> showInt pid)
-                  $ ""
 
-allCommands :: [Command]
-allCommands = [ connInfo ]
 
