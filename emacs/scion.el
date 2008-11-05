@@ -1198,3 +1198,10 @@ The first argument is dist directory (typically <project-root>/dist/)"
 		    (lambda (x)
 		      (message (format "Cabal project loaded: %s" x))))
   nil)
+
+(defun scion-load-library ()
+  "Load the library of the current cabal project."
+  (interactive)
+  (scion-eval-async `(load-component library)
+		    (lambda (x)
+		      (message (format "Loaded library: %S" x)))))

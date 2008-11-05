@@ -12,9 +12,14 @@
 module Scion.Server.Commands where
 
 import Scion.Types
+import Scion.Utils
 import Scion.Session
 import Scion.Server.Protocol
 
+import GHC
+
+import Control.Monad
+import Data.Foldable as F
 import Text.ParserCombinators.ReadP
 import Numeric   ( showInt )
 
@@ -26,7 +31,8 @@ import Distribution.Text ( display )
 allCommands :: [Command]
 allCommands = 
     [ cmdConnectionInfo
-    , cmdOpenCabalProject ]
+    , cmdOpenCabalProject
+    , cmdLoadComponent ]
 
 ------------------------------------------------------------------------------
 
@@ -46,3 +52,29 @@ cmdOpenCabalProject =
     cmd path = do
         openCabalProject path
         (show . display . PD.package) `fmap` currentCabalPackage
+
+cmdLoadComponent :: Command
+cmdLoadComponent =
+    Command $ do
+      string "load-component" >> sp
+      comp <- choice 
+                [ string "library" >> return Library
+                , inParens $ 
+                    string "executable" >> liftM Executable (getString)]
+      return (cmd comp)
+  where
+    cmd comp = do
+      setDynFlagsFromCabal comp
+      setTargetsFromCabal comp
+      handleSourceError returnErrors $ do
+        load LoadAllTargets
+        warns <- toList `fmap` getWarnings
+        clearWarnings
+        return $ "(:ok " ++ show (length warns) ++ ")"
+
+    returnErrors err = do
+       warns <- toList `fmap` getWarnings
+       clearWarnings
+       return $ "(:error " ++
+              show (show err) ++ " " ++
+              show (length warns) ++ ")"
