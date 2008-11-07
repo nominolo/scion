@@ -1204,3 +1204,7 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (scion-eval-async `(load-component library)
 		    (lambda (x)
 		      (message (format "Loaded library: %S" x)))))
+
+(defun scion-supported-languages ()
+  ;; TODO: cache result
+  (scion-eval '(list-supported-languages)))

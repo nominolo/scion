@@ -18,6 +18,7 @@ import Scion.Server.Protocol
 
 import GHC
 import HscTypes ( srcErrorMessages )
+import DynFlags ( supportedLanguages )
 
 import Control.Monad
 import Data.Foldable as F
@@ -35,7 +36,9 @@ allCommands :: [Command]
 allCommands = 
     [ cmdConnectionInfo
     , cmdOpenCabalProject
-    , cmdLoadComponent ]
+    , cmdLoadComponent
+    , cmdListSupportedLanguages
+    ]
 
 ------------------------------------------------------------------------------
 
@@ -105,3 +108,9 @@ cmdLoadComponent =
       liftIO $ modifyIORef ref $ 
                  \(warns', errs') -> ( warns `mappend` warns'
                                      , errs `mappend` errs')
+
+cmdListSupportedLanguages :: Command
+cmdListSupportedLanguages =
+    Command $ do
+      string "list-supported-languages"
+      return (return (toString (Lst supportedLanguages)))
