@@ -17,8 +17,7 @@ module Scion.Server.Protocol where
 
 import Scion.Types
 
-import Control.Monad ( liftM2 )
-import Data.Char ( isHexDigit, digitToInt, isDigit, isSpace )
+import Data.Char ( isDigit, isSpace )
 import Numeric   ( showInt )
 import Text.ParserCombinators.ReadP
 
