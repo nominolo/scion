@@ -1193,7 +1193,7 @@ last activated the buffer."
 
 The first argument is dist directory (typically <project-root>/dist/)"
   (interactive "DDist dir: ")
-  (scion-eval-async `(open-cabal-project ,dist-dir) 
+  (scion-eval-async `(open-cabal-project ,(expand-file-name dist-dir)) 
 		    (lambda (x)
 		      (message (format "Cabal project loaded: %s" x))))
   nil)
