@@ -24,7 +24,7 @@ import Data.Foldable as F
 import Data.IORef
 import Data.Monoid
 import Text.ParserCombinators.ReadP
-import Numeric   ( showInt )
+import qualified Data.Map as M
 
 import qualified Distribution.PackageDescription as PD
 import Distribution.Text ( display )
@@ -39,18 +39,31 @@ allCommands =
 
 ------------------------------------------------------------------------------
 
+toString :: Sexp s => s -> String
+toString s = toSexp s ""
+
+data OkErr a = Ok a | Error String
+instance Sexp a => Sexp (OkErr a) where
+  toSexp (Ok a) = parens (showString ":ok " . toSexp a)
+  toSexp (Error e) = parens (showString ":error " . toSexp e)
+
+------------------------------------------------------------------------------
+
 -- | Used by the client to initialise the connection.
 cmdConnectionInfo :: Command
-cmdConnectionInfo = Command (string "connection-info" >> return c)
+cmdConnectionInfo = Command (string "connection-info" >> return (toString `fmap` c))
   where
     c = do let pid = 0
-           return $ parens (showString ":version" <+> showInt scionVersion <+>
-                            showString ":pid" <+> showInt pid)
-                  $ ""
+           return $ M.fromList 
+              [ (K "version", scionVersion)
+              , (K "pid",     pid)
+              ]
 
 cmdOpenCabalProject :: Command
 cmdOpenCabalProject =
-    Command (string "open-cabal-project" >> sp >> getString >>= return . cmd)
+    Command (do string "open-cabal-project" >> sp
+                n <- getString
+                return (toString `fmap` cmd n))
   where
     cmd path = do
         openCabalProject path
@@ -64,7 +77,7 @@ cmdLoadComponent =
                 [ string "library" >> return Library
                 , inParens $ 
                     string "executable" >> liftM Executable (getString)]
-      return (cmd comp)
+      return (toString `fmap` cmd comp)
   where
     cmd comp = do
       -- TODO: group warnings by file
@@ -75,11 +88,13 @@ cmdLoadComponent =
       (warns, errs) <- liftIO $ readIORef ref
       case res of
         Succeeded -> 
-            return $ "(:ok " ++ show (length (toList warns)) ++ ")"
+            return $ ExactSexp $ parens $
+                showString ":ok" <+> shows (length (toList warns))
         Failed ->
-            return $ "(:error " ++
-              show (length (toList errs)) ++ " " ++
-              show (length (toList warns)) ++ ")"
+            return $ ExactSexp $ parens $ 
+                showString ":error" <+>
+                shows (length (toList errs)) <+>
+                shows (length (toList warns))
 
     logWarnErr ref err = do
       let errs = case err of
