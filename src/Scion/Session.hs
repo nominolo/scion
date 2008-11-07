@@ -34,6 +34,22 @@ import qualified Distribution.PackageDescription as PD
 
 ------------------------------------------------------------------------------
 
+-- ** Exception Types
+
+data CannotOpenCabalProject = CannotOpenCabalProject String
+     deriving (Show, Typeable)
+instance Exception CannotOpenCabalProject
+
+data NoCurrentCabalProject = NoCurrentCabalProject deriving (Show, Typeable)
+instance Exception NoCurrentCabalProject
+
+data ComponentDoesNotExist = ComponentDoesNotExist CabalComponent
+     deriving (Show, Typeable)
+instance Exception ComponentDoesNotExist
+
+
+-- ** Other Stuff
+
 -- | Sets the current working directory and notifies GHC about the change.
 --
 -- TODO: do we want to adjust certain flags automatically?
@@ -41,10 +57,6 @@ setWorkingDir :: FilePath -> ScionM ()
 setWorkingDir home = do
   liftIO $ setCurrentDirectory home
   workingDirectoryChanged
-
-data CannotOpenCabalProject = CannotOpenCabalProject String
-     deriving (Show, Typeable)
-instance Exception CannotOpenCabalProject
 
 -- | Try to open a configured Cabal project with the given dist/ directory.
 --
@@ -64,9 +76,6 @@ openCabalProject dist_dir = do
         -- XXX: do something with old lbi before updating?
         modifySessionState $ \st -> st { localBuildInfo = Just lbi }
 
-data NoCurrentCabalProject = NoCurrentCabalProject deriving (Show, Typeable)
-instance Exception NoCurrentCabalProject
-
 getLocalBuildInfo :: ScionM LocalBuildInfo
 getLocalBuildInfo =
   gets localBuildInfo >>= \mb_lbi ->
@@ -76,10 +85,6 @@ getLocalBuildInfo =
     Just lbi -> return lbi
 
 data CabalComponent = Library | Executable String deriving (Show, Typeable)
-
-data ComponentDoesNotExist = ComponentDoesNotExist CabalComponent
-     deriving (Show, Typeable)
-instance Exception ComponentDoesNotExist
 
 noLibError :: ScionM a
 noLibError = liftIO $ throwIO $ ComponentDoesNotExist Library
