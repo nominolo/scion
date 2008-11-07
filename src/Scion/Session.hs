@@ -13,6 +13,8 @@
 module Scion.Session where
 
 import GHC
+import Exception
+
 import Scion.Types
 
 import Control.Monad
@@ -158,15 +160,22 @@ setTargetsFromCabal (Executable n) = do
 -- | Parses the list of 'Strings' as command line arguments and sets the
 -- 'DynFlags' accordingly.
 --
--- XXX: currently dies on parse failure.
+-- Does not set the flags if a parse error occurs.  XXX: There's currently
+-- no way to find out if there was an error from inside the program.
 addCmdLineFlags :: [String] -> ScionM [PackageId]
 addCmdLineFlags flags = do
   dflags <- getSessionDynFlags
-  (dflags', unknown, warnings) <- parseDynamicFlags dflags (map noLoc flags)
-  unless (null unknown) $
-    liftIO $ putStrLn $ "Unrecognised flags:\n" ++ show (map unLoc unknown)
-  liftIO $ mapM_ putStrLn $ map unLoc warnings
-  setSessionDynFlags dflags'
+  res <- gtry $ parseDynamicFlags dflags (map noLoc flags)
+  case res of
+    Left (UsageError msg) -> do
+      liftIO $ putStrLn $ "Dynflags parse error: " ++ msg
+      return []
+    Left e -> liftIO $ throwIO e
+    Right (dflags', unknown, warnings) -> do
+      unless (null unknown) $
+        liftIO $ putStrLn $ "Unrecognised flags:\n" ++ show (map unLoc unknown)
+      liftIO $ mapM_ putStrLn $ map unLoc warnings
+      setSessionDynFlags dflags'
 
 -- | Return the (configured) package description of the current Cabal project.
 --
