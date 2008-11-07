@@ -24,3 +24,5 @@ test:
 clean:
 	$(SETUP) clean
 
+doc:
+	$(SETUP) haddock --with-haddock=$(GHC_PATH)/utils/haddock/install-inplace/bin/haddock
