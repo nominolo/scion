@@ -70,7 +70,7 @@ cmdOpenCabalProject =
   where
     cmd path = do
         openCabalProject path
-        (show . display . PD.package) `fmap` currentCabalPackage
+        (display . PD.package) `fmap` currentCabalPackage
 
 cmdLoadComponent :: Command
 cmdLoadComponent =
