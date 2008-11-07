@@ -27,6 +27,16 @@ import Distribution.Simple.GHC ( ghcOptions )
 import Distribution.Simple.LocalBuildInfo hiding ( libdir )
 import qualified Distribution.PackageDescription as PD
 
+------------------------------------------------------------------------------
+
+-- TODO: have some kind of project description file, that allows us to
+-- reconfigure a project when needed.
+
+------------------------------------------------------------------------------
+
+-- | Sets the current working directory and notifies GHC about the change.
+--
+-- TODO: do we want to adjust certain flags automatically?
 setWorkingDir :: FilePath -> ScionM ()
 setWorkingDir home = do
   liftIO $ setCurrentDirectory home
@@ -77,7 +87,23 @@ noLibError = liftIO $ throwIO $ ComponentDoesNotExist Library
 noExeError :: String -> ScionM a
 noExeError = liftIO . throwIO . ComponentDoesNotExist . Executable 
 
-setDynFlagsFromCabal :: CabalComponent -> ScionM [PackageId]  -- XXX: return modules?
+-- | Set GHC's dynamic flags for the given component of the current Cabal
+-- project (see 'openCabalProject').
+--
+-- Throws:
+--
+--  * 'NoCurrentCabalProject' if there is no current Cabal project.
+--
+--  * 'ComponentDoesNotExist' if the current Cabal project does not contain
+--    the specified component.
+--
+setDynFlagsFromCabal :: 
+       CabalComponent 
+    -> ScionM [PackageId]
+       -- ^ List of packages that need to be loaded.  This corresponds to the
+       -- build-depends of the loaded component.
+       --
+       -- TODO: do something with this depending on Scion mode?
 setDynFlagsFromCabal component = do
   lbi <- getLocalBuildInfo
   dflags <- getSessionDynFlags
@@ -96,6 +122,16 @@ setDynFlagsFromCabal component = do
   let flags = ghcOptions lbi bi odir
   addCmdLineFlags flags
 
+-- | Set the targets for a 'GHC.load' command from the meta data of the
+--   current Cabal project.
+--
+-- Throws:
+--
+--  * 'NoCurrentCabalProject' if there is no current Cabal project.
+--
+--  * 'ComponentDoesNotExist' if the current Cabal project does not contain
+--    the specified component.
+--
 setTargetsFromCabal :: CabalComponent -> ScionM ()
 setTargetsFromCabal Library = do
   lbi <- getLocalBuildInfo
@@ -114,6 +150,10 @@ setTargetsFromCabal Library = do
 setTargetsFromCabal (Executable n) = do
   error "unimplemented"
 
+-- | Parses the list of 'Strings' as command line arguments and sets the
+-- 'DynFlags' accordingly.
+--
+-- XXX: currently dies on parse failure.
 addCmdLineFlags :: [String] -> ScionM [PackageId]
 addCmdLineFlags flags = do
   dflags <- getSessionDynFlags
@@ -123,6 +163,12 @@ addCmdLineFlags flags = do
   liftIO $ mapM_ putStrLn $ map unLoc warnings
   setSessionDynFlags dflags'
 
+-- | Return the (configured) package description of the current Cabal project.
+--
+-- Throws:
+--
+--  * 'NoCurrentCabalProject' if there is no current Cabal project.
+--
 currentCabalPackage :: ScionM PD.PackageDescription
 currentCabalPackage = do
   lbi <- getLocalBuildInfo
@@ -132,6 +178,10 @@ currentCabalPackage = do
 --
 -- This can be used to present the user a list of possible items to load.
 -- 
+-- Throws:
+--
+--  * 'NoCurrentCabalProject' if there is no current Cabal project.
+--
 availableComponents :: ScionM [CabalComponent]
 availableComponents = do
   lbi <- getLocalBuildInfo
