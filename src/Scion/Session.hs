@@ -32,12 +32,27 @@ setWorkingDir home = do
   liftIO $ setCurrentDirectory home
   workingDirectoryChanged
 
+data CannotOpenCabalProject = CannotOpenCabalProject String
+     deriving (Show, Typeable)
+instance Exception CannotOpenCabalProject
+
+-- | Try to open a configured Cabal project with the given dist/ directory.
+--
+-- Throws:
+--
+--  * 'CannotOpenCabalProject' if an error occurs (e.g., not configured
+--    project or configured with incompatible cabal version).
+--
 openCabalProject :: FilePath -> ScionM ()
 openCabalProject dist_dir = do
   -- XXX: check that working dir contains a .cabal file
-  lbi <- liftIO $ getPersistBuildConfig dist_dir
-  -- XXX: do something with old lbi before updating?
-  modifySessionState $ \st -> st { localBuildInfo = Just lbi }
+  mb_lbi <- liftIO $ maybeGetPersistBuildConfig dist_dir
+  case mb_lbi of
+    Nothing -> 
+        liftIO $ throwIO $ CannotOpenCabalProject "no reason known" -- XXX
+    Just lbi -> do
+        -- XXX: do something with old lbi before updating?
+        modifySessionState $ \st -> st { localBuildInfo = Just lbi }
 
 data NoCurrentCabalProject = NoCurrentCabalProject deriving (Show, Typeable)
 instance Exception NoCurrentCabalProject
