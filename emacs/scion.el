@@ -103,181 +103,6 @@ corresponding values in the CDR of VALUE."
 	     `((t (error "Elisp destructure-case failed: %S" ,tmp))))))))
 
 
-;;;;; Snapshots of current Emacs state
-
-;;; Window configurations do not save (and hence not restore)
-;;; any narrowing that could be applied to a buffer.
-;;;
-;;; For this purpose, we introduce a superset of a window
-;;; configuration that does include the necessary information to
-;;; properly restore narrowing.
-;;;
-;;; We call this superset an Emacs Snapshot.
-
-(defstruct (scion-narrowing-configuration
-             (:conc-name scion-narrowing-configuration.))
-  narrowedp beg end)
-
-(defstruct (scion-emacs-snapshot (:conc-name scion-emacs-snapshot.))
-  ;; We explicitly store the value of point even though it's implicitly
-  ;; stored in the window-configuration because Emacs provides no
-  ;; way to access the things stored in a window configuration.
-  window-configuration narrowing-configuration point-marker)
-
-(defun scion-current-narrowing-configuration (&optional buffer)
-  (with-current-buffer (or buffer (current-buffer))
-    (make-scion-narrowing-configuration :narrowedp (scion-buffer-narrowed-p)
-                                        :beg (point-min-marker)
-                                        :end (point-max-marker))))
-
-(defun scion-set-narrowing-configuration (narrowing-cfg)
-  (when (scion-narrowing-configuration.narrowedp narrowing-cfg)
-    (narrow-to-region (scion-narrowing-configuration.beg narrowing-cfg)
-                      (scion-narrowing-configuration.end narrowing-cfg))))
-
-(defun scion-current-emacs-snapshot (&optional frame)
-  "Returns a snapshot of the current state of FRAME, or the
-currently active frame if FRAME is not given respectively."
-  (with-current-buffer
-      (if frame
-          (window-buffer (frame-selected-window (selected-frame)))
-          (current-buffer))
-    (make-scion-emacs-snapshot
-     :window-configuration    (current-window-configuration frame)
-     :narrowing-configuration (scion-current-narrowing-configuration)
-     :point-marker            (point-marker))))
-
-(defun scion-set-emacs-snapshot (snapshot)
-  "Restores the state of Emacs according to the information saved
-in SNAPSHOT."
-  (let ((window-cfg    (scion-emacs-snapshot.window-configuration snapshot))
-        (narrowing-cfg (scion-emacs-snapshot.narrowing-configuration snapshot))
-        (marker        (scion-emacs-snapshot.point-marker snapshot)))
-    (set-window-configuration window-cfg) ; restores previously current buffer.
-    (scion-set-narrowing-configuration narrowing-cfg)
-    (goto-char (marker-position marker))))
-
-(defun scion-current-emacs-snapshot-fingerprint (&optional frame)
-  "Return a fingerprint of the current emacs snapshot.
-Fingerprints are `equalp' if and only if they represent window
-configurations that are very similar (same windows and buffers.)
-
-Unlike real window-configuration objects, fingerprints are not
-sensitive to the point moving and they can't be restored."
-  (mapcar (lambda (window) (list window (window-buffer window)))
-          (scion-frame-windows frame)))
-
-(defun scion-frame-windows (&optional frame)
-  "Return the list of windows in FRAME."
-  (loop with last-window = (previous-window (frame-first-window frame))
-        for window = (frame-first-window frame) then (next-window window)
-        collect window
-        until (eq window last-window)))
-
-;;;;; Temporary popup buffers
-
-(make-variable-buffer-local
- (defvar scion-popup-buffer-saved-emacs-snapshot nil
-   "The snapshot of the current state in Emacs before the popup-buffer
-was displayed, so that this state can be restored later on.
-Buffer local in popup-buffers."))
-
-(make-variable-buffer-local
- (defvar scion-popup-buffer-saved-fingerprint nil
-   "The emacs snapshot \"fingerprint\" after displaying the buffer."))
-
-;; Interface
-(defmacro* scion-with-popup-buffer ((name &optional package
-                                          connection emacs-snapshot)
-                                    &body body)
-  "Similar to `with-output-to-temp-buffer'.
-Bind standard-output and initialize some buffer-local variables.
-Restore window configuration when closed.
-
-NAME is the name of the buffer to be created.
-PACKAGE is the value `scion-buffer-package'.
-CONNECTION is the value for `scion-buffer-connection'.
-If nil, no explicit connection is associated with
-the buffer.  If t, the current connection is taken.
-
-If EMACS-SNAPSHOT is non-NIL, it's used to restore the previous
-state of Emacs after closing the temporary buffer. Otherwise, the
-current state will be saved and later restored."
-  `(let* ((vars% (list ,(if (eq package t) '(scion-current-package) package)
-                       ,(if (eq connection t) '(scion-connection) connection)
-                       ;; Defer the decision for NILness until runtime.
-                       (or ,emacs-snapshot (scion-current-emacs-snapshot))))
-          (standard-output (scion-popup-buffer ,name vars%)))
-     (with-current-buffer standard-output
-       (prog1 (progn ,@body)
-         (assert (eq (current-buffer) standard-output))
-         (setq buffer-read-only t)
-         (scion-init-popup-buffer vars%)))))
-
-(put 'scion-with-popup-buffer 'lisp-indent-function 1)
-
-(defun scion-popup-buffer (name buffer-vars)
-  "Return a temporary buffer called NAME.
-The buffer also uses the minor-mode `scion-popup-buffer-mode'.
-Pressing `q' in the buffer will restore the window configuration
-to the way it is when the buffer was created, i.e. when this
-function was called."
-  (when (and (get-buffer name) (kill-buffer (get-buffer name))))
-  (with-current-buffer (get-buffer-create name)
-    (set-syntax-table lisp-mode-syntax-table)
-    (prog1 (pop-to-buffer (current-buffer))
-      (scion-init-popup-buffer buffer-vars))))
-
-(defun scion-init-popup-buffer (buffer-vars)
-  (scion-popup-buffer-mode 1)
-  (setq scion-popup-buffer-saved-fingerprint
-        (scion-current-emacs-snapshot-fingerprint))
-  (multiple-value-setq (scion-buffer-package 
-                        scion-buffer-connection
-                        scion-popup-buffer-saved-emacs-snapshot)
-    buffer-vars))
-
-(define-minor-mode scion-popup-buffer-mode 
-  "Mode for displaying read only stuff"
-  nil
-  (" Scion-Tmp" scion-modeline-string)
-  '(("q" . scion-popup-buffer-quit-function)
-    ;("\C-c\C-z" . scion-switch-to-output-buffer)
-    ;; ("\M-." . scion-edit-definition)
-    ))
-
-(make-variable-buffer-local
- (defvar scion-popup-buffer-quit-function 'scion-popup-buffer-quit
-   "The function that is used to quit a temporary popup buffer."))
-
-(defun scion-popup-buffer-quit-function (&optional kill-buffer-p)
-  "Wrapper to invoke the value of `scion-popup-buffer-quit-function'."
-  (interactive)
-  (funcall scion-popup-buffer-quit-function kill-buffer-p))
-
-;; Interface
-(defun scion-popup-buffer-quit (&optional kill-buffer-p)
-  "Get rid of the current (temp) buffer without asking.
-Restore the window configuration unless it was changed since we
-last activated the buffer."
-  (interactive)
-  (let ((buffer (current-buffer)))
-    (when (scion-popup-buffer-snapshot-unchanged-p)
-      (scion-popup-buffer-restore-snapshot))
-    (with-current-buffer buffer
-      (setq scion-popup-buffer-saved-emacs-snapshot nil) ; buffer-local var!
-      (cond (kill-buffer-p (kill-buffer nil))
-            (t (bury-buffer))))))
-
-(defun scion-popup-buffer-snapshot-unchanged-p ()
-  (equalp (scion-current-emacs-snapshot-fingerprint)
-          scion-popup-buffer-saved-fingerprint))
-
-(defun scion-popup-buffer-restore-snapshot ()
-  (let ((snapshot scion-popup-buffer-saved-emacs-snapshot))
-    (assert snapshot) 
-    (scion-set-emacs-snapshot snapshot)))
-
 ;;;---------------------------------------------------------------------------
 
 
@@ -637,7 +462,7 @@ Signal an error if there's no connection."
              (and (eq scion-auto-connect 'ask)
                   (y-or-n-p "No connection.  Start Scion? ")))
          (save-window-excursion
-           (scion)
+           (scion) ; XXX
            (while (not (scion-current-connection))
              (sleep-for 1))
            (scion-connection)))
@@ -977,7 +802,6 @@ evaluate BODY.
 
 
 
-
 ;;; `scion-rex' is the RPC primitive which is used to implement both
 ;;; `scion-eval' and `scion-eval-async'. You can use it directly if
 ;;; you need to, but the others are usually more convenient.
@@ -1116,6 +940,181 @@ Debugged requests are ignored."
 (defun scion-rcurry (fun &rest args)
   `(lambda (&rest more) (apply ',fun (append more ',args))))
 
+
+;;;;; Snapshots of current Emacs state
+
+;;; Window configurations do not save (and hence not restore)
+;;; any narrowing that could be applied to a buffer.
+;;;
+;;; For this purpose, we introduce a superset of a window
+;;; configuration that does include the necessary information to
+;;; properly restore narrowing.
+;;;
+;;; We call this superset an Emacs Snapshot.
+
+(defstruct (scion-narrowing-configuration
+             (:conc-name scion-narrowing-configuration.))
+  narrowedp beg end)
+
+(defstruct (scion-emacs-snapshot (:conc-name scion-emacs-snapshot.))
+  ;; We explicitly store the value of point even though it's implicitly
+  ;; stored in the window-configuration because Emacs provides no
+  ;; way to access the things stored in a window configuration.
+  window-configuration narrowing-configuration point-marker)
+
+(defun scion-current-narrowing-configuration (&optional buffer)
+  (with-current-buffer (or buffer (current-buffer))
+    (make-scion-narrowing-configuration :narrowedp (scion-buffer-narrowed-p)
+                                        :beg (point-min-marker)
+                                        :end (point-max-marker))))
+
+(defun scion-set-narrowing-configuration (narrowing-cfg)
+  (when (scion-narrowing-configuration.narrowedp narrowing-cfg)
+    (narrow-to-region (scion-narrowing-configuration.beg narrowing-cfg)
+                      (scion-narrowing-configuration.end narrowing-cfg))))
+
+(defun scion-current-emacs-snapshot (&optional frame)
+  "Returns a snapshot of the current state of FRAME, or the
+currently active frame if FRAME is not given respectively."
+  (with-current-buffer
+      (if frame
+          (window-buffer (frame-selected-window (selected-frame)))
+          (current-buffer))
+    (make-scion-emacs-snapshot
+     :window-configuration    (current-window-configuration frame)
+     :narrowing-configuration (scion-current-narrowing-configuration)
+     :point-marker            (point-marker))))
+
+(defun scion-set-emacs-snapshot (snapshot)
+  "Restores the state of Emacs according to the information saved
+in SNAPSHOT."
+  (let ((window-cfg    (scion-emacs-snapshot.window-configuration snapshot))
+        (narrowing-cfg (scion-emacs-snapshot.narrowing-configuration snapshot))
+        (marker        (scion-emacs-snapshot.point-marker snapshot)))
+    (set-window-configuration window-cfg) ; restores previously current buffer.
+    (scion-set-narrowing-configuration narrowing-cfg)
+    (goto-char (marker-position marker))))
+
+(defun scion-current-emacs-snapshot-fingerprint (&optional frame)
+  "Return a fingerprint of the current emacs snapshot.
+Fingerprints are `equalp' if and only if they represent window
+configurations that are very similar (same windows and buffers.)
+
+Unlike real window-configuration objects, fingerprints are not
+sensitive to the point moving and they can't be restored."
+  (mapcar (lambda (window) (list window (window-buffer window)))
+          (scion-frame-windows frame)))
+
+(defun scion-frame-windows (&optional frame)
+  "Return the list of windows in FRAME."
+  (loop with last-window = (previous-window (frame-first-window frame))
+        for window = (frame-first-window frame) then (next-window window)
+        collect window
+        until (eq window last-window)))
+
+;;;;; Temporary popup buffers
+
+(make-variable-buffer-local
+ (defvar scion-popup-buffer-saved-emacs-snapshot nil
+   "The snapshot of the current state in Emacs before the popup-buffer
+was displayed, so that this state can be restored later on.
+Buffer local in popup-buffers."))
+
+(make-variable-buffer-local
+ (defvar scion-popup-buffer-saved-fingerprint nil
+   "The emacs snapshot \"fingerprint\" after displaying the buffer."))
+
+;; Interface
+(defmacro* scion-with-popup-buffer ((name &optional package
+                                          connection emacs-snapshot)
+                                    &body body)
+  "Similar to `with-output-to-temp-buffer'.
+Bind standard-output and initialize some buffer-local variables.
+Restore window configuration when closed.
+
+NAME is the name of the buffer to be created.
+PACKAGE is the value `scion-buffer-package'.
+CONNECTION is the value for `scion-buffer-connection'.
+If nil, no explicit connection is associated with
+the buffer.  If t, the current connection is taken.
+
+If EMACS-SNAPSHOT is non-NIL, it's used to restore the previous
+state of Emacs after closing the temporary buffer. Otherwise, the
+current state will be saved and later restored."
+  `(let* ((vars% (list ,(if (eq package t) '(scion-current-package) package)
+                       ,(if (eq connection t) '(scion-connection) connection)
+                       ;; Defer the decision for NILness until runtime.
+                       (or ,emacs-snapshot (scion-current-emacs-snapshot))))
+          (standard-output (scion-popup-buffer ,name vars%)))
+     (with-current-buffer standard-output
+       (prog1 (progn ,@body)
+         (assert (eq (current-buffer) standard-output))
+         (setq buffer-read-only t)
+         (scion-init-popup-buffer vars%)))))
+
+(put 'scion-with-popup-buffer 'lisp-indent-function 1)
+
+(defun scion-popup-buffer (name buffer-vars)
+  "Return a temporary buffer called NAME.
+The buffer also uses the minor-mode `scion-popup-buffer-mode'.
+Pressing `q' in the buffer will restore the window configuration
+to the way it is when the buffer was created, i.e. when this
+function was called."
+  (when (and (get-buffer name) (kill-buffer (get-buffer name))))
+  (with-current-buffer (get-buffer-create name)
+    (set-syntax-table lisp-mode-syntax-table)
+    (prog1 (pop-to-buffer (current-buffer))
+      (scion-init-popup-buffer buffer-vars))))
+
+(defun scion-init-popup-buffer (buffer-vars)
+  (scion-popup-buffer-mode 1)
+  (setq scion-popup-buffer-saved-fingerprint
+        (scion-current-emacs-snapshot-fingerprint))
+  (multiple-value-setq (scion-buffer-package 
+                        scion-buffer-connection
+                        scion-popup-buffer-saved-emacs-snapshot)
+    buffer-vars))
+
+(define-minor-mode scion-popup-buffer-mode 
+  "Mode for displaying read only stuff"
+  nil
+  (" Scion-Tmp" scion-modeline-string)
+  '(("q" . scion-popup-buffer-quit-function)
+    ;("\C-c\C-z" . scion-switch-to-output-buffer)
+    ;; ("\M-." . scion-edit-definition)
+    ))
+
+(make-variable-buffer-local
+ (defvar scion-popup-buffer-quit-function 'scion-popup-buffer-quit
+   "The function that is used to quit a temporary popup buffer."))
+
+(defun scion-popup-buffer-quit-function (&optional kill-buffer-p)
+  "Wrapper to invoke the value of `scion-popup-buffer-quit-function'."
+  (interactive)
+  (funcall scion-popup-buffer-quit-function kill-buffer-p))
+
+;; Interface
+(defun scion-popup-buffer-quit (&optional kill-buffer-p)
+  "Get rid of the current (temp) buffer without asking.
+Restore the window configuration unless it was changed since we
+last activated the buffer."
+  (interactive)
+  (let ((buffer (current-buffer)))
+    (when (scion-popup-buffer-snapshot-unchanged-p)
+      (scion-popup-buffer-restore-snapshot))
+    (with-current-buffer buffer
+      (setq scion-popup-buffer-saved-emacs-snapshot nil) ; buffer-local var!
+      (cond (kill-buffer-p (kill-buffer nil))
+            (t (bury-buffer))))))
+
+(defun scion-popup-buffer-snapshot-unchanged-p ()
+  (equalp (scion-current-emacs-snapshot-fingerprint)
+          scion-popup-buffer-saved-fingerprint))
+
+(defun scion-popup-buffer-restore-snapshot ()
+  (let ((snapshot scion-popup-buffer-saved-emacs-snapshot))
+    (assert snapshot) 
+    (scion-set-emacs-snapshot snapshot)))
 
 
 ;;;;; Event logging to *scion-events*
