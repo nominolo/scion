@@ -1,4 +1,4 @@
-{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE ExistentialQuantification, TypeSynonymInstances #-}
 -- |
 -- Module      : Scion.Server.Protocol
 -- Copyright   : (c) Thomas Schilling 2008
@@ -20,11 +20,31 @@ import Scion.Types
 import Data.Char ( isDigit, isSpace )
 import Numeric   ( showInt )
 import Text.ParserCombinators.ReadP
+import qualified Data.Map as M
 
 ------------------------------------------------------------------------------
 
 scionVersion :: Int
 scionVersion = 1
+
+class Sexp a where toSexp :: a -> ShowS
+instance Sexp String where toSexp s = showString (show s)
+instance Sexp Int where toSexp i = showInt i
+instance Sexp Integer where toSexp i = showInt i
+
+newtype Keyword = K String deriving (Eq, Ord, Show)
+instance Sexp Keyword where
+  toSexp (K s) = showChar ':' . showString s
+
+-- if you need to cheat
+newtype ExactSexp = ExactSexp ShowS
+instance Sexp ExactSexp where
+  toSexp (ExactSexp s) = s
+
+instance (Sexp a, Sexp b) => Sexp (M.Map a b) where
+  toSexp m = parens (go (M.assocs m))
+    where go ((k,v):r) = toSexp k <+> toSexp v <+> go r
+          go [] = id
 
 data Request
   = Rex (ScionM String) Int -- Remote EXecute
