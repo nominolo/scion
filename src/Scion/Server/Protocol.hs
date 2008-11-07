@@ -32,6 +32,13 @@ instance Sexp String where toSexp s = showString (show s)
 instance Sexp Int where toSexp i = showInt i
 instance Sexp Integer where toSexp i = showInt i
 
+newtype Lst a = Lst [a]
+instance Sexp a => Sexp (Lst a) where
+  toSexp (Lst xs) = parens (go xs)
+    where go [] = id
+          go [y] = toSexp y
+          go (y:ys) = toSexp y <+> go ys
+
 newtype Keyword = K String deriving (Eq, Ord, Show)
 instance Sexp Keyword where
   toSexp (K s) = showChar ':' . showString s
