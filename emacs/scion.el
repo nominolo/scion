@@ -28,6 +28,7 @@
 (eval-when (compile)
   (require 'apropos)
   (require 'outline)
+  (require 'ido)
   ;; (require 'etags)
   )
 
@@ -1208,3 +1209,16 @@ The first argument is dist directory (typically <project-root>/dist/)"
 (defun scion-supported-languages ()
   ;; TODO: cache result
   (scion-eval '(list-supported-languages)))
+
+(defun scion-supported-pragmas ()
+  ;; TODO: cache result
+  (scion-eval '(list-supported-pragmas)))
+
+(defun haskell-insert-pragma (pragma)
+  (interactive (let ((choices (scion-supported-pragmas)))
+		 ;; standard completing-read cannot even deal properly
+		 ;; with upper-case words.
+		 (list (ido-completing-read "Pragma: " choices))))
+  (insert "{-# " (upcase pragma) "  #-}")
+  (backward-char 4))
+

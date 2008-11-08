@@ -38,6 +38,7 @@ allCommands =
     , cmdOpenCabalProject
     , cmdLoadComponent
     , cmdListSupportedLanguages
+    , cmdListSupportedPragmas
     ]
 
 ------------------------------------------------------------------------------
@@ -114,3 +115,16 @@ cmdListSupportedLanguages =
     Command $ do
       string "list-supported-languages"
       return (return (toString (Lst supportedLanguages)))
+
+cmdListSupportedPragmas :: Command
+cmdListSupportedPragmas =
+    Command $ do
+      string "list-supported-pragmas"
+      return (return (toString (Lst supportedPragmas)))
+
+supportedPragmas :: [String]
+supportedPragmas =
+    [ "OPTIONS_GHC", "LANGUAGE", "INCLUDE", "WARNING", "DEPRECATED"
+    , "INLINE", "NOINLINE", "RULES", "SPECIALIZE", "UNPACK", "SOURCE"
+    , "LINE" -- XXX: only used by code generators, still include?
+    ]
