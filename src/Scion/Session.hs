@@ -72,7 +72,7 @@ setWorkingDir home = do
   liftIO $ setCurrentDirectory home
   workingDirectoryChanged
 
--- | Try to open a configured Cabal project with the given dist/ directory.
+-- | Try to open a configured Cabal project with the given dist directory.
 --
 -- Throws:
 --
