@@ -1,3 +1,4 @@
+{-# LANGUAGE ExistentialQuantification, DeriveDataTypeable #-}
 -- |
 -- Module      : Scion.Types
 -- Copyright   : (c) Thomas Schilling 2008
@@ -23,6 +24,8 @@ import qualified GHC
 import Distribution.Simple.LocalBuildInfo
 import Control.Monad ( when )
 import Data.IORef
+import Data.Typeable
+import Control.Exception
 
 data SessionState 
   = SessionState {
@@ -111,3 +114,21 @@ reflectScionM (ScionM f) = \(st, sess) -> reflectGhc (f st) sess
 -- > Dual to 'reflectGhc'.  See its documentation.
 reifyScionM :: ((IORef SessionState, Session) -> IO a) -> ScionM a
 reifyScionM act = ScionM $ \st -> reifyGhc $ \sess -> act (st, sess)
+
+------------------------------------------------------------------------------
+
+-- | Any exception raised inside Scion is a subtype of this exception.
+data SomeScionException
+  = forall e. (Exception e) => SomeScionException e
+  deriving Typeable
+
+instance Show SomeScionException where show (SomeScionException e) = show e
+instance Exception SomeScionException
+
+scionToException :: Exception e => e -> SomeException
+scionToException = toException . SomeScionException
+
+scionFromException :: Exception e => SomeException -> Maybe e
+scionFromException x = do
+  SomeScionException e <- fromException x
+  cast e

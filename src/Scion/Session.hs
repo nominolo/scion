@@ -46,14 +46,20 @@ import qualified Distribution.PackageDescription as PD
 
 data CannotOpenCabalProject = CannotOpenCabalProject String
      deriving (Show, Typeable)
-instance Exception CannotOpenCabalProject
+instance Exception CannotOpenCabalProject where
+  toException  = scionToException
+  fromException = scionFromException
 
 data NoCurrentCabalProject = NoCurrentCabalProject deriving (Show, Typeable)
-instance Exception NoCurrentCabalProject
+instance Exception NoCurrentCabalProject where
+  toException  = scionToException
+  fromException = scionFromException
 
 data ComponentDoesNotExist = ComponentDoesNotExist CabalComponent
      deriving (Show, Typeable)
-instance Exception ComponentDoesNotExist
+instance Exception ComponentDoesNotExist where
+  toException  = scionToException
+  fromException = scionFromException
 
 
 -- ** Other Stuff
