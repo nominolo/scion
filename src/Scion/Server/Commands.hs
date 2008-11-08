@@ -11,20 +11,15 @@
 --
 module Scion.Server.Commands where
 
-import Scion.Types
-import Scion.Utils
+import Scion.Utils()
 import Scion.Session
 import Scion.Server.Protocol
 
-import GHC
-import HscTypes ( srcErrorMessages )
 import DynFlags ( supportedLanguages, allFlags )
 
 import Control.Monad
 import Data.Foldable as F
-import Data.IORef
 import Data.List ( nub )
-import Data.Monoid
 import Text.ParserCombinators.ReadP
 import qualified Data.Map as M
 
@@ -86,31 +81,16 @@ cmdLoadComponent =
       return (toString `fmap` cmd comp)
   where
     cmd comp = do
-      -- TODO: group warnings by file
-      ref <- liftIO $ newIORef (mempty, mempty)
-      setDynFlagsFromCabal comp
-      setTargetsFromCabal comp
-      res <- loadWithLogger (logWarnErr ref) LoadAllTargets
-      (warns, errs) <- liftIO $ readIORef ref
-      case res of
-        Succeeded -> 
-            return $ ExactSexp $ parens $
-                showString ":ok" <+> shows (length (toList warns))
-        Failed ->
+      r <- loadComponent comp
+      case r of
+        Left (warns, errs) ->
             return $ ExactSexp $ parens $ 
-                showString ":error" <+>
-                shows (length (toList errs)) <+>
-                shows (length (toList warns))
-
-    logWarnErr ref err = do
-      let errs = case err of
-                   Nothing -> mempty
-                   Just exc -> srcErrorMessages exc
-      warns <- getWarnings
-      clearWarnings
-      liftIO $ modifyIORef ref $ 
-                 \(warns', errs') -> ( warns `mappend` warns'
-                                     , errs `mappend` errs')
+              showString ":error" <+>
+              shows (length (toList errs)) <+>
+              shows (length (toList warns))
+        Right warns ->
+            return $ ExactSexp $ parens $
+              showString ":ok" <+> shows (length (toList warns))
 
 cmdListSupportedLanguages :: Command
 cmdListSupportedLanguages =

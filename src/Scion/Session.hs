@@ -13,14 +13,19 @@
 module Scion.Session where
 
 import GHC hiding ( flags )
+import HscTypes ( srcErrorMessages )
 import Exception
+import ErrUtils ( WarningMessages, ErrorMessages )
 
 import Scion.Types
+import Scion.Utils
 
 import Control.Monad
 import Data.Data
+import Data.IORef
 import Data.List        ( intercalate )
 import Data.Maybe       ( isJust )
+import Data.Monoid
 import System.Directory ( setCurrentDirectory )
 import Control.Exception
 
@@ -156,6 +161,43 @@ setTargetsFromCabal Library = do
   setTargets (map modname_to_target modnames)
 setTargetsFromCabal (Executable _) = do
   error "unimplemented"
+
+-- | Load the specified component from the current Cabal project.
+--
+-- Throws:
+--
+--  * 'NoCurrentCabalProject' if there is no current Cabal project.
+--
+--  * 'ComponentDoesNotExist' if the current Cabal project does not contain
+--    the specified component.
+--
+loadComponent :: CabalComponent
+              -> ScionM (Either (WarningMessages, ErrorMessages)
+                                WarningMessages)
+                 -- ^ @Left (warnings, errors)@ if an error occured.  If
+                 -- errors is empty, compilation/loading failed due to @-Werror@.
+                 --
+                 -- @Right warnings@ if compilation/loading succeeded.
+loadComponent comp = do
+   -- TODO: group warnings by file
+   ref <- liftIO $ newIORef (mempty, mempty)
+   setDynFlagsFromCabal comp
+   setTargetsFromCabal comp
+   res <- loadWithLogger (logWarnErr ref) LoadAllTargets
+   (warns, errs) <- liftIO $ readIORef ref
+   case res of
+     Succeeded -> return (Right warns)
+     Failed -> return (Left (warns, errs))
+  where
+    logWarnErr ref err = do
+      let errs = case err of
+                   Nothing -> mempty
+                   Just exc -> srcErrorMessages exc
+      warns <- getWarnings
+      clearWarnings
+      liftIO $ modifyIORef ref $
+                 \(warns', errs') -> ( warns `mappend` warns'
+                                     , errs `mappend` errs')
 
 -- | Parses the list of 'Strings' as command line arguments and sets the
 -- 'DynFlags' accordingly.
