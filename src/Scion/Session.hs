@@ -12,7 +12,7 @@
 --
 module Scion.Session where
 
-import GHC
+import GHC hiding ( flags )
 import Exception
 
 import Scion.Types
@@ -20,6 +20,7 @@ import Scion.Types
 import Control.Monad
 import Data.Data
 import Data.List        ( intercalate )
+import Data.Maybe       ( isJust )
 import System.Directory ( setCurrentDirectory )
 import Control.Exception
 
@@ -112,22 +113,22 @@ setDynFlagsFromCabal ::
        --
        -- TODO: do something with this depending on Scion mode?
 setDynFlagsFromCabal component = do
-  lbi <- getLocalBuildInfo
-  dflags <- getSessionDynFlags
-  let pd = localPkgDescr lbi
-  bi <- case component of
-         Library
-          | Just lib <- PD.library pd -> return (PD.libBuildInfo lib)
-          | otherwise -> noLibError
-         Executable n ->
-          case [ exe | exe <- PD.executables pd, PD.exeName exe == n ] of
-           [ exe ] -> return (PD.buildInfo exe)
-           [] -> noExeError n
-           _ -> error $ "Multiple executables, named \"" ++ n ++ 
-                        "\" found.  This is weird..."
-  let odir = buildDir lbi
-  let flags = ghcOptions lbi bi odir
-  addCmdLineFlags flags
+   lbi <- getLocalBuildInfo
+   bi <- component_build_info component (localPkgDescr lbi)
+   let odir = buildDir lbi
+   let flags = ghcOptions lbi bi odir
+   addCmdLineFlags flags
+ where
+   component_build_info Library pd
+       | Just lib <- PD.library pd = return (PD.libBuildInfo lib)
+       | otherwise                 = noLibError
+   component_build_info (Executable n) pd =
+       case [ exe | exe <- PD.executables pd, PD.exeName exe == n ] of
+         [ exe ] -> return (PD.buildInfo exe)
+         [] -> noExeError n
+         _ -> error $ "Multiple executables, named \"" ++ n ++ 
+                      "\" found.  This is weird..."
+
 
 -- | Set the targets for a 'GHC.load' command from the meta data of the
 --   current Cabal project.
@@ -142,9 +143,8 @@ setDynFlagsFromCabal component = do
 setTargetsFromCabal :: CabalComponent -> ScionM ()
 setTargetsFromCabal Library = do
   lbi <- getLocalBuildInfo
-  lib <- case PD.library (localPkgDescr lbi) of
-           Just l -> return l
-           Nothing -> noLibError
+  unless (isJust (PD.library (localPkgDescr lbi)))
+    noLibError
   let modnames = PD.libModules (localPkgDescr lbi)
   let cabal_mod_to_string m =
         intercalate "." (components m)
@@ -154,7 +154,7 @@ setTargetsFromCabal Library = do
                , targetAllowObjCode = True
                , targetContents = Nothing }
   setTargets (map modname_to_target modnames)
-setTargetsFromCabal (Executable n) = do
+setTargetsFromCabal (Executable _) = do
   error "unimplemented"
 
 -- | Parses the list of 'Strings' as command line arguments and sets the
