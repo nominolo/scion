@@ -294,7 +294,7 @@ EVAL'd by Lisp."
          (kill-buffer (process-buffer process)))))
 
 (defun scion-net-sentinel (process message)
-  (message "Lisp connection closed unexpectedly: %s" message)
+  (message "Connection to Scion server closed unexpectedly: %s" message)
   (scion-net-close process))
 
 ;;; Socket input is handled by `scion-net-filter', which decodes any
