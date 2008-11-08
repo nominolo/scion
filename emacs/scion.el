@@ -1189,13 +1189,25 @@ last activated the buffer."
 
 ;;;---------------------------------------------------------------------------
 
+(defmacro* scion-handling-failure ((res-var) &body body)
+  (let ((x (gensym))
+	(val (gensym)))
+  `(lambda (,x)
+     (destructure-case ,x
+       ((:ok ,val)
+	(let ((,res-var ,val))
+	  ,@body))
+       ((:error ,val)
+	(message "Remote command failed: %s" ,val)
+	nil)))))
+
 (defun scion-open-cabal-project (dist-dir)
   "Open a Cabal project.
 
 The first argument is dist directory (typically <project-root>/dist/)"
   (interactive "DDist dir: ")
   (scion-eval-async `(open-cabal-project ,(expand-file-name dist-dir)) 
-		    (lambda (x)
+		    (scion-handling-failure (x)
 		      (message (format "Cabal project loaded: %s" x))))
   nil)
 
@@ -1203,8 +1215,14 @@ The first argument is dist directory (typically <project-root>/dist/)"
   "Load the library of the current cabal project."
   (interactive)
   (scion-eval-async `(load-component library)
-		    (lambda (x)
-		      (message (format "Loaded library: %S" x)))))
+    (scion-handling-failure (x)
+      (destructure-case x
+        ((:ok warns)
+	 (message "Library loaded.  (%s warning(s))"
+		  (if (>= warns 0) warns "no")))
+	((:error errs warns)
+	 (message "Library failed to load.  (%s error(s), %s warning(s))"
+		  errs warns))))))
 
 (defun scion-supported-languages ()
   ;; TODO: cache result

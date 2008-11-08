@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -- |
 -- Module      : Scion.Server.Commands
 -- Copyright   : (c) Thomas Schilling 2008
@@ -11,10 +12,12 @@
 --
 module Scion.Server.Commands where
 
+import Scion.Types
 import Scion.Utils()
 import Scion.Session
 import Scion.Server.Protocol
 
+import Exception
 import DynFlags ( supportedLanguages, allFlags )
 
 import Control.Monad
@@ -48,6 +51,12 @@ instance Sexp a => Sexp (OkErr a) where
   toSexp (Ok a) = parens (showString ":ok " . toSexp a)
   toSexp (Error e) = parens (showString ":error " . toSexp e)
 
+-- encode expected errors as proper return values
+handleScionException :: ScionM a -> ScionM (OkErr a)
+handleScionException m = do
+   (m >>= return . Ok)
+   `gcatch` \(e :: SomeScionException) -> return (Error (show e))
+
 ------------------------------------------------------------------------------
 
 -- | Used by the client to initialise the connection.
@@ -66,7 +75,7 @@ cmdOpenCabalProject =
                 n <- getString
                 return (toString `fmap` cmd n))
   where
-    cmd path = do
+    cmd path = handleScionException $ do
         openCabalProject path
         (display . PD.package) `fmap` currentCabalPackage
 
@@ -80,7 +89,7 @@ cmdLoadComponent =
                     string "executable" >> liftM Executable (getString)]
       return (toString `fmap` cmd comp)
   where
-    cmd comp = do
+    cmd comp = handleScionException $ do
       r <- loadComponent comp
       case r of
         Left (warns, errs) ->
