@@ -18,11 +18,12 @@ import Scion.Server.Protocol
 
 import GHC
 import HscTypes ( srcErrorMessages )
-import DynFlags ( supportedLanguages )
+import DynFlags ( supportedLanguages, allFlags )
 
 import Control.Monad
 import Data.Foldable as F
 import Data.IORef
+import Data.List ( nub )
 import Data.Monoid
 import Text.ParserCombinators.ReadP
 import qualified Data.Map as M
@@ -39,6 +40,7 @@ allCommands =
     , cmdLoadComponent
     , cmdListSupportedLanguages
     , cmdListSupportedPragmas
+    , cmdListSupportedFlags
     ]
 
 ------------------------------------------------------------------------------
@@ -128,3 +130,9 @@ supportedPragmas =
     , "INLINE", "NOINLINE", "RULES", "SPECIALIZE", "UNPACK", "SOURCE"
     , "LINE" -- XXX: only used by code generators, still include?
     ]
+
+cmdListSupportedFlags :: Command
+cmdListSupportedFlags =
+    Command $ do
+      string "list-supported-flags"
+      return (return (toString (Lst (nub allFlags))))

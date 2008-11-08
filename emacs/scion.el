@@ -1229,3 +1229,13 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (insert "{-# " (upcase pragma) "  #-}")
   (backward-char 4))
 
+(defun scion-supported-flags ()
+  ;; TODO: cache result
+  (scion-eval '(list-supported-flags)))
+
+(defun haskell-insert-flag (flag)
+  ;; TODO: automatically insert/add OPTIONS pragma
+  (interactive
+   (let ((flags (scion-supported-flags)))
+     (list (ido-completing-read "Flag: " flags))))
+  (insert flag))
