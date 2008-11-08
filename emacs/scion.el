@@ -1210,6 +1210,13 @@ The first argument is dist directory (typically <project-root>/dist/)"
   ;; TODO: cache result
   (scion-eval '(list-supported-languages)))
 
+(defun haskell-insert-language (lang)
+  ;; TODO: automatically jump to or insert LANGUAGE pragma
+  (interactive
+   (let ((langs (scion-supported-languages)))
+     (list (ido-completing-read "Language: " langs))))
+  (insert lang))
+
 (defun scion-supported-pragmas ()
   ;; TODO: cache result
   (scion-eval '(list-supported-pragmas)))
