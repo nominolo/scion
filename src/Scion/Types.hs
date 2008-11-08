@@ -71,8 +71,8 @@ instance GhcMonad ScionM where
   setSession = liftScionM . setSession
 
 modifySessionState :: (SessionState -> SessionState) -> ScionM ()
-modifySessionState mod = 
-    ScionM $ \r -> liftIO $ do s <- readIORef r; writeIORef r $! mod s
+modifySessionState f =
+    ScionM $ \r -> liftIO $ do s <- readIORef r; writeIORef r $! f s
 
 getSessionState :: ScionM SessionState
 getSessionState = ScionM $ \s -> liftIO $ readIORef s
