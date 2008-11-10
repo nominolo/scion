@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternGuards, DeriveDataTypeable #-}
 -- |
 -- Module      : Scion.Session
@@ -13,7 +14,7 @@
 module Scion.Session where
 
 import GHC hiding ( flags )
-import HscTypes ( srcErrorMessages )
+import HscTypes ( srcErrorMessages,SourceError )
 import Exception
 import ErrUtils ( WarningMessages, ErrorMessages )
 
@@ -189,7 +190,13 @@ loadComponent comp = do
    ref <- liftIO $ newIORef (mempty, mempty)
    setDynFlagsFromCabal comp
    setTargetsFromCabal comp
-   res <- loadWithLogger (logWarnErr ref) LoadAllTargets
+   res <- loadWithLogger (logWarnErr ref) LoadAllTargets 
+            `gcatch` (\(e :: SourceError) -> do
+              let errs = srcErrorMessages e
+              warns <- getWarnings
+              add_warn_err ref warns errs
+              clearWarnings
+              return Failed)
    (warns, errs) <- liftIO $ readIORef ref
    case res of
      Succeeded -> return (Right warns)
@@ -201,6 +208,9 @@ loadComponent comp = do
                    Just exc -> srcErrorMessages exc
       warns <- getWarnings
       clearWarnings
+      add_warn_err ref warns errs
+
+    add_warn_err ref warns errs =
       liftIO $ modifyIORef ref $
                  \(warns', errs') -> ( warns `mappend` warns'
                                      , errs `mappend` errs')
