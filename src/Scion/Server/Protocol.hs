@@ -30,8 +30,14 @@ import qualified Data.Map as M
 
 ------------------------------------------------------------------------------
 
+-- Bump this before every release whenever the wire-protocol is changed
+-- (extension-only is fine)
+-- 
+-- Don't forget to also adjust the client code.
 scionVersion :: Int
 scionVersion = 1
+
+------------------------------------------------------------------------------
 
 class Sexp a where toSexp :: a -> ShowS
 instance Sexp String where toSexp s = showString (show s)
