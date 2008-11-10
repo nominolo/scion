@@ -1248,7 +1248,8 @@ The first argument is dist directory (typically <project-root>/dist/)"
      (list (ido-completing-read "Language: " langs))))
   (save-excursion
     (goto-char (point-min))
-    (insert "{-# LANGUAGE " lang " #-}\n")))
+    (insert "{-# LANGUAGE " lang " #-}\n"))
+  (message "Added language %s" lang))
 
 (defun scion-supported-pragmas ()
   ;; TODO: cache result
