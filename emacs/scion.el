@@ -143,6 +143,14 @@ current state will be saved and later restored."
 
 ;;;---------------------------------------------------------------------------
 
+(define-minor-mode scion-mode
+  "\\<scion-mode-map>\
+Scion: Smart Haskell mode.
+\\{scion-mode-map}"
+  nil
+  nil
+  ;; Fake binding to coax `define-minor-mode' to create the keymap
+  '((" " 'undefined)))
 
 ;; dummy definitions for the compiler
 (defvar scion-net-coding-system)
@@ -1273,4 +1281,17 @@ The first argument is dist directory (typically <project-root>/dist/)"
    (let ((mods (scion-exposed-modules)))
      (list (ido-completing-read "Module: " mods))))
   (insert mod))
+
+(define-key scion-mode-map "\C-cil" 'haskell-insert-language)
+
+(defun haskell-insert-module-header (module-name &optional
+						 (author (user-full-name))
+						 (email (user-mail-address)))
+  (interactive (list (read-from-minibuffer "Module name: ")
+		     (read-from-minibuffer "Author name: " (user-full-name))
+		     (read-from-minibuffer "Author email: " user-mail-address)))
+  (insert "-- |"
+          "\n-- Module      : " module-name
+	  "\n-- Copyright   : (c) " author " " (substring (current-time-string) -4)
+	  "\n--"))
 
