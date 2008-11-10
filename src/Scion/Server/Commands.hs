@@ -12,13 +12,18 @@
 --
 module Scion.Server.Commands where
 
+import Prelude as P
 import Scion.Types
 import Scion.Utils()
 import Scion.Session
 import Scion.Server.Protocol
 
+import GHC
 import Exception
 import DynFlags ( supportedLanguages, allFlags )
+import Outputable ( ppr, showSDoc )
+import UniqFM ( eltsUFM )
+import Packages ( pkgIdMap )
 
 import Control.Monad
 import Data.Foldable as F
@@ -28,6 +33,7 @@ import qualified Data.Map as M
 
 import qualified Distribution.PackageDescription as PD
 import Distribution.Text ( display )
+import Distribution.InstalledPackageInfo
 
 ------------------------------------------------------------------------------
 
@@ -39,6 +45,8 @@ allCommands =
     , cmdListSupportedLanguages
     , cmdListSupportedPragmas
     , cmdListSupportedFlags
+    , cmdListRdrNamesInScope
+    , cmdListExposedModules
     ]
 
 ------------------------------------------------------------------------------
@@ -125,3 +133,27 @@ cmdListSupportedFlags =
     Command $ do
       string "list-supported-flags"
       return (return (toString (Lst (nub allFlags))))
+
+cmdListRdrNamesInScope :: Command
+cmdListRdrNamesInScope =
+    Command $ do
+      string "list-rdr-names-in-scope"
+      return $ do
+        rdr_names <- getNamesInScope
+        return (toString (Lst (map (showSDoc . ppr) rdr_names)))
+
+allExposedModules :: DynFlags -> [ModuleName]
+allExposedModules dflags
+ = P.concat (map exposedModules (filter exposed (eltsUFM pkg_db)))
+ where
+  pkg_db = pkgIdMap (pkgState dflags)
+
+cmdListExposedModules :: Command
+cmdListExposedModules =
+    Command $ do
+      string "list-exposed-modules"
+      return $ do
+        dflags <- getSessionDynFlags
+        let mod_names = allExposedModules dflags
+        return $ toString $ Lst $
+          map (showSDoc . ppr) mod_names

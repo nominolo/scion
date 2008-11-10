@@ -1257,3 +1257,13 @@ The first argument is dist directory (typically <project-root>/dist/)"
    (let ((flags (scion-supported-flags)))
      (list (ido-completing-read "Flag: " flags))))
   (insert flag))
+
+(defun scion-exposed-modules ()
+  (scion-eval '(list-exposed-modules)))
+
+(defun haskell-insert-module-name (mod)
+  (interactive 
+   (let ((mods (scion-exposed-modules)))
+     (list (ido-completing-read "Module: " mods))))
+  (insert mod))
+
