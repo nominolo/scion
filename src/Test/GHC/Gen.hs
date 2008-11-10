@@ -19,7 +19,7 @@ instance Arbitrary SrcSpan where
           (mkSrcLoc file l_from c_from)
           (mkSrcLoc file (l_from+l_len) (c_from+c_len))
           -- XXX: if l_len > 0 then c_len + c_from >= 0 is enough
-
+{-
 instance Show SrcSpan where
   show s
     | not (isGoodSrcSpan s) = "<unhelpful span>"
@@ -32,4 +32,5 @@ instance Show SrcSpan where
     | otherwise = 
         show (srcSpanStartLine s) ++ ":" ++ show (srcSpanStartCol s) ++ "-"
           ++ show (srcSpanEndLine s) ++ ":" ++ show (srcSpanEndCol s)
+-}
 #endif
