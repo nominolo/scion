@@ -1284,6 +1284,7 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (insert mod))
 
 (define-key scion-mode-map "\C-cil" 'haskell-insert-language)
+(define-key scion-mode-map "\C-cip" 'haskell-insert-pragma)
 
 (defun haskell-insert-module-header (module-name &optional
 						 (author (user-full-name))
