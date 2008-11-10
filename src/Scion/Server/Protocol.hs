@@ -1,4 +1,4 @@
-{-# LANGUAGE ExistentialQuantification, TypeSynonymInstances #-}
+{-# LANGUAGE ExistentialQuantification, TypeSynonymInstances, PatternGuards #-}
 -- |
 -- Module      : Scion.Server.Protocol
 -- Copyright   : (c) Thomas Schilling 2008
@@ -16,6 +16,12 @@
 module Scion.Server.Protocol where
 
 import Scion.Types
+
+import ErrUtils ( WarnMsg, ErrMsg(..) )
+import Outputable ( showSDoc, showSDocForUser, ppr )
+import SrcLoc   ( SrcSpan, isGoodSrcSpan, srcSpanFile, noSrcSpan,
+                  srcSpanStartLine, srcSpanStartCol,
+                  srcSpanEndLine, srcSpanEndCol )
 
 import Data.Char ( isDigit, isSpace )
 import Numeric   ( showInt )
@@ -52,6 +58,37 @@ instance (Sexp a, Sexp b) => Sexp (M.Map a b) where
   toSexp m = parens (go (M.assocs m))
     where go ((k,v):r) = toSexp k <+> toSexp v <+> go r
           go [] = id
+
+data Diagnostic
+  = DiagWarning WarnMsg
+  | DiagError   ErrMsg
+
+instance Sexp SrcSpan where
+  toSexp span
+    | isGoodSrcSpan span = 
+        parens (showString ":loc" <+> showString (show (srcSpanFile span))
+                   <+> showInt (srcSpanStartLine span)
+                   <+> showInt (srcSpanStartCol span)
+                   <+> showInt (srcSpanEndLine span)
+                   <+> showInt (srcSpanEndCol span))
+    | otherwise =
+        parens (showString ":no-loc" <+> showString (showSDoc (ppr span)))
+
+instance Sexp Diagnostic where
+  toSexp (DiagWarning msg) = toSexp_diag ":warning" msg
+  toSexp (DiagError msg)   = toSexp_diag ":error" msg
+
+toSexp_diag diag_type msg =
+    parens $ showString diag_type <+> toSexp span 
+               <+> putString (show_msg (errMsgShortDoc msg))
+               <+> putString (show_msg (errMsgExtraInfo msg))
+  where
+    span | (s:_) <- errMsgSpans msg = s
+         | otherwise                = noSrcSpan
+    unqual = errMsgContext msg
+    show_msg = showSDocForUser unqual
+
+------------------------------------------------------------------------------
 
 data Request
   = Rex (ScionM String) Int -- Remote EXecute

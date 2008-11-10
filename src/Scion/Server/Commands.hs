@@ -103,11 +103,12 @@ cmdLoadComponent =
         Left (warns, errs) ->
             return $ ExactSexp $ parens $ 
               showString ":error" <+>
-              shows (length (toList errs)) <+>
-              shows (length (toList warns))
+              toSexp (Lst (map DiagError (toList errs))) <+>
+              toSexp (Lst (map DiagWarning (toList warns)))
         Right warns ->
             return $ ExactSexp $ parens $
-              showString ":ok" <+> shows (length (toList warns))
+              showString ":ok" <+> 
+              toSexp (Lst (map DiagWarning (toList warns)))
 
 cmdListSupportedLanguages :: Command
 cmdListSupportedLanguages =

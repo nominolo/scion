@@ -1220,11 +1220,14 @@ The first argument is dist directory (typically <project-root>/dist/)"
     (scion-handling-failure (x)
       (destructure-case x
         ((:ok warns)
-	 (message "Library loaded.  (%s warning(s))"
-		  (if (>= warns 0) warns "no")))
+	 (let ((num-warns (length warns)))
+	   (message "Library loaded.  (%s warning(s))"
+		    (if (>= num-warns 0) num-warns "no"))))
 	((:error errs warns)
-	 (message "Library failed to load.  (%s error(s), %s warning(s))"
-		  errs warns))))))
+	 (let ((num-errs (length errs))
+	       (num-warns (length warns)))
+	   (message "Library failed to load.  (%s error(s), %s warning(s))"
+		    num-errs num-warns)))))))
 
 (defun scion-supported-languages ()
   ;; TODO: cache result
