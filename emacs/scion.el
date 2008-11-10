@@ -77,6 +77,14 @@ The string is periodically updated by an idle timer."))
 
 ;;;---------------------------------------------------------------------------
 
+(defmacro* when-let ((var value) &rest body)
+  "Evaluate VALUE, and if the result is non-nil bind it to VAR and
+evaluate BODY.
+
+\(fn (VAR VALUE) &rest BODY)"
+  `(let ((,var ,value))
+     (when ,var ,@body)))
+
 (defmacro destructure-case (value &rest patterns)
   "Dispatch VALUE to one of PATTERNS.
 A cross between `case' and `destructuring-bind'.
@@ -103,6 +111,35 @@ corresponding values in the CDR of VALUE."
 	       '()
 	     `((t (error "Elisp destructure-case failed: %S" ,tmp))))))))
 
+;; Interface
+(defmacro* scion-with-popup-buffer ((name &optional package
+                                          connection emacs-snapshot)
+                                    &body body)
+  "Similar to `with-output-to-temp-buffer'.
+Bind standard-output and initialize some buffer-local variables.
+Restore window configuration when closed.
+
+NAME is the name of the buffer to be created.
+PACKAGE is the value `scion-buffer-package'.
+CONNECTION is the value for `scion-buffer-connection'.
+If nil, no explicit connection is associated with
+the buffer.  If t, the current connection is taken.
+
+If EMACS-SNAPSHOT is non-NIL, it's used to restore the previous
+state of Emacs after closing the temporary buffer. Otherwise, the
+current state will be saved and later restored."
+  `(let* ((vars% (list ,(if (eq package t) '(scion-current-package) package)
+                       ,(if (eq connection t) '(scion-connection) connection)
+                       ;; Defer the decision for NILness until runtime.
+                       (or ,emacs-snapshot (scion-current-emacs-snapshot))))
+          (standard-output (scion-popup-buffer ,name vars%)))
+     (with-current-buffer standard-output
+       (prog1 (progn ,@body)
+         (assert (eq (current-buffer) standard-output))
+         (setq buffer-read-only t)
+         (scion-init-popup-buffer vars%)))))
+
+(put 'scion-with-popup-buffer 'lisp-indent-function 1)
 
 ;;;---------------------------------------------------------------------------
 
@@ -731,15 +768,6 @@ fixnum a specific thread."))
 This is set only in buffers bound to specific packages."))
 
 
-(defmacro* when-let ((var value) &rest body)
-  "Evaluate VALUE, and if the result is non-nil bind it to VAR and
-evaluate BODY.
-
-\(fn (VAR VALUE) &rest BODY)"
-  `(let ((,var ,value))
-     (when ,var ,@body)))
-
-
 (defun scion-current-package ()
   nil)
 
@@ -763,45 +791,6 @@ evaluate BODY.
 
 (defvar scion-stack-eval-tags nil
   "List of stack-tags of continuations waiting on the stack.")
-
-(defun scion-eval (sexp &optional package)
-  "Evaluate EXPR on the superior Lisp and return the result."
-  (when (null package) (setq package (scion-current-package)))
-  (let* ((tag (gensym (format "scion-result-%d-" 
-                              (1+ (scion-continuation-counter)))))
-	 (scion-stack-eval-tags (cons tag scion-stack-eval-tags)))
-    (apply
-     #'funcall 
-     (catch tag
-       (scion-rex (tag sexp)
-           (sexp package)
-         ((:ok value)
-          (unless (member tag scion-stack-eval-tags)
-            (error "Reply to canceled synchronous eval request tag=%S sexp=%S"
-                   tag sexp))
-          (throw tag (list #'identity value)))
-         ((:abort)
-          (throw tag (list #'error "Synchronous Lisp Evaluation aborted"))))
-       (let ((debug-on-quit t)
-             (inhibit-quit nil)
-             (conn (scion-connection)))
-         (while t 
-           (unless (eq (process-status conn) 'open)
-             (error "Lisp connection closed unexpectedly"))
-           (scion-accept-process-output nil 0.01)))))))
-
-(defun scion-eval-async (sexp &optional cont package)
-  "Evaluate EXPR on the superior Lisp and call CONT with the result."
-  (scion-rex (cont (buffer (current-buffer)))
-	(sexp (or package (scion-current-package)))
-    ((:ok result)
-     (when cont
-       (set-buffer buffer)
-       (funcall cont result)))
-    ((:abort)
-     (message "Evaluation aborted."))))
-
-
 
 ;;; `scion-rex' is the RPC primitive which is used to implement both
 ;;; `scion-eval' and `scion-eval-async'. You can use it directly if
@@ -842,6 +831,47 @@ deal with that."
               (lambda (,result)
                 (destructure-case ,result
                   ,@continuations)))))))
+
+
+
+(defun scion-eval (sexp &optional package)
+  "Evaluate EXPR on the superior Lisp and return the result."
+  (when (null package) (setq package (scion-current-package)))
+  (let* ((tag (gensym (format "scion-result-%d-" 
+                              (1+ (scion-continuation-counter)))))
+	 (scion-stack-eval-tags (cons tag scion-stack-eval-tags)))
+    (apply
+     #'funcall 
+     (catch tag
+       (scion-rex (tag sexp)
+           (sexp package)
+         ((:ok value)
+          (unless (member tag scion-stack-eval-tags)
+            (error "Reply to canceled synchronous eval request tag=%S sexp=%S"
+                   tag sexp))
+          (throw tag (list #'identity value)))
+         ((:abort)
+          (throw tag (list #'error "Synchronous Lisp Evaluation aborted"))))
+       (let ((debug-on-quit t)
+             (inhibit-quit nil)
+             (conn (scion-connection)))
+         (while t 
+           (unless (eq (process-status conn) 'open)
+             (error "Lisp connection closed unexpectedly"))
+           (scion-accept-process-output nil 0.01)))))))
+
+(defun scion-eval-async (sexp &optional cont package)
+  "Evaluate EXPR on the superior Lisp and call CONT with the result."
+  (scion-rex (cont (buffer (current-buffer)))
+	(sexp (or package (scion-current-package)))
+    ((:ok result)
+     (when cont
+       (set-buffer buffer)
+       (funcall cont result)))
+    ((:abort)
+     (message "Evaluation aborted."))))
+
+
 
 ;;;;; Protocol event handler (the guts)
 ;;;
@@ -1025,35 +1055,7 @@ Buffer local in popup-buffers."))
  (defvar scion-popup-buffer-saved-fingerprint nil
    "The emacs snapshot \"fingerprint\" after displaying the buffer."))
 
-;; Interface
-(defmacro* scion-with-popup-buffer ((name &optional package
-                                          connection emacs-snapshot)
-                                    &body body)
-  "Similar to `with-output-to-temp-buffer'.
-Bind standard-output and initialize some buffer-local variables.
-Restore window configuration when closed.
 
-NAME is the name of the buffer to be created.
-PACKAGE is the value `scion-buffer-package'.
-CONNECTION is the value for `scion-buffer-connection'.
-If nil, no explicit connection is associated with
-the buffer.  If t, the current connection is taken.
-
-If EMACS-SNAPSHOT is non-NIL, it's used to restore the previous
-state of Emacs after closing the temporary buffer. Otherwise, the
-current state will be saved and later restored."
-  `(let* ((vars% (list ,(if (eq package t) '(scion-current-package) package)
-                       ,(if (eq connection t) '(scion-connection) connection)
-                       ;; Defer the decision for NILness until runtime.
-                       (or ,emacs-snapshot (scion-current-emacs-snapshot))))
-          (standard-output (scion-popup-buffer ,name vars%)))
-     (with-current-buffer standard-output
-       (prog1 (progn ,@body)
-         (assert (eq (current-buffer) standard-output))
-         (setq buffer-read-only t)
-         (scion-init-popup-buffer vars%)))))
-
-(put 'scion-with-popup-buffer 'lisp-indent-function 1)
 
 (defun scion-popup-buffer (name buffer-vars)
   "Return a temporary buffer called NAME.
