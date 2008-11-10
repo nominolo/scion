@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, CPP #-}
 -- |
 -- Module      : Scion.Server.Commands
 -- Copyright   : (c) Thomas Schilling 2008
@@ -142,18 +142,22 @@ cmdListRdrNamesInScope =
         rdr_names <- getNamesInScope
         return (toString (Lst (map (showSDoc . ppr) rdr_names)))
 
-allExposedModules :: DynFlags -> [ModuleName]
-allExposedModules dflags
- = P.concat (map exposedModules (filter exposed (eltsUFM pkg_db)))
- where
-  pkg_db = pkgIdMap (pkgState dflags)
+allExposedModules :: ScionM [ModuleName]
+#ifdef HAVE_PACKAGE_DB_MODULES
+allExposedModules = map moduleName `fmap` packageDbModules True
+#else
+-- This implementation requires our Cabal to be the same as GHC's.
+allExposedModules = do
+   dflags <- getSessionDynFlags
+   let pkg_db = pkgIdMap (pkgState dflags)
+   return $ P.concat (map exposedModules (filter exposed (eltsUFM pkg_db)))
+#endif
 
 cmdListExposedModules :: Command
 cmdListExposedModules =
     Command $ do
       string "list-exposed-modules"
       return $ do
-        dflags <- getSessionDynFlags
-        let mod_names = allExposedModules dflags
+        mod_names <- allExposedModules
         return $ toString $ Lst $
           map (showSDoc . ppr) mod_names
