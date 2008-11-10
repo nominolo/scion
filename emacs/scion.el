@@ -1238,7 +1238,9 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (interactive
    (let ((langs (scion-supported-languages)))
      (list (ido-completing-read "Language: " langs))))
-  (insert lang))
+  (save-excursion
+    (goto-char (point-min))
+    (insert "{-# LANGUAGE " lang " #-}\n")))
 
 (defun scion-supported-pragmas ()
   ;; TODO: cache result
