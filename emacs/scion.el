@@ -77,6 +77,14 @@ The string is periodically updated by an idle timer."))
 
 ;;;---------------------------------------------------------------------------
 
+(defmacro* when-let ((var value) &rest body)
+  "Evaluate VALUE, and if the result is non-nil bind it to VAR and
+evaluate BODY.
+
+\(fn (VAR VALUE) &rest BODY)"
+  `(let ((,var ,value))
+     (when ,var ,@body)))
+
 (defmacro destructure-case (value &rest patterns)
   "Dispatch VALUE to one of PATTERNS.
 A cross between `case' and `destructuring-bind'.
@@ -103,9 +111,50 @@ corresponding values in the CDR of VALUE."
 	       '()
 	     `((t (error "Elisp destructure-case failed: %S" ,tmp))))))))
 
+(put 'destructure-case 'lisp-indent-function 1)
+
+;; Interface
+(defmacro* scion-with-popup-buffer ((name &optional package
+                                          connection emacs-snapshot)
+                                    &body body)
+  "Similar to `with-output-to-temp-buffer'.
+Bind standard-output and initialize some buffer-local variables.
+Restore window configuration when closed.
+
+NAME is the name of the buffer to be created.
+PACKAGE is the value `scion-buffer-package'.
+CONNECTION is the value for `scion-buffer-connection'.
+If nil, no explicit connection is associated with
+the buffer.  If t, the current connection is taken.
+
+If EMACS-SNAPSHOT is non-NIL, it's used to restore the previous
+state of Emacs after closing the temporary buffer. Otherwise, the
+current state will be saved and later restored."
+  `(let* ((vars% (list ,(if (eq package t) '(scion-current-package) package)
+                       ,(if (eq connection t) '(scion-connection) connection)
+                       ;; Defer the decision for NILness until runtime.
+                       (or ,emacs-snapshot (scion-current-emacs-snapshot))))
+          (standard-output (scion-popup-buffer ,name vars%)))
+     (with-current-buffer standard-output
+       (prog1 (progn ,@body)
+         (assert (eq (current-buffer) standard-output))
+         (setq buffer-read-only t)
+         (scion-init-popup-buffer vars%)))))
+
+(put 'scion-with-popup-buffer 'lisp-indent-function 1)
 
 ;;;---------------------------------------------------------------------------
 
+(define-minor-mode scion-mode
+  "\\<scion-mode-map>\
+Scion: Smart Haskell mode.
+\\{scion-mode-map}"
+  nil
+  nil
+  ;; Fake binding to coax `define-minor-mode' to create the keymap
+  '((" " 'self-insert-command)))
+
+(define-key scion-mode-map " " 'self-insert-command)
 
 ;; dummy definitions for the compiler
 (defvar scion-net-coding-system)
@@ -731,15 +780,6 @@ fixnum a specific thread."))
 This is set only in buffers bound to specific packages."))
 
 
-(defmacro* when-let ((var value) &rest body)
-  "Evaluate VALUE, and if the result is non-nil bind it to VAR and
-evaluate BODY.
-
-\(fn (VAR VALUE) &rest BODY)"
-  `(let ((,var ,value))
-     (when ,var ,@body)))
-
-
 (defun scion-current-package ()
   nil)
 
@@ -763,45 +803,6 @@ evaluate BODY.
 
 (defvar scion-stack-eval-tags nil
   "List of stack-tags of continuations waiting on the stack.")
-
-(defun scion-eval (sexp &optional package)
-  "Evaluate EXPR on the superior Lisp and return the result."
-  (when (null package) (setq package (scion-current-package)))
-  (let* ((tag (gensym (format "scion-result-%d-" 
-                              (1+ (scion-continuation-counter)))))
-	 (scion-stack-eval-tags (cons tag scion-stack-eval-tags)))
-    (apply
-     #'funcall 
-     (catch tag
-       (scion-rex (tag sexp)
-           (sexp package)
-         ((:ok value)
-          (unless (member tag scion-stack-eval-tags)
-            (error "Reply to canceled synchronous eval request tag=%S sexp=%S"
-                   tag sexp))
-          (throw tag (list #'identity value)))
-         ((:abort)
-          (throw tag (list #'error "Synchronous Lisp Evaluation aborted"))))
-       (let ((debug-on-quit t)
-             (inhibit-quit nil)
-             (conn (scion-connection)))
-         (while t 
-           (unless (eq (process-status conn) 'open)
-             (error "Lisp connection closed unexpectedly"))
-           (scion-accept-process-output nil 0.01)))))))
-
-(defun scion-eval-async (sexp &optional cont package)
-  "Evaluate EXPR on the superior Lisp and call CONT with the result."
-  (scion-rex (cont (buffer (current-buffer)))
-	(sexp (or package (scion-current-package)))
-    ((:ok result)
-     (when cont
-       (set-buffer buffer)
-       (funcall cont result)))
-    ((:abort)
-     (message "Evaluation aborted."))))
-
-
 
 ;;; `scion-rex' is the RPC primitive which is used to implement both
 ;;; `scion-eval' and `scion-eval-async'. You can use it directly if
@@ -842,6 +843,47 @@ deal with that."
               (lambda (,result)
                 (destructure-case ,result
                   ,@continuations)))))))
+
+
+
+(defun scion-eval (sexp &optional package)
+  "Evaluate EXPR on the superior Lisp and return the result."
+  (when (null package) (setq package (scion-current-package)))
+  (let* ((tag (gensym (format "scion-result-%d-" 
+                              (1+ (scion-continuation-counter)))))
+	 (scion-stack-eval-tags (cons tag scion-stack-eval-tags)))
+    (apply
+     #'funcall 
+     (catch tag
+       (scion-rex (tag sexp)
+           (sexp package)
+         ((:ok value)
+          (unless (member tag scion-stack-eval-tags)
+            (error "Reply to canceled synchronous eval request tag=%S sexp=%S"
+                   tag sexp))
+          (throw tag (list #'identity value)))
+         ((:abort)
+          (throw tag (list #'error "Synchronous Lisp Evaluation aborted"))))
+       (let ((debug-on-quit t)
+             (inhibit-quit nil)
+             (conn (scion-connection)))
+         (while t 
+           (unless (eq (process-status conn) 'open)
+             (error "Lisp connection closed unexpectedly"))
+           (scion-accept-process-output nil 0.01)))))))
+
+(defun scion-eval-async (sexp &optional cont package)
+  "Evaluate EXPR on the superior Lisp and call CONT with the result."
+  (scion-rex (cont (buffer (current-buffer)))
+	(sexp (or package (scion-current-package)))
+    ((:ok result)
+     (when cont
+       (set-buffer buffer)
+       (funcall cont result)))
+    ((:abort)
+     (message "Evaluation aborted."))))
+
+
 
 ;;;;; Protocol event handler (the guts)
 ;;;
@@ -1025,35 +1067,7 @@ Buffer local in popup-buffers."))
  (defvar scion-popup-buffer-saved-fingerprint nil
    "The emacs snapshot \"fingerprint\" after displaying the buffer."))
 
-;; Interface
-(defmacro* scion-with-popup-buffer ((name &optional package
-                                          connection emacs-snapshot)
-                                    &body body)
-  "Similar to `with-output-to-temp-buffer'.
-Bind standard-output and initialize some buffer-local variables.
-Restore window configuration when closed.
 
-NAME is the name of the buffer to be created.
-PACKAGE is the value `scion-buffer-package'.
-CONNECTION is the value for `scion-buffer-connection'.
-If nil, no explicit connection is associated with
-the buffer.  If t, the current connection is taken.
-
-If EMACS-SNAPSHOT is non-NIL, it's used to restore the previous
-state of Emacs after closing the temporary buffer. Otherwise, the
-current state will be saved and later restored."
-  `(let* ((vars% (list ,(if (eq package t) '(scion-current-package) package)
-                       ,(if (eq connection t) '(scion-connection) connection)
-                       ;; Defer the decision for NILness until runtime.
-                       (or ,emacs-snapshot (scion-current-emacs-snapshot))))
-          (standard-output (scion-popup-buffer ,name vars%)))
-     (with-current-buffer standard-output
-       (prog1 (progn ,@body)
-         (assert (eq (current-buffer) standard-output))
-         (setq buffer-read-only t)
-         (scion-init-popup-buffer vars%)))))
-
-(put 'scion-with-popup-buffer 'lisp-indent-function 1)
 
 (defun scion-popup-buffer (name buffer-vars)
   "Return a temporary buffer called NAME.
@@ -1186,6 +1200,223 @@ last activated the buffer."
           until (= (point) (point-max))
           maximizing column)))
 
+;;;---------------------------------------------------------------------------
+
+;;;;; scion-mode-faces
+
+(defgroup scion-mode-faces nil
+  "Faces in scion-mode source code buffers."
+  :prefix "scion-"
+  :group 'scion-mode)
+
+(defun scion-underline-color (color)
+  "Return a legal value for the :underline face attribute based on COLOR."
+  ;; In XEmacs the :underline attribute can only be a boolean.
+  ;; In GNU it can be the name of a colour.
+  (if (featurep 'xemacs)
+      (if color t nil)
+    color))
+
+(defface scion-error-face
+  `((((class color) (background light))
+     (:underline ,(scion-underline-color "red")))
+    (((class color) (background dark))
+     (:underline ,(scion-underline-color "red")))
+    (t (:underline t)))
+  "Face for errors from the compiler."
+  :group 'scion-mode-faces)
+
+(defface scion-warning-face
+  `((((class color) (background light))
+     (:underline ,(scion-underline-color "orange")))
+    (((class color) (background dark))
+     (:underline ,(scion-underline-color "coral")))
+    (t (:underline t)))
+  "Face for warnings from the compiler."
+  :group 'scion-mode-faces)
+
+(defun scion-face-inheritance-possible-p ()
+  "Return true if the :inherit face attribute is supported." 
+  (assq :inherit custom-face-attributes))
+
+(defface scion-highlight-face
+  (if (scion-face-inheritance-possible-p)
+      '((t (:inherit highlight :underline nil)))
+    '((((class color) (background light))
+       (:background "darkseagreen2"))
+      (((class color) (background dark))
+       (:background "darkolivegreen"))
+      (t (:inverse-video t))))
+  "Face for compiler notes while selected."
+  :group 'scion-mode-faces)
+
+;;;---------------------------------------------------------------------------
+;;;; Overlays for compiler messages and other things
+
+(defstruct (scion-compilation-result
+             (:type list)
+             (:conc-name scion-compilation-result.)
+             (:constructor nil)
+             (:copier nil))
+  tag notes successp duration)
+
+(defvar scion-last-compilation-result nil
+  "The result of the most recently issued compilation.")
+
+(defvar scion-project-root-dir nil
+  "The root directory of the current project.
+
+This is used, for example, to translate relative path names from
+error messages into absolute path names.")
+
+(defun scion-compiler-notes ()
+  "Return all compiler notes, warnings, and errors."
+  (scion-compilation-result.notes scion-last-compilation-result))
+
+;;; TODO: notes should be sorted by filename (using a hashtable)
+
+(defun scion-highlight-notes (notes)
+  "Highlight compiler notes, warnings, and errors in the buffer."
+  (interactive (list (scion-compiler-notes)))
+  (with-temp-message "Highlighting notes..."
+    (save-excursion
+      (save-restriction
+        (widen)                  ; highlight notes on the whole buffer
+        (scion-remove-old-overlays)
+	(let ((buffers (scion-filter-buffers (lambda () scion-mode))))
+	  (mapc (lambda (b)
+		  (with-current-buffer b
+		    (save-excursion
+		      (save-restriction
+			(widen)
+			(mapc (lambda (note)
+				(princ (format "adding: %S" b))
+				(scion-overlay-note note b)) 
+			      notes)))))
+		buffers)))))
+  nil)
+
+(defun scion-remove-old-overlays ()
+  "Delete the xbexisting Scion overlays in the current buffer."
+  (dolist (buffer (scion-filter-buffers (lambda () scion-mode)))
+    (with-current-buffer buffer
+      (save-excursion
+        (save-restriction
+          (widen)                ; remove overlays within the whole buffer.
+          (goto-char (point-min))
+          (while (not (eobp))
+            (dolist (o (overlays-at (point)))
+              (when (overlay-get o 'scion)
+                (delete-overlay o)))
+            (goto-char (next-overlay-change (point)))))))))
+
+(defun scion-filter-buffers (predicate)
+  "Return a list of buffers where PREDICATE returns true.
+PREDICATE is executed in the buffer to test."
+  (remove-if-not (lambda (%buffer)
+                   (with-current-buffer %buffer
+                     (funcall predicate)))
+                 (buffer-list)))
+
+(defun scion-flash-region (start end &optional timeout)
+  (let ((overlay (make-overlay start end))) 
+    (overlay-put overlay 'face 'secondary-selection)
+    (run-with-timer (or timeout 0.2) nil 'delete-overlay overlay)))
+
+;;; the node representation
+;;;
+;;; (:warning <loc> message-string more-info-string)
+;;; (:error   <loc> message-string more-info-string)
+;;; 
+;;; <loc> ::= (:loc filename start-line start-col end-line end-col)
+;;;        |  (:no-loc text)
+
+(defun scion-note.message (note)
+  (destructure-case note
+     ((:warning loc msg info)
+      msg)
+     ((:error loc msg info)
+      msg)))
+
+(defun scion-note.region (note buffer)
+  (destructuring-bind (tag loc msg more) note
+    (print (list tag loc msg more note))
+    (destructure-case loc
+      ((:loc filename sl sc el ec)
+       (if (equal (buffer-file-name buffer) filename)
+	   (scion-location-to-region sl sc el ec buffer)
+	 nil))
+      ((:no-loc _)
+       nil))))
+
+(defun scion-note.severity (note)
+  (car note))
+
+(defun scion-location-to-region (start-line start-col end-line end-col
+				 &optional buffer)
+  "Translate a Haskell (line,col) region into an Emacs region.
+
+TODO: Fix up locations if buffer has been modified in between."
+  (with-current-buffer (or buffer (current-buffer))
+    (save-excursion
+      (save-restriction
+	(widen) 			; look in whole buffer
+	(goto-char 1)
+	(forward-line (1- start-line))
+	(move-to-column start-col)
+	(let ((start (point)))
+	  (forward-line (- end-line start-line))
+	  (move-to-column end-col)
+	  (let ((end (point)))
+	    (if (< end start)
+		(list end start)
+	      (list start end))))))))
+
+(defun scion-canonicalise-note-location (note)
+  "Translate the note's location into absolute path names.
+Modifies input note."
+  (destructure-case (cadr note)
+    ((:loc fname _ _ _ _)
+     (setf (cadadr note)
+	   (expand-file-name fname scion-project-root-dir))))
+  note)
+
+;;;;; Adding a single compiler note
+
+(defun scion-overlay-note (note buffer)
+  "Add a compiler note to the buffer as an overlay."
+  (multiple-value-bind (start end) (scion-note.region note buffer)
+    (when start
+      (goto-char start)
+      (let ((severity (scion-note.severity note))
+            (message (scion-note.message note)))
+        (scion-create-note-overlay note start end severity message)))))
+
+(defun scion-create-note-overlay (note start end severity message)
+  "Create an overlay representing a compiler note.
+The overlay has several properties:
+  FACE       - to underline the relevant text.
+  SEVERITY   - for future reference, :NOTE, :STYLE-WARNING, :WARNING, or :ERROR.
+  MOUSE-FACE - highlight the note when the mouse passes over.
+  HELP-ECHO  - a string describing the note, both for future reference
+               and for display as a tooltip (due to the special
+               property name)."
+  (let ((overlay (make-overlay start end)))
+    (flet ((putp (name value) (overlay-put overlay name value)))
+      (putp 'scion note)
+      (putp 'face (scion-severity-face severity))
+      ;(putp 'severity severity)
+      (unless (scion-emacs-20-p)
+	(putp 'mouse-face 'highlight))
+      (putp 'help-echo message)
+      overlay)))
+
+(defun scion-severity-face (severity)
+  "Return the name of the font-lock face representing SEVERITY."
+  (ecase severity
+    (:error         'scion-error-face)
+    (:warning       'scion-warning-face)))
+
 
 ;;;---------------------------------------------------------------------------
 
@@ -1201,14 +1432,19 @@ last activated the buffer."
 	(message "Remote command failed: %s" ,val)
 	nil)))))
 
-(defun scion-open-cabal-project (dist-dir)
+(put 'scion-handling-failure 'lisp-indent-function 1)
+
+(defun scion-open-cabal-project (root-dir rel-dist-dir)
   "Open a Cabal project.
 
 The first argument is dist directory (typically <project-root>/dist/)"
-  (interactive "DDist dir: ")
-  (scion-eval-async `(open-cabal-project ,(expand-file-name dist-dir)) 
-		    (scion-handling-failure (x)
-		      (message (format "Cabal project loaded: %s" x))))
+  (interactive "DProject dir: \nDDist-dir")
+  (lexical-let ((root-dir root-dir))
+    (scion-eval-async `(open-cabal-project ,(expand-file-name root-dir)
+					   ,rel-dist-dir)
+		      (scion-handling-failure (x)
+			(setq scion-project-root-dir root-dir)
+			(message (format "Cabal project loaded: %s" x)))))
   nil)
 
 (defun scion-load-library ()
@@ -1217,12 +1453,32 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (scion-eval-async `(load-component library)
     (scion-handling-failure (x)
       (destructure-case x
-        ((:ok warns)
-	 (message "Library loaded.  (%s warning(s))"
-		  (if (>= warns 0) warns "no")))
+	((:ok warns)
+	 (setq scion-last-compilation-result
+	       (list 42 (mapc #'scion-canonicalise-note-location
+			      warns) t nil))
+	 (scion-highlight-notes warns)
+	 (scion-show-note-counts t warns nil))
 	((:error errs warns)
-	 (message "Library failed to load.  (%s error(s), %s warning(s))"
-		  errs warns))))))
+	 (let ((notes (mapc #'scion-canonicalise-note-location
+			      (append errs warns))))
+	   (setq scion-last-compilation-result
+		 (list 42 notes nil nil))
+	   (scion-highlight-notes notes))
+	 (scion-show-note-counts nil warns errs))))))
+
+(defun scion-show-note-counts (successp warns errs)
+  (let ((nerrors (length errs)) 
+	(nwarnings (length warns)))
+    (message "Compilation %s: %s%s"
+	     (if successp "finished" "FAILED")
+	     (scion-note-count-string "error" nerrors)
+	     (scion-note-count-string "warning" nwarnings))))
+
+(defun scion-note-count-string (category count &optional suppress-if-zero)
+  (cond ((and (zerop count) suppress-if-zero)
+         "")
+        (t (format "%2d %s%s " count category (if (= count 1) "" "s")))))
 
 (defun scion-supported-languages ()
   ;; TODO: cache result
@@ -1233,7 +1489,10 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (interactive
    (let ((langs (scion-supported-languages)))
      (list (ido-completing-read "Language: " langs))))
-  (insert lang))
+  (save-excursion
+    (goto-char (point-min))
+    (insert "{-# LANGUAGE " lang " #-}\n"))
+  (message "Added language %s" lang))
 
 (defun scion-supported-pragmas ()
   ;; TODO: cache result
@@ -1267,3 +1526,27 @@ The first argument is dist directory (typically <project-root>/dist/)"
      (list (ido-completing-read "Module: " mods))))
   (insert mod))
 
+(define-key scion-mode-map "\C-cil" 'haskell-insert-language)
+(define-key scion-mode-map "\C-cip" 'haskell-insert-pragma)
+(define-key scion-mode-map "\C-cim" 'haskell-insert-module-name)
+
+(defun haskell-insert-module-header (module-name &optional
+						 author
+						 email)
+  (interactive (list (read-from-minibuffer "Module name: ")
+		     (read-from-minibuffer "Author name: " user-full-name)
+		     (read-from-minibuffer "Author email: " user-mail-address)))
+  (insert "-- |"
+          "\n-- Module      : " module-name
+	  "\n-- Copyright   : (c) " author " " (substring (current-time-string) -4)
+	  "\n-- License     : BSD-style\n--"
+	  "\n-- Maintainer  : " email
+	  "\n-- Stability   : experimental"
+	  "\n-- Portability : portable\n--\n"))
+
+
+;;;---------------------------------------------------------------------------
+
+(defun scion-emacs-20-p ()
+  (and (not (featurep 'xemacs))
+       (= emacs-major-version 20)))

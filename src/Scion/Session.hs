@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternGuards, DeriveDataTypeable #-}
 -- |
 -- Module      : Scion.Session
@@ -13,7 +14,7 @@
 module Scion.Session where
 
 import GHC hiding ( flags )
-import HscTypes ( srcErrorMessages )
+import HscTypes ( srcErrorMessages,SourceError )
 import Exception
 import ErrUtils ( WarningMessages, ErrorMessages )
 
@@ -27,6 +28,7 @@ import Data.List        ( intercalate )
 import Data.Maybe       ( isJust )
 import Data.Monoid
 import System.Directory ( setCurrentDirectory )
+import System.FilePath  ( (</>) )
 import Control.Exception
 
 import Distribution.ModuleName ( components )
@@ -62,6 +64,26 @@ instance Exception ComponentDoesNotExist where
   fromException = scionFromException
 
 
+-- ** Setting Session Parameters
+
+
+initialScionDynFlags :: DynFlags -> DynFlags
+initialScionDynFlags dflags =
+  dflags 
+    { hscTarget = HscNothing  -- by default, don't modify anything
+    , ghcLink   = NoLink      -- just to be sure
+    }
+
+resetSessionState :: ScionM ()
+resetSessionState = do
+   -- unload
+   setTargets []
+   load LoadAllTargets
+   dflags0 <- gets initialDynFlags
+   -- TODO: do something with result from setSessionDynFlags?
+   setSessionDynFlags (initialScionDynFlags dflags0)
+   return ()
+
 -- ** Other Stuff
 
 -- | Sets the current working directory and notifies GHC about the change.
@@ -72,21 +94,33 @@ setWorkingDir home = do
   liftIO $ setCurrentDirectory home
   workingDirectoryChanged
 
--- | Try to open a configured Cabal project with the given dist directory.
+-- | Try to open a Cabal project.  The project must already be configured
+-- using the same version of Cabal that Scion was build against.
+--
+-- TODO: Allow configuration of the project from inside Scion.
+--
+-- TODO: Allow other working directories?  Would require translating all the
+-- search paths from relative to absolute paths.  Furthermore, what should the
+-- output directory be then?
 --
 -- Throws:
 --
 --  * 'CannotOpenCabalProject' if an error occurs (e.g., not configured
 --    project or configured with incompatible cabal version).
 --
-openCabalProject :: FilePath -> ScionM ()
-openCabalProject dist_dir = do
+openCabalProject :: FilePath  -- ^ Project root directroy
+                 -> FilePath  -- ^ Project dist directory (relative)
+                 -> ScionM ()
+openCabalProject root_dir dist_rel_dir = do
   -- XXX: check that working dir contains a .cabal file
+  let dist_dir = root_dir </> dist_rel_dir
   mb_lbi <- liftIO $ maybeGetPersistBuildConfig dist_dir
   case mb_lbi of
     Nothing -> 
         liftIO $ throwIO $ CannotOpenCabalProject "no reason known" -- XXX
     Just lbi -> do
+        setWorkingDir root_dir
+        resetSessionState
         -- XXX: do something with old lbi before updating?
         modifySessionState $ \st -> st { localBuildInfo = Just lbi }
 
@@ -189,7 +223,13 @@ loadComponent comp = do
    ref <- liftIO $ newIORef (mempty, mempty)
    setDynFlagsFromCabal comp
    setTargetsFromCabal comp
-   res <- loadWithLogger (logWarnErr ref) LoadAllTargets
+   res <- loadWithLogger (logWarnErr ref) LoadAllTargets 
+            `gcatch` (\(e :: SourceError) -> do
+              let errs = srcErrorMessages e
+              warns <- getWarnings
+              add_warn_err ref warns errs
+              clearWarnings
+              return Failed)
    (warns, errs) <- liftIO $ readIORef ref
    case res of
      Succeeded -> return (Right warns)
@@ -201,6 +241,9 @@ loadComponent comp = do
                    Just exc -> srcErrorMessages exc
       warns <- getWarnings
       clearWarnings
+      add_warn_err ref warns errs
+
+    add_warn_err ref warns errs =
       liftIO $ modifyIORef ref $
                  \(warns', errs') -> ( warns `mappend` warns'
                                      , errs `mappend` errs')

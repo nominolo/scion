@@ -30,11 +30,16 @@ import Control.Exception
 data SessionState 
   = SessionState {
       scionVerbosity :: Verbosity,
-      localBuildInfo :: Maybe LocalBuildInfo
+      localBuildInfo :: Maybe LocalBuildInfo,
+      initialDynFlags :: DynFlags
+        -- ^ The DynFlags as they when Scion was started.  This is used to
+        -- reset flags when opening a new project.  Arguably, the GHC API
+        -- should provide calls to reset a session.
     }
 
-mkSessionState :: IO (IORef SessionState)
-mkSessionState = newIORef (SessionState normal Nothing)
+mkSessionState :: DynFlags -> IO (IORef SessionState)
+mkSessionState dflags =
+    newIORef (SessionState normal Nothing dflags)
 
 newtype ScionM a
   = ScionM { unScionM :: IORef SessionState -> Ghc a }

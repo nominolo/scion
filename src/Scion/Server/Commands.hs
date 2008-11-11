@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, CPP #-}
 -- |
 -- Module      : Scion.Server.Commands
 -- Copyright   : (c) Thomas Schilling 2008
@@ -22,8 +22,6 @@ import GHC
 import Exception
 import DynFlags ( supportedLanguages, allFlags )
 import Outputable ( ppr, showSDoc )
-import UniqFM ( eltsUFM )
-import Packages ( pkgIdMap )
 
 import Control.Monad
 import Data.Foldable as F
@@ -33,7 +31,14 @@ import qualified Data.Map as M
 
 import qualified Distribution.PackageDescription as PD
 import Distribution.Text ( display )
+
+#ifndef HAVE_PACKAGE_DB_MODULES
+import UniqFM ( eltsUFM )
+import Packages ( pkgIdMap )
+  
 import Distribution.InstalledPackageInfo
+#endif
+
 
 ------------------------------------------------------------------------------
 
@@ -81,10 +86,11 @@ cmdOpenCabalProject :: Command
 cmdOpenCabalProject =
     Command (do string "open-cabal-project" >> sp
                 n <- getString
-                return (toString `fmap` cmd n))
+                d <- sp >> getString
+                return (toString `fmap` cmd n d))
   where
-    cmd path = handleScionException $ do
-        openCabalProject path
+    cmd path rel_dist = handleScionException $ do
+        openCabalProject path rel_dist
         (display . PD.package) `fmap` currentCabalPackage
 
 cmdLoadComponent :: Command
@@ -103,11 +109,12 @@ cmdLoadComponent =
         Left (warns, errs) ->
             return $ ExactSexp $ parens $ 
               showString ":error" <+>
-              shows (length (toList errs)) <+>
-              shows (length (toList warns))
+              toSexp (Lst (map DiagError (toList errs))) <+>
+              toSexp (Lst (map DiagWarning (toList warns)))
         Right warns ->
             return $ ExactSexp $ parens $
-              showString ":ok" <+> shows (length (toList warns))
+              showString ":ok" <+> 
+              toSexp (Lst (map DiagWarning (toList warns)))
 
 cmdListSupportedLanguages :: Command
 cmdListSupportedLanguages =
@@ -125,6 +132,7 @@ supportedPragmas :: [String]
 supportedPragmas =
     [ "OPTIONS_GHC", "LANGUAGE", "INCLUDE", "WARNING", "DEPRECATED"
     , "INLINE", "NOINLINE", "RULES", "SPECIALIZE", "UNPACK", "SOURCE"
+    , "SCC"
     , "LINE" -- XXX: only used by code generators, still include?
     ]
 
@@ -142,18 +150,22 @@ cmdListRdrNamesInScope =
         rdr_names <- getNamesInScope
         return (toString (Lst (map (showSDoc . ppr) rdr_names)))
 
-allExposedModules :: DynFlags -> [ModuleName]
-allExposedModules dflags
- = P.concat (map exposedModules (filter exposed (eltsUFM pkg_db)))
- where
-  pkg_db = pkgIdMap (pkgState dflags)
+allExposedModules :: ScionM [ModuleName]
+#ifdef HAVE_PACKAGE_DB_MODULES
+allExposedModules = map moduleName `fmap` packageDbModules True
+#else
+-- This implementation requires our Cabal to be the same as GHC's.
+allExposedModules = do
+   dflags <- getSessionDynFlags
+   let pkg_db = pkgIdMap (pkgState dflags)
+   return $ P.concat (map exposedModules (filter exposed (eltsUFM pkg_db)))
+#endif
 
 cmdListExposedModules :: Command
 cmdListExposedModules =
     Command $ do
       string "list-exposed-modules"
       return $ do
-        dflags <- getSessionDynFlags
-        let mod_names = allExposedModules dflags
+        mod_names <- allExposedModules
         return $ toString $ Lst $
           map (showSDoc . ppr) mod_names
