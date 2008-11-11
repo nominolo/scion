@@ -28,6 +28,7 @@ import Data.List        ( intercalate )
 import Data.Maybe       ( isJust )
 import Data.Monoid
 import System.Directory ( setCurrentDirectory )
+import System.FilePath  ( (</>) )
 import Control.Exception
 
 import Distribution.ModuleName ( components )
@@ -73,21 +74,32 @@ setWorkingDir home = do
   liftIO $ setCurrentDirectory home
   workingDirectoryChanged
 
--- | Try to open a configured Cabal project with the given dist directory.
+-- | Try to open a Cabal project.  The project must already be configured
+-- using the same version of Cabal that Scion was build against.
+--
+-- TODO: Allow configuration of the project from inside Scion.
+--
+-- TODO: Allow other working directories?  Would require translating all the
+-- search paths from relative to absolute paths.  Furthermore, what should the
+-- output directory be then?
 --
 -- Throws:
 --
 --  * 'CannotOpenCabalProject' if an error occurs (e.g., not configured
 --    project or configured with incompatible cabal version).
 --
-openCabalProject :: FilePath -> ScionM ()
-openCabalProject dist_dir = do
+openCabalProject :: FilePath  -- ^ Project root directroy
+                 -> FilePath  -- ^ Project dist directory (relative)
+                 -> ScionM ()
+openCabalProject root_dir dist_rel_dir = do
   -- XXX: check that working dir contains a .cabal file
+  let dist_dir = root_dir </> dist_rel_dir
   mb_lbi <- liftIO $ maybeGetPersistBuildConfig dist_dir
   case mb_lbi of
     Nothing -> 
         liftIO $ throwIO $ CannotOpenCabalProject "no reason known" -- XXX
     Just lbi -> do
+        setWorkingDir root_dir
         -- XXX: do something with old lbi before updating?
         modifySessionState $ \st -> st { localBuildInfo = Just lbi }
 

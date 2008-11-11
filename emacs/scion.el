@@ -1211,12 +1211,13 @@ last activated the buffer."
 	(message "Remote command failed: %s" ,val)
 	nil)))))
 
-(defun scion-open-cabal-project (dist-dir)
+(defun scion-open-cabal-project (root-dir rel-dist-dir)
   "Open a Cabal project.
 
 The first argument is dist directory (typically <project-root>/dist/)"
-  (interactive "DDist dir: ")
-  (scion-eval-async `(open-cabal-project ,(expand-file-name dist-dir)) 
+  (interactive "DProject dir: \nDDist-dir")
+  (scion-eval-async `(open-cabal-project ,(expand-file-name root-dir)
+					 ,rel-dist-dir) 
 		    (scion-handling-failure (x)
 		      (message (format "Cabal project loaded: %s" x))))
   nil)

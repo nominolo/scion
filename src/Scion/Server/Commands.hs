@@ -81,10 +81,11 @@ cmdOpenCabalProject :: Command
 cmdOpenCabalProject =
     Command (do string "open-cabal-project" >> sp
                 n <- getString
-                return (toString `fmap` cmd n))
+                d <- sp >> getString
+                return (toString `fmap` cmd n d))
   where
-    cmd path = handleScionException $ do
-        openCabalProject path
+    cmd path rel_dist = handleScionException $ do
+        openCabalProject path rel_dist
         (display . PD.package) `fmap` currentCabalPackage
 
 cmdLoadComponent :: Command
