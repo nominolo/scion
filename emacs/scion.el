@@ -1222,10 +1222,12 @@ last activated the buffer."
 
 The first argument is dist directory (typically <project-root>/dist/)"
   (interactive "DProject dir: \nDDist-dir")
-  (scion-eval-async `(open-cabal-project ,(expand-file-name root-dir)
-					 ,rel-dist-dir) 
-		    (scion-handling-failure (x)
-		      (message (format "Cabal project loaded: %s" x))))
+  (lexical-let ((root-dir root-dir))
+    (scion-eval-async `(open-cabal-project ,(expand-file-name root-dir)
+					   ,rel-dist-dir)
+		      (scion-handling-failure (x)
+			(setq scion-project-root-dir root-dir)
+			(message (format "Cabal project loaded: %s" x)))))
   nil)
 
 (defun scion-load-library ()
