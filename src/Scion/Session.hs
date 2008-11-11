@@ -64,6 +64,26 @@ instance Exception ComponentDoesNotExist where
   fromException = scionFromException
 
 
+-- ** Setting Session Parameters
+
+
+initialScionDynFlags :: DynFlags -> DynFlags
+initialScionDynFlags dflags =
+  dflags 
+    { hscTarget = HscNothing  -- by default, don't modify anything
+    , ghcLink   = NoLink      -- just to be sure
+    }
+
+resetSessionState :: ScionM ()
+resetSessionState = do
+   -- unload
+   setTargets []
+   load LoadAllTargets
+   dflags0 <- gets initialDynFlags
+   -- TODO: do something with result from setSessionDynFlags?
+   setSessionDynFlags (initialScionDynFlags dflags0)
+   return ()
+
 -- ** Other Stuff
 
 -- | Sets the current working directory and notifies GHC about the change.
@@ -100,6 +120,7 @@ openCabalProject root_dir dist_rel_dir = do
         liftIO $ throwIO $ CannotOpenCabalProject "no reason known" -- XXX
     Just lbi -> do
         setWorkingDir root_dir
+        resetSessionState
         -- XXX: do something with old lbi before updating?
         modifySessionState $ \st -> st { localBuildInfo = Just lbi }
 

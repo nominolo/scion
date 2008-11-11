@@ -29,13 +29,6 @@ runScion :: ScionM a -> IO a
 runScion m = do
   runGhc (Just libdir) $ do
     dflags <- getSessionDynFlags
+    r <- liftIO $ mkSessionState dflags
     setSessionDynFlags (initialScionDynFlags dflags)
-    r <- liftIO mkSessionState
     unScionM m r
-
-initialScionDynFlags :: DynFlags -> DynFlags
-initialScionDynFlags dflags =
-  dflags 
-    { hscTarget = HscNothing  -- by default, don't modify anything
-    , ghcLink   = NoLink      -- just to be sure
-    }
