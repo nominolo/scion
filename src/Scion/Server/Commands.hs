@@ -22,8 +22,6 @@ import GHC
 import Exception
 import DynFlags ( supportedLanguages, allFlags )
 import Outputable ( ppr, showSDoc )
-import UniqFM ( eltsUFM )
-import Packages ( pkgIdMap )
 
 import Control.Monad
 import Data.Foldable as F
@@ -33,7 +31,14 @@ import qualified Data.Map as M
 
 import qualified Distribution.PackageDescription as PD
 import Distribution.Text ( display )
+
+#ifndef HAVE_PACKAGE_DB_MODULES
+import UniqFM ( eltsUFM )
+import Packages ( pkgIdMap )
+  
 import Distribution.InstalledPackageInfo
+#endif
+
 
 ------------------------------------------------------------------------------
 
