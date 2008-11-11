@@ -1200,6 +1200,223 @@ last activated the buffer."
           until (= (point) (point-max))
           maximizing column)))
 
+;;;---------------------------------------------------------------------------
+
+;;;;; scion-mode-faces
+
+(defgroup scion-mode-faces nil
+  "Faces in scion-mode source code buffers."
+  :prefix "scion-"
+  :group 'scion-mode)
+
+(defun scion-underline-color (color)
+  "Return a legal value for the :underline face attribute based on COLOR."
+  ;; In XEmacs the :underline attribute can only be a boolean.
+  ;; In GNU it can be the name of a colour.
+  (if (featurep 'xemacs)
+      (if color t nil)
+    color))
+
+(defface scion-error-face
+  `((((class color) (background light))
+     (:underline ,(scion-underline-color "red")))
+    (((class color) (background dark))
+     (:underline ,(scion-underline-color "red")))
+    (t (:underline t)))
+  "Face for errors from the compiler."
+  :group 'scion-mode-faces)
+
+(defface scion-warning-face
+  `((((class color) (background light))
+     (:underline ,(scion-underline-color "orange")))
+    (((class color) (background dark))
+     (:underline ,(scion-underline-color "coral")))
+    (t (:underline t)))
+  "Face for warnings from the compiler."
+  :group 'scion-mode-faces)
+
+(defun scion-face-inheritance-possible-p ()
+  "Return true if the :inherit face attribute is supported." 
+  (assq :inherit custom-face-attributes))
+
+(defface scion-highlight-face
+  (if (scion-face-inheritance-possible-p)
+      '((t (:inherit highlight :underline nil)))
+    '((((class color) (background light))
+       (:background "darkseagreen2"))
+      (((class color) (background dark))
+       (:background "darkolivegreen"))
+      (t (:inverse-video t))))
+  "Face for compiler notes while selected."
+  :group 'scion-mode-faces)
+
+;;;---------------------------------------------------------------------------
+;;;; Overlays for compiler messages and other things
+
+(defstruct (scion-compilation-result
+             (:type list)
+             (:conc-name scion-compilation-result.)
+             (:constructor nil)
+             (:copier nil))
+  tag notes successp duration)
+
+(defvar scion-last-compilation-result nil
+  "The result of the most recently issued compilation.")
+
+(defvar scion-project-root-dir nil
+  "The root directory of the current project.
+
+This is used, for example, to translate relative path names from
+error messages into absolute path names.")
+
+(defun scion-compiler-notes ()
+  "Return all compiler notes, warnings, and errors."
+  (scion-compilation-result.notes scion-last-compilation-result))
+
+;;; TODO: notes should be sorted by filename (using a hashtable)
+
+(defun scion-highlight-notes (notes)
+  "Highlight compiler notes, warnings, and errors in the buffer."
+  (interactive (list (scion-compiler-notes)))
+  (with-temp-message "Highlighting notes..."
+    (save-excursion
+      (save-restriction
+        (widen)                  ; highlight notes on the whole buffer
+        (scion-remove-old-overlays)
+	(let ((buffers (scion-filter-buffers (lambda () scion-mode))))
+	  (mapc (lambda (b)
+		  (with-current-buffer b
+		    (save-excursion
+		      (save-restriction
+			(widen)
+			(mapc (lambda (note)
+				(princ (format "adding: %S" b))
+				(scion-overlay-note note b)) 
+			      notes)))))
+		buffers)))))
+  nil)
+
+(defun scion-remove-old-overlays ()
+  "Delete the xbexisting Scion overlays in the current buffer."
+  (dolist (buffer (scion-filter-buffers (lambda () scion-mode)))
+    (with-current-buffer buffer
+      (save-excursion
+        (save-restriction
+          (widen)                ; remove overlays within the whole buffer.
+          (goto-char (point-min))
+          (while (not (eobp))
+            (dolist (o (overlays-at (point)))
+              (when (overlay-get o 'scion)
+                (delete-overlay o)))
+            (goto-char (next-overlay-change (point)))))))))
+
+(defun scion-filter-buffers (predicate)
+  "Return a list of buffers where PREDICATE returns true.
+PREDICATE is executed in the buffer to test."
+  (remove-if-not (lambda (%buffer)
+                   (with-current-buffer %buffer
+                     (funcall predicate)))
+                 (buffer-list)))
+
+(defun scion-flash-region (start end &optional timeout)
+  (let ((overlay (make-overlay start end))) 
+    (overlay-put overlay 'face 'secondary-selection)
+    (run-with-timer (or timeout 0.2) nil 'delete-overlay overlay)))
+
+;;; the node representation
+;;;
+;;; (:warning <loc> message-string more-info-string)
+;;; (:error   <loc> message-string more-info-string)
+;;; 
+;;; <loc> ::= (:loc filename start-line start-col end-line end-col)
+;;;        |  (:no-loc text)
+
+(defun scion-note.message (note)
+  (destructure-case note
+     ((:warning loc msg info)
+      msg)
+     ((:error loc msg info)
+      msg)))
+
+(defun scion-note.region (note buffer)
+  (destructuring-bind (tag loc msg more) note
+    (print (list tag loc msg more note))
+    (destructure-case loc
+      ((:loc filename sl sc el ec)
+       (if (equal (buffer-file-name buffer) filename)
+	   (scion-location-to-region sl sc el ec buffer)
+	 nil))
+      ((:no-loc _)
+       nil))))
+
+(defun scion-note.severity (note)
+  (car note))
+
+(defun scion-location-to-region (start-line start-col end-line end-col
+				 &optional buffer)
+  "Translate a Haskell (line,col) region into an Emacs region.
+
+TODO: Fix up locations if buffer has been modified in between."
+  (with-current-buffer (or buffer (current-buffer))
+    (save-excursion
+      (save-restriction
+	(widen) 			; look in whole buffer
+	(goto-char 1)
+	(forward-line (1- start-line))
+	(move-to-column start-col)
+	(let ((start (point)))
+	  (forward-line (- end-line start-line))
+	  (move-to-column end-col)
+	  (let ((end (point)))
+	    (if (< end start)
+		(list end start)
+	      (list start end))))))))
+
+(defun scion-canonicalise-note-location (note)
+  "Translate the note's location into absolute path names.
+Modifies input note."
+  (destructure-case (cadr note)
+    ((:loc fname _ _ _ _)
+     (setf (cadadr note)
+	   (expand-file-name fname scion-project-root-dir))))
+  note)
+
+;;;;; Adding a single compiler note
+
+(defun scion-overlay-note (note buffer)
+  "Add a compiler note to the buffer as an overlay."
+  (multiple-value-bind (start end) (scion-note.region note buffer)
+    (when start
+      (goto-char start)
+      (let ((severity (scion-note.severity note))
+            (message (scion-note.message note)))
+        (scion-create-note-overlay note start end severity message)))))
+
+(defun scion-create-note-overlay (note start end severity message)
+  "Create an overlay representing a compiler note.
+The overlay has several properties:
+  FACE       - to underline the relevant text.
+  SEVERITY   - for future reference, :NOTE, :STYLE-WARNING, :WARNING, or :ERROR.
+  MOUSE-FACE - highlight the note when the mouse passes over.
+  HELP-ECHO  - a string describing the note, both for future reference
+               and for display as a tooltip (due to the special
+               property name)."
+  (let ((overlay (make-overlay start end)))
+    (flet ((putp (name value) (overlay-put overlay name value)))
+      (putp 'scion note)
+      (putp 'face (scion-severity-face severity))
+      ;(putp 'severity severity)
+      (unless (scion-emacs-20-p)
+	(putp 'mouse-face 'highlight))
+      (putp 'help-echo message)
+      overlay)))
+
+(defun scion-severity-face (severity)
+  "Return the name of the font-lock face representing SEVERITY."
+  (ecase severity
+    (:error         'scion-error-face)
+    (:warning       'scion-warning-face)))
+
 
 ;;;---------------------------------------------------------------------------
 
@@ -1306,3 +1523,9 @@ The first argument is dist directory (typically <project-root>/dist/)"
 	  "\n-- Copyright   : (c) " author " " (substring (current-time-string) -4)
 	  "\n--"))
 
+
+;;;---------------------------------------------------------------------------
+
+(defun scion-emacs-20-p ()
+  (and (not (featurep 'xemacs))
+       (= emacs-major-version 20)))
