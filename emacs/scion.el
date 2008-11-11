@@ -1453,15 +1453,32 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (scion-eval-async `(load-component library)
     (scion-handling-failure (x)
       (destructure-case x
-        ((:ok warns)
-	 (let ((num-warns (length warns)))
-	   (message "Library loaded.  (%s warning(s))"
-		    (if (>= num-warns 0) num-warns "no"))))
+	((:ok warns)
+	 (setq scion-last-compilation-result
+	       (list 42 (mapc #'scion-canonicalise-note-location
+			      warns) t nil))
+	 (scion-highlight-notes warns)
+	 (scion-show-note-counts t warns nil))
 	((:error errs warns)
-	 (let ((num-errs (length errs))
-	       (num-warns (length warns)))
-	   (message "Library failed to load.  (%s error(s), %s warning(s))"
-		    num-errs num-warns)))))))
+	 (let ((notes (mapc #'scion-canonicalise-note-location
+			      (append errs warns))))
+	   (setq scion-last-compilation-result
+		 (list 42 notes nil nil))
+	   (scion-highlight-notes notes))
+	 (scion-show-note-counts nil warns errs))))))
+
+(defun scion-show-note-counts (successp warns errs)
+  (let ((nerrors (length errs)) 
+	(nwarnings (length warns)))
+    (message "Compilation %s: %s%s"
+	     (if successp "finished" "FAILED")
+	     (scion-note-count-string "error" nerrors)
+	     (scion-note-count-string "warning" nwarnings))))
+
+(defun scion-note-count-string (category count &optional suppress-if-zero)
+  (cond ((and (zerop count) suppress-if-zero)
+         "")
+        (t (format "%2d %s%s " count category (if (= count 1) "" "s")))))
 
 (defun scion-supported-languages ()
   ;; TODO: cache result
