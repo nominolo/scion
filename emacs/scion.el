@@ -111,6 +111,8 @@ corresponding values in the CDR of VALUE."
 	       '()
 	     `((t (error "Elisp destructure-case failed: %S" ,tmp))))))))
 
+(put 'destructure-case 'lisp-indent-function 1)
+
 ;; Interface
 (defmacro* scion-with-popup-buffer ((name &optional package
                                           connection emacs-snapshot)
@@ -1212,6 +1214,8 @@ last activated the buffer."
        ((:error ,val)
 	(message "Remote command failed: %s" ,val)
 	nil)))))
+
+(put 'scion-handling-failure 'lisp-indent-function 1)
 
 (defun scion-open-cabal-project (root-dir rel-dist-dir)
   "Open a Cabal project.
