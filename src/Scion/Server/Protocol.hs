@@ -15,6 +15,8 @@
 --
 module Scion.Server.Protocol where
 
+import Prelude hiding ( span )
+
 import Scion.Types
 
 import ErrUtils ( WarnMsg, ErrMsg(..) )
@@ -84,6 +86,7 @@ instance Sexp Diagnostic where
   toSexp (DiagWarning msg) = toSexp_diag ":warning" msg
   toSexp (DiagError msg)   = toSexp_diag ":error" msg
 
+toSexp_diag :: String -> ErrMsg -> ShowS
 toSexp_diag diag_type msg =
     parens $ showString diag_type <+> toSexp span 
                <+> putString (show_msg (errMsgShortDoc msg))
