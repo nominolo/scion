@@ -150,7 +150,7 @@ Scion: Smart Haskell mode.
   nil
   nil
   ;; Fake binding to coax `define-minor-mode' to create the keymap
-  '((" " 'undefined)))
+  '((" " 'self-insert-command)))
 
 ;; dummy definitions for the compiler
 (defvar scion-net-coding-system)
