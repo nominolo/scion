@@ -19,7 +19,7 @@ import Exception
 import ErrUtils ( WarningMessages, ErrorMessages )
 
 import Scion.Types
-import Scion.Utils
+import Scion.Utils()
 
 import Control.Monad
 import Data.Data
