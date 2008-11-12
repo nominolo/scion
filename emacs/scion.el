@@ -1445,7 +1445,7 @@ The overlay has several properties:
   "Open a Cabal project.
 
 The first argument is dist directory (typically <project-root>/dist/)"
-  (interactive "DProject dir: \nDDist-dir")
+  (interactive "DProject dir: \nsDist-dir")
   (lexical-let ((root-dir root-dir))
     (scion-eval-async `(open-cabal-project ,(expand-file-name root-dir)
 					   ,rel-dist-dir)
