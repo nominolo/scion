@@ -227,12 +227,7 @@ loadComponent comp = do
    setDynFlagsFromCabal comp
    setTargetsFromCabal comp
    res <- loadWithLogger (logWarnErr ref) LoadAllTargets 
-            `gcatch` (\(e :: SourceError) -> do
-              let errs = srcErrorMessages e
-              warns <- getWarnings
-              add_warn_err ref warns errs
-              clearWarnings
-              return Failed)
+            `gcatch` (\(e :: SourceError) -> handle_error ref e)
    (warns, errs) <- liftIO $ readIORef ref
    case res of
      Succeeded -> return (Right warns)
@@ -250,6 +245,13 @@ loadComponent comp = do
       liftIO $ modifyIORef ref $
                  \(warns', errs') -> ( warns `mappend` warns'
                                      , errs `mappend` errs')
+
+    handle_error ref e = do
+       let errs = srcErrorMessages e
+       warns <- getWarnings
+       add_warn_err ref warns errs
+       clearWarnings
+       return Failed
 
 -- | Parses the list of 'Strings' as command line arguments and sets the
 -- 'DynFlags' accordingly.
