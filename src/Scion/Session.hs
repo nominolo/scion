@@ -202,6 +202,10 @@ setTargetsFromCabal Library = do
 setTargetsFromCabal (Executable _) = do
   error "unimplemented"
 
+type CompilationResult
+  = (Either (WarningMessages, ErrorMessages)
+            WarningMessages)
+
 -- | Load the specified component from the current Cabal project.
 --
 -- Throws:
@@ -212,8 +216,7 @@ setTargetsFromCabal (Executable _) = do
 --    the specified component.
 --
 loadComponent :: CabalComponent
-              -> ScionM (Either (WarningMessages, ErrorMessages)
-                                WarningMessages)
+              -> ScionM CompilationResult
                  -- ^ @Left (warnings, errors)@ if an error occured.  If
                  -- errors is empty, compilation/loading failed due to @-Werror@.
                  --
