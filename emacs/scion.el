@@ -1368,9 +1368,16 @@ TODO: Fix up locations if buffer has been modified in between."
 	  (forward-line (- end-line start-line))
 	  (move-to-column end-col)
 	  (let ((end (point)))
-	    (if (< end start)
-		(list end start)
-	      (list start end))))))))
+	    (cond 
+	     ((< end start)
+	      (list end start))
+	     ((= start end) ; span would be invisible
+	      (list start (progn ; a bit of a hack, but well
+			    (goto-char start)
+			    (forward-word)
+			    (point))))
+	     (t
+	      (list start end)))))))))
 
 (defun scion-canonicalise-note-location (note)
   "Translate the note's location into absolute path names.
