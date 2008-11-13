@@ -49,3 +49,11 @@ instance Monoid (Bag a) where
   mempty = emptyBag
   mappend = unionBags
   mconcat = unionManyBags
+
+dieHard :: String -> a
+dieHard last_wish = do
+   error $ "************** Panic **************\n" ++ 
+              last_wish ++ 
+              "\nPlease file a bug report at:\n  " ++ bug_tracker_url
+  where
+    bug_tracker_url = "http://code.google.com/p/scion-lib/issues/list"
