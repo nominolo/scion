@@ -77,9 +77,8 @@ initialScionDynFlags dflags =
 
 resetSessionState :: ScionM ()
 resetSessionState = do
-   -- unload
-   setTargets []
-   load LoadAllTargets
+   unload
+
    dflags0 <- gets initialDynFlags
    -- TODO: do something with result from setSessionDynFlags?
    setSessionDynFlags (initialScionDynFlags dflags0)
@@ -258,6 +257,13 @@ load how_much = do
        add_warn_err ref warns errs
        clearWarnings
        return Failed
+
+-- | Unload whatever is currently loaded.
+unload :: ScionM ()
+unload = do
+   setTargets []
+   load LoadAllTargets
+   return ()
 
 -- | Parses the list of 'Strings' as command line arguments and sets the
 -- 'DynFlags' accordingly.
