@@ -53,6 +53,7 @@ allCommands =
     , cmdListRdrNamesInScope
     , cmdListExposedModules
     , cmdSetGHCVerbosity
+    , cmdSetContextForBGTC
     ]
 
 ------------------------------------------------------------------------------
