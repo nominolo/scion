@@ -13,7 +13,7 @@
 --
 module Scion.Session where
 
-import GHC hiding ( flags )
+import GHC hiding ( flags, load )
 import HscTypes ( srcErrorMessages,SourceError )
 import Exception
 import ErrUtils ( WarningMessages, ErrorMessages )
@@ -222,11 +222,19 @@ loadComponent :: CabalComponent
                  --
                  -- @Right warnings@ if compilation/loading succeeded.
 loadComponent comp = do
+   dflags <- getSessionDynFlags
+   setSessionDynFlags $! dflags { hscTarget = HscInterpreted
+                                , ghcLink = LinkInMemory }
    -- TODO: group warnings by file
-   ref <- liftIO $ newIORef (mempty, mempty)
    setDynFlagsFromCabal comp
    setTargetsFromCabal comp
-   res <- loadWithLogger (logWarnErr ref) LoadAllTargets 
+   load LoadAllTargets
+
+-- | Wrapper for 'GHC.load'.
+load :: LoadHowMuch -> ScionM CompilationResult
+load how_much = do
+   ref <- liftIO $ newIORef (mempty, mempty)
+   res <- loadWithLogger (logWarnErr ref) how_much
             `gcatch` (\(e :: SourceError) -> handle_error ref e)
    (warns, errs) <- liftIO $ readIORef ref
    case res of
