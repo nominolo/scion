@@ -68,6 +68,7 @@ toplevelNames m | Just (grp, _imps, _exps, _doc, _hmi) <- renamedSource m =
            , n <- case bind of
                     FunBind {fun_id = L _ n} -> [n]
                     PatBind {pat_lhs = L _ p} -> pat_names p
+                    _ -> []
        ]
   where
     -- return names bound by pattern
@@ -80,6 +81,7 @@ toplevelNames m | Just (grp, _imps, _exps, _doc, _hmi) <- renamedSource m =
     pat_bind_name (VarPat id) = Just id
     pat_bind_name (AsPat (L _ id) _) = Just id
     pat_bind_name _ = Nothing
+toplevelNames _ = []
 
 data ThingAtPoint
   = ExprThing (HsExpr Name)
