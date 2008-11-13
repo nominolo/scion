@@ -1557,6 +1557,9 @@ The first argument is dist directory (typically <project-root>/dist/)"
 	  "\n-- Stability   : experimental"
 	  "\n-- Portability : portable\n--\n"))
 
+(defun scion-set-ghc-verbosity (n)
+  (interactive "nLevel [0-5]: ")
+  (scion-eval `(set-ghc-verbosity ,n)))
 
 ;;;---------------------------------------------------------------------------
 

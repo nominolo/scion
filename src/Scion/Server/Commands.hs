@@ -52,6 +52,7 @@ allCommands =
     , cmdListSupportedFlags
     , cmdListRdrNamesInScope
     , cmdListExposedModules
+    , cmdSetGHCVerbosity
     ]
 
 ------------------------------------------------------------------------------
@@ -171,3 +172,11 @@ cmdListExposedModules =
         mod_names <- allExposedModules
         return $ toString $ Lst $
           map (showSDoc . ppr) mod_names
+
+cmdSetGHCVerbosity :: Command
+cmdSetGHCVerbosity =
+    Command $ do
+      string "set-ghc-verbosity" >> sp
+      lvl <- getInt
+      return $ do
+        toString `fmap` setGHCVerbosity lvl

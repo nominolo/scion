@@ -222,9 +222,6 @@ loadComponent :: CabalComponent
                  --
                  -- @Right warnings@ if compilation/loading succeeded.
 loadComponent comp = do
-   dflags <- getSessionDynFlags
-   setSessionDynFlags $! dflags { hscTarget = HscInterpreted
-                                , ghcLink = LinkInMemory }
    -- TODO: group warnings by file
    setDynFlagsFromCabal comp
    setTargetsFromCabal comp
@@ -309,3 +306,11 @@ availableComponents = do
               _ -> []) ++
            [ Executable n 
                  | PD.Executable {PD.exeName = n} <- PD.executables pd ]
+
+-- | Set the verbosity of the GHC API.
+setGHCVerbosity :: Int -> ScionM ()
+setGHCVerbosity lvl = do
+   dflags <- getSessionDynFlags
+   setSessionDynFlags $! dflags { verbosity = lvl }
+   return ()
+

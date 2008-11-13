@@ -19,9 +19,10 @@ import Scion.Server.Commands
 
 import Exception
 import MonadUtils
+import GHC
 
 import Control.Exception
-import Control.Monad ( liftM )
+import Control.Monad ( liftM, when )
 import Data.Bits ( shiftL )
 import Data.Char ( isHexDigit, digitToInt )
 import Data.Data ( Typeable )
@@ -73,6 +74,9 @@ eventLoop sock =
           | otherwise -> do
              resp <- handleRequest req
              log 4 (show resp)
+             dflags <- getSessionDynFlags
+             when (verbosity dflags > 3) $
+               log 3 ("*************************************************")
              sendResponse resp
              eventLoop sock
   where
