@@ -180,3 +180,11 @@ cmdSetGHCVerbosity =
       lvl <- getInt
       return $ do
         toString `fmap` setGHCVerbosity lvl
+
+cmdSetContextForBGTC :: Command
+cmdSetContextForBGTC =
+    Command $ do
+      string "set-context-for-bgtc" >> sp
+      fname <- getString
+      return $
+        toString `fmap` (setContextForBGTC fname >>= sexpCompilationResult)

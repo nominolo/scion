@@ -13,13 +13,14 @@
 --
 module Scion.Session where
 
+import Prelude hiding ( mod )
 import GHC hiding ( flags, load )
 import HscTypes ( srcErrorMessages,SourceError )
 import Exception
 import ErrUtils ( WarningMessages, ErrorMessages )
 
 import Scion.Types
-import Scion.Utils()
+import Scion.Utils
 
 import Control.Monad
 import Data.Data
@@ -314,3 +315,24 @@ setGHCVerbosity lvl = do
    setSessionDynFlags $! dflags { verbosity = lvl }
    return ()
 
+------------------------------------------------------------------------------
+
+-- ** Background Typechecking
+
+setContextForBGTC :: FilePath -> ScionM CompilationResult
+setContextForBGTC fname = do
+   let target = Target (TargetFile fname Nothing)
+                       True
+                       Nothing
+   setTargets [target]
+   -- find out the module name of our target
+   mod_graph <- depanal [] False
+   let mod = case [ m | m <- mod_graph
+                      , Just src <- [ml_hs_file (ms_location m)]
+                      , src == fname ]
+             of [ m ] -> m
+                [] -> dieHard $ "No ModSummary found for " ++ fname
+                _ -> dieHard $ "Too many ModSummaries found for " ++ fname
+   let mod_name = ms_mod_name mod
+   load (LoadDependenciesOf mod_name)
+  `gcatch` \(_e :: SourceError) -> return (Left (mempty,mempty)) -- XXX
