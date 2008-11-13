@@ -1,7 +1,7 @@
 {-# LANGUAGE PatternGuards, CPP,
              FlexibleInstances, FlexibleContexts, MultiParamTypeClasses,
              StandaloneDeriving, TypeSynonymInstances #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-orphans -fno-warn-name-shadowing #-}
 -- |
 -- Module      : Scion.Inspect
 -- Copyright   : (c) Thomas Schilling 2008
@@ -27,13 +27,13 @@ import Data.Map ( Map )
 import qualified Data.Map as M
 
 #ifdef DEBUG
-import FastString
-import Test.QuickCheck
-import Test.GHC.Gen
-import Debug.Trace
+--import FastString
+import Test.QuickCheck()
+import Test.GHC.Gen()
+--import Debug.Trace
 import Outputable
 import GHC.SYB.Utils
-import StaticFlags ( initStaticOpts )
+--import StaticFlags ( initStaticOpts )
 #endif
 ------------------------------------------------------------------------------
 
@@ -87,7 +87,7 @@ data ThingAtPoint
   | NoThing
 
 thingAtPoint :: TypecheckedMod m => m -> ThingAtPoint
-thingAtPoint m = NoThing
+thingAtPoint _m = NoThing
 
 ------------------------------------------------------------------------------
 data LocMap a
@@ -109,6 +109,7 @@ cmpOverlap sp1 sp2
 
 #ifdef DEBUG
 
+prop_invCmpOverlap :: SrcSpan -> SrcSpan -> Bool
 prop_invCmpOverlap s1 s2 =
   case cmpOverlap s1 s2 of
     LT -> cmpOverlap s2 s1 == GT
@@ -128,10 +129,10 @@ instance Uniplate (Pat n) where
   uniplate pat = case pat of
     WildPat _         -> (Zero, \Zero -> pat)
     VarPat _          -> (Zero, \Zero -> pat)
-    VarPatOut n _     -> (Zero, \Zero -> pat) --down binds (VarPatOut n)
+    VarPatOut _n _     -> (Zero, \Zero -> pat) --down binds (VarPatOut n)
     LazyPat (L s p)   -> (One p, \(One p') -> LazyPat (L s p'))
     AsPat n (L s p)   -> (One p, \(One p') -> AsPat n (L s p'))
-    ParPat (L s p)    -> (One p, \(One p') -> ParPat (L s p))
+    ParPat (L s p)    -> (One p, \(One p') -> ParPat (L s p'))
     BangPat (L s p)   -> (One p, \(One p') -> BangPat (L s p'))
     ListPat ps t      -> down ps (\ps' -> ListPat ps' t)
     TuplePat ps b t   -> down ps (\ps' -> TuplePat ps' b t)
