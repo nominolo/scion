@@ -1458,21 +1458,24 @@ The first argument is dist directory (typically <project-root>/dist/)"
   "Load the library of the current cabal project."
   (interactive)
   (scion-eval-async `(load-component library)
-    (scion-handling-failure (x)
-      (destructure-case x
-	((:ok warns)
-	 (setq scion-last-compilation-result
-	       (list 42 (mapc #'scion-canonicalise-note-location
-			      warns) t nil))
-	 (scion-highlight-notes warns)
-	 (scion-show-note-counts t warns nil))
-	((:error errs warns)
-	 (let ((notes (mapc #'scion-canonicalise-note-location
-			      (append errs warns))))
-	   (setq scion-last-compilation-result
-		 (list 42 notes nil nil))
-	   (scion-highlight-notes notes))
-	 (scion-show-note-counts nil warns errs))))))
+    (scion-handling-failure (result)
+      (scion-report-compilation-result result))))
+
+(defun scion-report-compilation-result (result)
+  (destructure-case result
+    ((:ok warns)
+     (setq scion-last-compilation-result
+	   (list 42 (mapc #'scion-canonicalise-note-location
+			  warns) t nil))
+     (scion-highlight-notes warns)
+     (scion-show-note-counts t warns nil))
+    ((:error errs warns)
+     (let ((notes (mapc #'scion-canonicalise-note-location
+			(append errs warns))))
+       (setq scion-last-compilation-result
+	     (list 42 notes nil nil))
+       (scion-highlight-notes notes))
+     (scion-show-note-counts nil warns errs))))
 
 (defun scion-show-note-counts (successp warns errs)
   (let ((nerrors (length errs)) 
