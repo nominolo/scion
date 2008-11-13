@@ -137,8 +137,6 @@ getLocalBuildInfo =
       --error "call openCabalProject before loadCabalProject"
     Just lbi -> return lbi
 
-data CabalComponent = Library | Executable String deriving (Show, Typeable)
-
 noLibError :: ScionM a
 noLibError = liftIO $ throwIO $ ComponentDoesNotExist Library
 
@@ -228,9 +226,30 @@ loadComponent :: CabalComponent
                  -- @Right warnings@ if compilation/loading succeeded.
 loadComponent comp = do
    -- TODO: group warnings by file
-   setDynFlagsFromCabal comp
+   setActiveComponent comp
    setTargetsFromCabal comp
    load LoadAllTargets
+
+-- | Make the specified component the active one, i. e., set the DynFlags to
+--  those specified for the given component.
+--
+-- Throws:
+--
+--  * 'NoCurrentCabalProject' if there is no current Cabal project.
+--
+--  * 'ComponentDoesNotExist' if the current Cabal project does not contain
+--    the specified component.
+--
+setActiveComponent :: CabalComponent -> ScionM ()
+setActiveComponent comp = do
+   curr_comp <- gets activeComponent
+   when (needs_unloading curr_comp)
+     unload
+   setDynFlagsFromCabal comp
+   modifySessionState (\sess -> sess { activeComponent = Just comp })
+  where
+   needs_unloading (Just c) | c /= comp = True
+   needs_unloading _ = False
 
 -- | Wrapper for 'GHC.load'.
 load :: LoadHowMuch -> ScionM CompilationResult

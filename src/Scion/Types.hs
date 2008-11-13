@@ -30,16 +30,25 @@ import Control.Exception
 data SessionState 
   = SessionState {
       scionVerbosity :: Verbosity,
-      localBuildInfo :: Maybe LocalBuildInfo,
-      initialDynFlags :: DynFlags
+      initialDynFlags :: DynFlags,
         -- ^ The DynFlags as they when Scion was started.  This is used to
         -- reset flags when opening a new project.  Arguably, the GHC API
         -- should provide calls to reset a session.
+
+      localBuildInfo :: Maybe LocalBuildInfo,
+        -- ^ Build info from current Cabal project.
+
+      activeComponent :: Maybe CabalComponent,
+        -- ^ The current active Cabal component.  This affects DynFlags and
+        -- targets.  ATM, we don't support multiple active components.
+
+      focusedModule :: Maybe ModuleName
+        -- ^ The currently focused module for background typechecking.
     }
 
 mkSessionState :: DynFlags -> IO (IORef SessionState)
 mkSessionState dflags =
-    newIORef (SessionState normal Nothing dflags)
+    newIORef (SessionState normal dflags Nothing Nothing Nothing)
 
 newtype ScionM a
   = ScionM { unScionM :: IORef SessionState -> Ghc a }
@@ -119,6 +128,10 @@ reflectScionM (ScionM f) = \(st, sess) -> reflectGhc (f st) sess
 -- > Dual to 'reflectGhc'.  See its documentation.
 reifyScionM :: ((IORef SessionState, Session) -> IO a) -> ScionM a
 reifyScionM act = ScionM $ \st -> reifyGhc $ \sess -> act (st, sess)
+
+------------------------------------------------------------------------------
+
+data CabalComponent = Library | Executable String deriving (Eq, Show, Typeable)
 
 ------------------------------------------------------------------------------
 
