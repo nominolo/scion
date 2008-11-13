@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, CPP #-}
 {-# LANGUAGE PatternGuards, DeriveDataTypeable #-}
 -- |
 -- Module      : Scion.Session
@@ -70,9 +70,14 @@ instance Exception ComponentDoesNotExist where
 
 initialScionDynFlags :: DynFlags -> DynFlags
 initialScionDynFlags dflags =
-  dflags 
-    { hscTarget = HscNothing  -- by default, don't modify anything
+  dflags {
+#ifdef RECOMPILE_BUG_FIXED
+      hscTarget = HscNothing  -- by default, don't modify anything
     , ghcLink   = NoLink      -- just to be sure
+#else
+      hscTarget = HscInterpreted
+    , ghcLink   = LinkInMemory
+#endif
     }
 
 resetSessionState :: ScionM ()
