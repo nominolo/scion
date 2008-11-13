@@ -319,6 +319,8 @@ setGHCVerbosity lvl = do
 
 -- ** Background Typechecking
 
+-- | Load all dependencies of the file so we can typecheck it with minimum
+--   delay.
 setContextForBGTC :: FilePath -> ScionM CompilationResult
 setContextForBGTC fname = do
    let target = Target (TargetFile fname Nothing)
@@ -335,4 +337,7 @@ setContextForBGTC fname = do
                 _ -> dieHard $ "Too many ModSummaries found for " ++ fname
    let mod_name = ms_mod_name mod
    load (LoadDependenciesOf mod_name)
-  `gcatch` \(_e :: SourceError) -> return (Left (mempty,mempty)) -- XXX
+  `gcatch` \(e :: SourceError) -> do
+              warns <- getWarnings
+              clearWarnings
+              return (Left (warns, srcErrorMessages e)) -- XXX
