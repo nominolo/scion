@@ -105,16 +105,18 @@ cmdLoadComponent =
   where
     cmd comp = handleScionException $ do
       r <- loadComponent comp
-      case r of
-        Left (warns, errs) ->
-            return $ ExactSexp $ parens $ 
-              showString ":error" <+>
-              toSexp (Lst (map DiagError (toList errs))) <+>
-              toSexp (Lst (map DiagWarning (toList warns)))
-        Right warns ->
-            return $ ExactSexp $ parens $
-              showString ":ok" <+> 
-              toSexp (Lst (map DiagWarning (toList warns)))
+      sexpCompilationResult r
+        
+sexpCompilationResult :: CompilationResult -> ScionM ExactSexp
+sexpCompilationResult (Left (warns, errs)) =
+    return $ ExactSexp $ parens $ 
+        showString ":error" <+>
+        toSexp (Lst (map DiagError (toList errs))) <+>
+        toSexp (Lst (map DiagWarning (toList warns)))
+sexpCompilationResult (Right warns) =
+    return $ ExactSexp $ parens $
+         showString ":ok" <+> 
+         toSexp (Lst (map DiagWarning (toList warns)))
 
 cmdListSupportedLanguages :: Command
 cmdListSupportedLanguages =
