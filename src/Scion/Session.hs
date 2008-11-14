@@ -213,6 +213,19 @@ data CompilationResult = CompilationResult {
       compilationTime      :: NominalDiffTime
     }
 
+instance Monoid CompilationResult where
+  mempty = CompilationResult True mempty mempty 0
+  mappend r1 r2 =
+      CompilationResult 
+        { compilationSucceeded = 
+              compilationSucceeded r1 && compilationSucceeded r2
+        , compilationWarnings = 
+            compilationWarnings r1 `mappend` compilationWarnings r2
+        , compilationErrors =
+            compilationErrors r1 `mappend` compilationErrors r2
+        , compilationTime = compilationTime r1 + compilationTime r2
+        }
+
 -- | Load the specified component from the current Cabal project.
 --
 -- Throws:
