@@ -150,7 +150,7 @@ current state will be saved and later restored."
 Scion: Smart Haskell mode.
 \\{scion-mode-map}"
   nil
-  nil
+  " Scion"
   ;; Fake binding to coax `define-minor-mode' to create the keymap
   '((" " 'self-insert-command)))
 
