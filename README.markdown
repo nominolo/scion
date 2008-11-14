@@ -72,9 +72,9 @@ Please send bug reports or feature requests to the [Issue tracker][issues].
 Discussion
 ==========
 
-For discussions about Scion use the [scion-lib-devel] mailing list.
+For discussions about Scion use the [scion-lib-devel][ml] mailing list.
 
-  [scion-lib-devel]: http://groups.google.com/group/scion-lib-devel
+  [ml]: http://groups.google.com/group/scion-lib-devel
 
 
 Hacking
