@@ -58,7 +58,8 @@ instance Monad ScionM where
   (ScionM ma) >>= fb = 
       ScionM $ \s -> do
         a <- ma s 
-        unScionM (fb a) s             
+        unScionM (fb a) s
+  fail msg = dieHard msg
 
 instance Functor ScionM where
   fmap f (ScionM ma) =
@@ -150,3 +151,12 @@ scionFromException :: Exception e => SomeException -> Maybe e
 scionFromException x = do
   SomeScionException e <- fromException x
   cast e
+
+dieHard :: String -> a
+dieHard last_wish = do
+   error $ "************** Panic **************\n" ++ 
+              last_wish ++ 
+              "\nPlease file a bug report at:\n  " ++ bug_tracker_url
+  where
+    bug_tracker_url = "http://code.google.com/p/scion-lib/issues/list"
+

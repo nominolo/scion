@@ -50,10 +50,7 @@ instance Monoid (Bag a) where
   mappend = unionBags
   mconcat = unionManyBags
 
-dieHard :: String -> a
-dieHard last_wish = do
-   error $ "************** Panic **************\n" ++ 
-              last_wish ++ 
-              "\nPlease file a bug report at:\n  " ++ bug_tracker_url
-  where
-    bug_tracker_url = "http://code.google.com/p/scion-lib/issues/list"
+expectJust :: String -> Maybe a -> a
+expectJust _ (Just a) = a
+expectJust msg Nothing = 
+    dieHard $ "Just x expected.\n  grep for \"" ++ msg ++ "\""
