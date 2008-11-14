@@ -1470,7 +1470,7 @@ The first argument is dist directory (typically <project-root>/dist/)"
 		       (nconc errs warns))))
       (setq scion-last-compilation-result
 	    (list tag successp notes duration))
-      (scion-highlight-notes warns)
+      (scion-highlight-notes notes)
       (scion-show-note-counts successp nwarnings nerrors duration))))
     
 ;;     ((:ok warns)
