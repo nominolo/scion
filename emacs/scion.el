@@ -1258,7 +1258,7 @@ last activated the buffer."
              (:conc-name scion-compilation-result.)
              (:constructor nil)
              (:copier nil))
-  tag notes successp duration)
+  tag successp notes duration)
 
 (defvar scion-last-compilation-result nil
   "The result of the most recently issued compilation.")
@@ -1462,28 +1462,37 @@ The first argument is dist directory (typically <project-root>/dist/)"
       (scion-report-compilation-result result))))
 
 (defun scion-report-compilation-result (result)
-  (destructure-case result
-    ((:ok warns)
-     (setq scion-last-compilation-result
-	   (list 42 (mapc #'scion-canonicalise-note-location
-			  warns) t nil))
-     (scion-highlight-notes warns)
-     (scion-show-note-counts t warns nil))
-    ((:error errs warns)
-     (let ((notes (mapc #'scion-canonicalise-note-location
-			(append errs warns))))
-       (setq scion-last-compilation-result
-	     (list 42 notes nil nil))
-       (scion-highlight-notes notes))
-     (scion-show-note-counts nil warns errs))))
+  (destructuring-bind (tag successp warns errs duration) result
+    (assert (eq tag 'compilation-result))
+    (let ((nerrors (length errs))
+	  (nwarnings (length warns))
+	  (notes (mapc #'scion-canonicalise-note-location 
+		       (nconc errs warns))))
+      (setq scion-last-compilation-result
+	    (list tag successp notes duration))
+      (scion-highlight-notes warns)
+      (scion-show-note-counts successp nwarnings nerrors duration))))
+    
+;;     ((:ok warns)
+;;      (setq scion-last-compilation-result
+;; 	   (list 42 (mapc #'scion-canonicalise-note-location
+;; 			  warns) t nil))
+;;      (scion-highlight-notes warns)
+;;      (scion-show-note-counts t warns nil))
+;;     ((:error errs warns)
+;;      (let ((notes (mapc #'scion-canonicalise-note-location
+;; 			(append errs warns))))
+;;        (setq scion-last-compilation-result
+;; 	     (list 42 notes nil nil))
+;;        (scion-highlight-notes notes))
+;;      (scion-show-note-counts nil warns errs))))
 
-(defun scion-show-note-counts (successp warns errs)
-  (let ((nerrors (length errs)) 
-	(nwarnings (length warns)))
-    (message "Compilation %s: %s%s"
-	     (if successp "finished" "FAILED")
-	     (scion-note-count-string "error" nerrors)
-	     (scion-note-count-string "warning" nwarnings))))
+(defun scion-show-note-counts (successp nwarnings nerrors secs)
+  (message "Compilation %s: %s%s%s"
+	   (if successp "finished" "FAILED")
+	   (scion-note-count-string "error" nerrors)
+	   (scion-note-count-string "warning" nwarnings)
+	   (if secs (format "[%.2f secs]" secs) "")))
 
 (defun scion-note-count-string (category count &optional suppress-if-zero)
   (cond ((and (zerop count) suppress-if-zero)

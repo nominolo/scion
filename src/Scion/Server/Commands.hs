@@ -110,15 +110,14 @@ cmdLoadComponent =
       sexpCompilationResult r
         
 sexpCompilationResult :: CompilationResult -> ScionM ExactSexp
-sexpCompilationResult (Left (warns, errs)) =
+sexpCompilationResult (CompilationResult succeeded warns errs time) =
     return $ ExactSexp $ parens $ 
-        showString ":error" <+>
+        showString "compilation-result" <+>
+        toSexp succeeded <+>
+        toSexp (Lst (map DiagWarning (toList warns))) <+>
         toSexp (Lst (map DiagError (toList errs))) <+>
-        toSexp (Lst (map DiagWarning (toList warns)))
-sexpCompilationResult (Right warns) =
-    return $ ExactSexp $ parens $
-         showString ":ok" <+> 
-         toSexp (Lst (map DiagWarning (toList warns)))
+        toSexp (ExactSexp (showString (show 
+                  (fromRational (toRational time) :: Float))))
 
 cmdListSupportedLanguages :: Command
 cmdListSupportedLanguages =

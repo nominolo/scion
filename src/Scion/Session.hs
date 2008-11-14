@@ -28,6 +28,7 @@ import Data.IORef
 import Data.List        ( intercalate )
 import Data.Maybe       ( isJust )
 import Data.Monoid
+import Data.Time.Clock  ( getCurrentTime, diffUTCTime, NominalDiffTime )
 import System.Directory ( setCurrentDirectory )
 import System.FilePath  ( (</>) )
 import Control.Exception
@@ -205,9 +206,12 @@ setTargetsFromCabal Library = do
 setTargetsFromCabal (Executable _) = do
   error "unimplemented"
 
-type CompilationResult
-  = (Either (WarningMessages, ErrorMessages)
-            WarningMessages)
+data CompilationResult = CompilationResult { 
+      compilationSucceeded :: Bool,
+      compilationWarnings  :: WarningMessages,
+      compilationErrors    :: ErrorMessages,
+      compilationTime      :: NominalDiffTime
+    }
 
 -- | Load the specified component from the current Cabal project.
 --
@@ -254,13 +258,16 @@ setActiveComponent comp = do
 -- | Wrapper for 'GHC.load'.
 load :: LoadHowMuch -> ScionM CompilationResult
 load how_much = do
+   start_time <- liftIO $ getCurrentTime
    ref <- liftIO $ newIORef (mempty, mempty)
    res <- loadWithLogger (logWarnErr ref) how_much
             `gcatch` (\(e :: SourceError) -> handle_error ref e)
+   end_time <- liftIO $ getCurrentTime
+   let time_diff = diffUTCTime end_time start_time
    (warns, errs) <- liftIO $ readIORef ref
    case res of
-     Succeeded -> return (Right warns)
-     Failed -> return (Left (warns, errs))
+     Succeeded -> return (CompilationResult True warns mempty time_diff)
+     Failed -> return (CompilationResult False warns errs time_diff)
   where
     logWarnErr ref err = do
       let errs = case err of
@@ -357,11 +364,12 @@ setContextForBGTC fname = do
                        True
                        Nothing
    setTargets [target]
+   start_time <- liftIO $ getCurrentTime
    -- find out the module name of our target
    mb_mod_graph <- gtry $ depanal [] False
    case mb_mod_graph of
      Left (e :: SourceError) -> do
-         r <- srcErrToCompilationResult e
+         r <- srcErrToCompilationResult start_time e
          return (Nothing, r)
      Right mod_graph -> do
          let mod = case [ m | m <- mod_graph
@@ -371,16 +379,23 @@ setContextForBGTC fname = do
                       [] -> dieHard $ "No ModSummary found for " ++ fname
                       _ -> dieHard $ "Too many ModSummaries found for " ++ fname
          let mod_name = ms_mod_name mod
-         r <- load (LoadDependenciesOf mod_name) 
-                `gcatch` \(e :: SourceError) -> srcErrToCompilationResult e
+         -- load does its own time tracking
+         end_time <- liftIO $ getCurrentTime
+         r0 <- load (LoadDependenciesOf mod_name) 
+                `gcatch` \(e :: SourceError) -> srcErrToCompilationResult start_time e
+         let r = r0 { compilationTime = compilationTime r0 +
+                                         diffUTCTime end_time start_time }
          modifySessionState $ \sess ->
-             sess { focusedModule = either (const Nothing) 
-                                           (const (Just mod_name))
-                                           r }
+             sess { focusedModule = if compilationSucceeded r
+                                     then Just mod_name 
+                                     else Nothing
+                  }
          return (Just mod_name, r)
   where
-    srcErrToCompilationResult err = do
+    srcErrToCompilationResult start_time err = do
+       end_time <- liftIO $ getCurrentTime
        warns <- getWarnings
        clearWarnings
-       return (Left (warns, srcErrorMessages err))
+       return (CompilationResult False warns (srcErrorMessages err)
+                                 (diffUTCTime end_time start_time))
 
