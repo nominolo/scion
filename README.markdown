@@ -17,8 +17,8 @@ Installation
 ============
 
 Scion requires [GHC 6.10.1][ghc] or later.  All other dependencies
-should be on [Hackage] and can be installed using
-[cabal-install]:
+should be on [Hackage][hackage] and can be installed using
+[cabal-install][ci]:
 
     $ cd dir/to/scion
     $ cabal install
@@ -27,8 +27,8 @@ Scion supports various configuration flags which are useful when
 working on Scion itself.
 
   [ghc]: http://haskell.org/ghc/download.html
-  [Hackage]: http://hackage.haskell.org/packages/hackage.html
-  [cabal-install]: http://hackage.haskell.org/trac/hackage/wiki/CabalInstall
+  [hackage]: http://hackage.haskell.org/packages/hackage.html
+  [ci]: http://hackage.haskell.org/trac/hackage/wiki/CabalInstall
 
 Usage
 =====
@@ -80,7 +80,7 @@ For discussions about Scion use the [scion-lib-devel][ml] mailing list.
 Hacking
 =======
 
-The main repository for Scion is hosted on [Github].  Get it via
+The main repository for Scion is hosted on [Github][gh].  Get it via
 
     $ git clone git://github.com/nominolo/scion
 
@@ -88,4 +88,4 @@ Send patches or pull requests to nominolo (email address at googlemail
 dot com).  Note that, if you fork the project on Github your fork
 won't take up additional space on your account.
 
-  [Github]: http://github.com
+  [gh]: http://github.com
