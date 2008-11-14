@@ -188,4 +188,4 @@ cmdSetContextForBGTC =
       string "set-context-for-bgtc" >> sp
       fname <- getString
       return $
-        toString `fmap` (setContextForBGTC fname >>= sexpCompilationResult)
+        toString `fmap` (setContextForBGTC fname >>= sexpCompilationResult . snd)

@@ -351,23 +351,36 @@ setGHCVerbosity lvl = do
 
 -- | Load all dependencies of the file so we can typecheck it with minimum
 --   delay.
-setContextForBGTC :: FilePath -> ScionM CompilationResult
+setContextForBGTC :: FilePath -> ScionM (Maybe ModuleName, CompilationResult)
 setContextForBGTC fname = do
    let target = Target (TargetFile fname Nothing)
                        True
                        Nothing
    setTargets [target]
    -- find out the module name of our target
-   mod_graph <- depanal [] False
-   let mod = case [ m | m <- mod_graph
-                      , Just src <- [ml_hs_file (ms_location m)]
-                      , src == fname ]
-             of [ m ] -> m
-                [] -> dieHard $ "No ModSummary found for " ++ fname
-                _ -> dieHard $ "Too many ModSummaries found for " ++ fname
-   let mod_name = ms_mod_name mod
-   load (LoadDependenciesOf mod_name)
-  `gcatch` \(e :: SourceError) -> do
-              warns <- getWarnings
-              clearWarnings
-              return (Left (warns, srcErrorMessages e)) -- XXX
+   mb_mod_graph <- gtry $ depanal [] False
+   case mb_mod_graph of
+     Left (e :: SourceError) -> do
+         r <- srcErrToCompilationResult e
+         return (Nothing, r)
+     Right mod_graph -> do
+         let mod = case [ m | m <- mod_graph
+                            , Just src <- [ml_hs_file (ms_location m)]
+                            , src == fname ]
+                   of [ m ] -> m
+                      [] -> dieHard $ "No ModSummary found for " ++ fname
+                      _ -> dieHard $ "Too many ModSummaries found for " ++ fname
+         let mod_name = ms_mod_name mod
+         r <- load (LoadDependenciesOf mod_name) 
+                `gcatch` \(e :: SourceError) -> srcErrToCompilationResult e
+         modifySessionState $ \sess ->
+             sess { focusedModule = either (const Nothing) 
+                                           (const (Just mod_name))
+                                           r }
+         return (Just mod_name, r)
+  where
+    srcErrToCompilationResult err = do
+       warns <- getWarnings
+       clearWarnings
+       return (Left (warns, srcErrorMessages err))
+
