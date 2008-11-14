@@ -561,6 +561,9 @@ If PROCESS is not specified, `scion-connection' is used.
 
 (put 'scion-with-connection-buffer 'lisp-indent-function 1)
 
+(defun scion-connected-p ()
+  "Return true if the Swank connection is open."
+  (not (null scion-net-processes)))
 
 (defun scion-compute-connection-state (conn)
   (cond ((null conn) :disconnected) 
