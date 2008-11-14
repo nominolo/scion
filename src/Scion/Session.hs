@@ -20,7 +20,7 @@ import Exception
 import ErrUtils ( WarningMessages, ErrorMessages )
 
 import Scion.Types
-import Scion.Utils
+import Scion.Utils()
 
 import Control.Monad
 import Data.Data
@@ -385,22 +385,18 @@ setContextForBGTC fname = do
          r <- srcErrToCompilationResult start_time e
          return (Nothing, r)
      Right mod_graph -> do
-         let mod = case [ m | m <- mod_graph
-                            , Just src <- [ml_hs_file (ms_location m)]
-                            , src == fname ]
-                   of [ m ] -> m
-                      [] -> dieHard $ "No ModSummary found for " ++ fname
-                      _ -> dieHard $ "Too many ModSummaries found for " ++ fname
+         let mod = modSummaryForFile fname mod_graph
          let mod_name = ms_mod_name mod
          -- load does its own time tracking
          end_time <- liftIO $ getCurrentTime
          r0 <- load (LoadDependenciesOf mod_name) 
-                `gcatch` \(e :: SourceError) -> srcErrToCompilationResult start_time e
+                `gcatch` \(e :: SourceError) -> 
+                            srcErrToCompilationResult start_time e
          let r = r0 { compilationTime = compilationTime r0 +
                                          diffUTCTime end_time start_time }
          modifySessionState $ \sess ->
              sess { focusedModule = if compilationSucceeded r
-                                     then Just mod_name 
+                                     then Just (fname, mod_name, mod)
                                      else Nothing
                   }
          return (Just mod_name, r)
@@ -412,3 +408,54 @@ setContextForBGTC fname = do
        return (CompilationResult False warns (srcErrorMessages err)
                                  (diffUTCTime end_time start_time))
 
+modSummaryForFile :: FilePath -> ModuleGraph -> ModSummary
+modSummaryForFile fname mod_graph =
+    case [ m | m <- mod_graph
+         , Just src <- [ml_hs_file (ms_location m)]
+         , src == fname ]
+    of [ m ] -> m
+       []    -> dieHard $ "modSummaryForFile: No ModSummary found for " ++ fname
+       _     -> dieHard $ "modSummaryForFile: Too many ModSummaries found for "
+                          ++ fname
+
+backgroundTypecheckFile :: FilePath -> ScionM (Bool, CompilationResult)
+backgroundTypecheckFile fname = do
+   mb_focusmod <- gets focusedModule
+   case mb_focusmod of
+     Just (f, m, ms) | f == fname -> 
+        backgroundTypecheckFile' mempty m ms
+     _otherwise -> do
+        (_, rslt) <- setContextForBGTC fname
+        if compilationSucceeded rslt
+          then do Just (_f, m, ms) <- gets focusedModule
+                  backgroundTypecheckFile' rslt m ms
+          else return (False, rslt)
+  where
+   backgroundTypecheckFile' comp_rslt mod modsum0 = do
+      clearWarnings
+      start_time <- liftIO $ getCurrentTime
+      
+      let finish_up ok errs = do
+              warns <- getWarnings
+              clearWarnings
+              end_time <- liftIO $ getCurrentTime
+              let res = CompilationResult ok warns errs
+                                          (diffUTCTime end_time start_time)
+              return (True, res `mappend` comp_rslt)
+
+      ghandle (\(e :: SourceError) -> finish_up False (srcErrorMessages e)) $
+        do
+          modsum <- preprocessModule mod modsum0
+          parsed_mod <- parseModule modsum
+          _tcd_mod <- typecheckModule parsed_mod
+                      
+          finish_up True mempty
+
+   -- XXX: is this efficient enough?
+   preprocessModule _mod _modsum = do
+      let target = Target (TargetFile fname Nothing)
+                          True
+                          Nothing
+      setTargets [target]
+      modSummaryForFile fname `fmap` depanal [] False
+      -- TODO: re-set context if dependencies changed

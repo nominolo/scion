@@ -54,6 +54,7 @@ allCommands =
     , cmdListExposedModules
     , cmdSetGHCVerbosity
     , cmdSetContextForBGTC
+    , cmdBackgroundTypecheckFile
     ]
 
 ------------------------------------------------------------------------------
@@ -106,12 +107,11 @@ cmdLoadComponent =
       return (toString `fmap` cmd comp)
   where
     cmd comp = handleScionException $ do
-      r <- loadComponent comp
-      sexpCompilationResult r
+      loadComponent comp
         
-sexpCompilationResult :: CompilationResult -> ScionM ExactSexp
-sexpCompilationResult (CompilationResult succeeded warns errs time) =
-    return $ ExactSexp $ parens $ 
+instance Sexp CompilationResult where
+  toSexp (CompilationResult succeeded warns errs time) = toSexp $
+      ExactSexp $ parens $ 
         showString "compilation-result" <+>
         toSexp succeeded <+>
         toSexp (Lst (map DiagWarning (toList warns))) <+>
@@ -187,4 +187,12 @@ cmdSetContextForBGTC =
       string "set-context-for-bgtc" >> sp
       fname <- getString
       return $
-        toString `fmap` (setContextForBGTC fname >>= sexpCompilationResult . snd)
+        toString `fmap` (snd `fmap` setContextForBGTC fname)
+
+cmdBackgroundTypecheckFile :: Command
+cmdBackgroundTypecheckFile =
+    Command $ do
+      string "background-typecheck-file" >> sp
+      fname <- getString
+      return $ do
+        toString `fmap` backgroundTypecheckFile fname
