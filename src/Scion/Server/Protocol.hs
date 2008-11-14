@@ -46,6 +46,9 @@ instance Sexp String where toSexp s = showString (show s)
 instance Sexp Int where toSexp i = showInt i
 instance Sexp Integer where toSexp i = showInt i
 instance Sexp () where toSexp _ = showString "nil"
+instance Sexp Bool where 
+    toSexp True = showChar 't'
+    toSexp False = showString "nil"
 
 newtype Lst a = Lst [a]
 instance Sexp a => Sexp (Lst a) where
