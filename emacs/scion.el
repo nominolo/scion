@@ -1578,3 +1578,97 @@ The first argument is dist directory (typically <project-root>/dist/)"
 (defun scion-emacs-20-p ()
   (and (not (featurep 'xemacs))
        (= emacs-major-version 20)))
+
+;;;---------------------------------------------------------------------------
+
+(defalias 'scion-float-time
+  (if (fboundp 'float-time)
+      'float-time
+    (if (featurep 'xemacs)
+	(lambda ()
+	  (multiple-value-bind (s0 s1 s2) (current-time)
+	    (+ (* (float (ash 1 16)) s0) (float s1) (* 0.0000001 s2)))))))
+
+;;;---------------------------------------------------------------------------
+
+(make-variable-buffer-local 
+ (defvar scion-flycheck-timer nil
+   "The timer for starting background compilation"))
+
+(make-variable-buffer-local
+;; TODO: hm, maybe this should be global (due to single-threadedness)
+(defvar scion-flycheck-is-running nil
+  "If t, the (single-threaded) background typechecker is running."))
+
+(make-variable-buffer-local
+ (defvar scion-flycheck-last-change-time nil
+   "Time of last buffer change."))
+
+(defcustom scion-flycheck-no-changes-timeout 0.5
+  "Time to wait after last change before starting compilation."
+  :group 'scion
+  :type 'number)
+
+(defun scion-turn-on-flycheck ()
+  "Turn on flycheck in current buffer"
+  (interactive)
+  (if (not scion-mode)
+      (error "Background typechecking only supported inside scion-mode.")
+    (add-hook 'after-change-functions 'scion-flycheck-after-change-function nil t)
+    (add-hook 'after-save-hook 'scion-after-save-hook nil t)
+    (add-hook 'kill-buffer-hook 'scion-kill-buffer-hook nil t)
+
+    ;; TODO: update modeline
+
+    (setq scion-flycheck-timer
+	  (run-at-time nil 1 'scion-flycheck-on-timer-event (current-buffer)))))
+
+(defun scion-turn-off-flycheck ()
+  (interactive)
+  (remove-hook 'after-change-functions 'scion-flycheck-after-change-function t)
+  (remove-hook 'after-save-hook 'scion-after-save-hook t)
+  (remove-hook 'kill-buffer-hook 'scion-kill-buffer-hook t)
+  ;; TODO: delete overlays?
+  (when scion-flycheck-timer
+    (cancel-timer scion-flycheck-timer)
+    (setq scion-flycheck-timer nil))
+  (setq scion-flycheck-is-running nil))
+
+(defun scion-flycheck-after-change-function (start stop len)
+  ;; TODO: be more smarter about which parts need updating.
+  ;;
+  ;; flymake (optionally) supports syntax/typechecking if a newline was inserted
+  (setq scion-flycheck-last-change-time (scion-float-time)))
+
+(defun scion-after-save-hook ()
+  (if scion-mode
+      (scion-flycheck-start-check)))
+ 
+(defun scion-kill-buffer-hook ()
+  (when scion-flycheck-timer
+    (cancel-timer scion-flycheck-timer)
+    (setq scion-flycheck-timer nil)))
+
+(defun scion-flycheck-on-timer-event (buffer)
+  "Start a syntax check for buffer BUFFER if necessary."
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (when (and (not scion-flycheck-is-running)
+		 scion-flycheck-last-change-time
+		 (> (- (scion-float-time) scion-flycheck-last-change-time)
+                    scion-flycheck-no-changes-timeout))
+	(setq scion-flycheck-last-change-time nil)
+	(scion-flycheck-start-check)))))
+
+(defun scion-flycheck-start-check ()
+  (interactive)
+  (when (scion-connected-p)
+    (let ((filename (buffer-file-name)))
+      (setq scion-flycheck-is-running t)
+      (scion-eval-async `(background-typecheck-file ,filename)
+	 (lambda (res)
+	   (setq scion-flycheck-is-running nil)
+	   (funcall (scion-handling-failure (result)
+		      (destructuring-bind (ok comp-rslt) result
+			(scion-report-compilation-result comp-rslt)))
+		    res))))))

@@ -195,4 +195,4 @@ cmdBackgroundTypecheckFile =
       string "background-typecheck-file" >> sp
       fname <- getString
       return $ do
-        toString `fmap` backgroundTypecheckFile fname
+        toString `fmap` (handleScionException $ backgroundTypecheckFile fname)
