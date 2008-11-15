@@ -53,8 +53,8 @@ allCommands =
     , cmdListRdrNamesInScope
     , cmdListExposedModules
     , cmdSetGHCVerbosity
-    , cmdSetContextForBGTC
     , cmdBackgroundTypecheckFile
+    , cmdForceUnload
     ]
 
 ------------------------------------------------------------------------------
@@ -180,14 +180,6 @@ cmdSetGHCVerbosity =
       lvl <- getInt
       return $ do
         toString `fmap` setGHCVerbosity lvl
-
-cmdSetContextForBGTC :: Command
-cmdSetContextForBGTC =
-    Command $ do
-      string "set-context-for-bgtc" >> sp
-      fname <- getString
-      return $
-        toString `fmap` (snd `fmap` setContextForBGTC fname)
 
 cmdBackgroundTypecheckFile :: Command
 cmdBackgroundTypecheckFile =
