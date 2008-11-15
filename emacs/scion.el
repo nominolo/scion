@@ -1501,6 +1501,7 @@ The first argument is dist directory (typically <project-root>/dist/)"
       (scion-highlight-notes notes buf)
       (if (not buf)
 	(scion-show-note-counts successp nwarnings nerrors duration))
+      (scion-report-status (format ":%d/%d" nerrors nwarnings))
       nil)))
     
 ;;     ((:ok warns)
@@ -1692,10 +1693,20 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (when (scion-connected-p)
     (let ((filename (buffer-file-name)))
       (setq scion-flycheck-is-running t)
+      (scion-report-status ":-/-")
       (scion-eval-async `(background-typecheck-file ,filename)
 	 (lambda (res)
 	   (setq scion-flycheck-is-running nil)
 	   (funcall (scion-handling-failure (result)
 		      (destructuring-bind (ok comp-rslt) result
-			(scion-report-compilation-result comp-rslt)))
-		    res))))))
+			(scion-report-compilation-result comp-rslt (current-buffer))))
+		    res)
+	   nil)))))
+
+(make-variable-buffer-local
+ (defvar scion-mode-line-notes nil))
+
+(defun scion-report-status (status)
+  (let ((stats-str (concat " Scion" status)))
+    (setq scion-mode-line stats-str)
+    (force-mode-line-update)))
