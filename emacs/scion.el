@@ -1641,7 +1641,7 @@ The first argument is dist directory (typically <project-root>/dist/)"
   "Turn on flycheck in current buffer"
   (interactive)
   (if (not scion-mode)
-      (error "Background typechecking only supported inside scion-mode.")
+      (message "Background typechecking only supported inside scion-mode.")
     (add-hook 'after-change-functions 'scion-flycheck-after-change-function nil t)
     (add-hook 'after-save-hook 'scion-after-save-hook nil t)
     (add-hook 'kill-buffer-hook 'scion-kill-buffer-hook nil t)
