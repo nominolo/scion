@@ -188,3 +188,10 @@ cmdBackgroundTypecheckFile =
       fname <- getString
       return $ do
         toString `fmap` (handleScionException $ backgroundTypecheckFile fname)
+
+cmdForceUnload :: Command
+cmdForceUnload =
+    Command $ do
+      string "force-unload"
+      return $
+        toString `fmap` unload
