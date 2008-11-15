@@ -989,6 +989,11 @@ Debugged requests are ignored."
 (defun scion-rcurry (fun &rest args)
   `(lambda (&rest more) (apply ',fun (append more ',args))))
 
+(defsubst scion-makehash (&optional test)
+  (if (fboundp 'make-hash-table)
+      (if test (make-hash-table :test test) (make-hash-table))
+    (with-no-warnings
+      (makehash test))))
 
 ;;;;; Snapshots of current Emacs state
 
@@ -1281,30 +1286,33 @@ error messages into absolute path names.")
 
 ;;; TODO: notes should be sorted by filename (using a hashtable)
 
-(defun scion-highlight-notes (notes)
+(defun scion-highlight-notes (notes &optional buffer)
   "Highlight compiler notes, warnings, and errors in the buffer."
   (interactive (list (scion-compiler-notes)))
-  (with-temp-message "Highlighting notes..."
+  (with-temp-message (if (not buffer) "Highlighting notes..." nil)
     (save-excursion
       (save-restriction
         (widen)                  ; highlight notes on the whole buffer
-        (scion-remove-old-overlays)
-	(let ((buffers (scion-filter-buffers (lambda () scion-mode))))
-	  (mapc (lambda (b)
-		  (with-current-buffer b
-		    (save-excursion
-		      (save-restriction
-			(widen)
-			(mapc (lambda (note)
-				(princ (format "adding: %S" b))
-				(scion-overlay-note note b)) 
-			      notes)))))
-		buffers)))))
+        (scion-remove-old-overlays buffer)
+	(let ((buffers (if buffer
+			   (list buffer)
+			   (scion-filter-buffers (lambda () scion-mode)))))
+	  (loop for b in buffers do
+		(with-current-buffer b
+		  (let ((fname (buffer-file-name b)))
+		    (when fname
+		      (save-excursion
+			(save-restriction
+			  (widen)
+			  (loop for note in (gethash fname notes) do
+				(scion-overlay-note note b))))))))))))
   nil)
 
-(defun scion-remove-old-overlays ()
-  "Delete the xbexisting Scion overlays in the current buffer."
-  (dolist (buffer (scion-filter-buffers (lambda () scion-mode)))
+(defun scion-remove-old-overlays (&optional buffer)
+  "Delete the existing Scion overlays in the current buffer."
+  (dolist (buffer (if buffer
+		      (list buffer)
+		    (scion-filter-buffers (lambda () scion-mode))))
     (with-current-buffer buffer
       (save-excursion
         (save-restriction
@@ -1344,9 +1352,13 @@ PREDICATE is executed in the buffer to test."
      ((:error loc msg info)
       msg)))
 
+(defun scion-note.filename (note)
+  (destructure-case (cadr note)
+    ((:loc fn sl sc el ec) fn)
+    ((:no-loc _)           nil)))
+
 (defun scion-note.region (note buffer)
   (destructuring-bind (tag loc msg more) note
-    (print (list tag loc msg more note))
     (destructure-case loc
       ((:loc filename sl sc el ec)
        (if (equal (buffer-file-name buffer) filename)
@@ -1430,6 +1442,17 @@ The overlay has several properties:
     (:error         'scion-error-face)
     (:warning       'scion-warning-face)))
 
+(defun scion-make-notes (warnings errors &optional keep-existing-notes)
+  (let ((notes (if keep-existing-notes
+		   (scion-compiler-notes)
+		 (scion-makehash #'equal))))
+    (loop for note in (nconc errors warnings)
+	  do (progn
+	       (scion-canonicalise-note-location note)
+	       (let* ((fname (scion-note.filename note))
+		      (old-notes (gethash fname notes)))
+		 (puthash fname (cons note old-notes) notes))))
+    notes))
 
 ;;;---------------------------------------------------------------------------
 
@@ -1467,17 +1490,18 @@ The first argument is dist directory (typically <project-root>/dist/)"
     (scion-handling-failure (result)
       (scion-report-compilation-result result))))
 
-(defun scion-report-compilation-result (result)
+(defun scion-report-compilation-result (result &optional buf)
   (destructuring-bind (tag successp warns errs duration) result
     (assert (eq tag 'compilation-result))
     (let ((nerrors (length errs))
 	  (nwarnings (length warns))
-	  (notes (mapc #'scion-canonicalise-note-location 
-		       (nconc errs warns))))
+	  (notes (scion-make-notes errs warns)))
       (setq scion-last-compilation-result
 	    (list tag successp notes duration))
-      (scion-highlight-notes notes)
-      (scion-show-note-counts successp nwarnings nerrors duration))))
+      (scion-highlight-notes notes buf)
+      (if (not buf)
+	(scion-show-note-counts successp nwarnings nerrors duration))
+      nil)))
     
 ;;     ((:ok warns)
 ;;      (setq scion-last-compilation-result
