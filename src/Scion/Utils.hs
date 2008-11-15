@@ -14,9 +14,11 @@ module Scion.Utils where
 
 import Scion.Types
 
-import GHC
+import GHC              ( GhcMonad, ModSummary, spans, getLoc, Located
+                        , depanal, topSortModuleGraph )
 import Digraph          ( flattenSCCs )
-import Bag
+import Bag              ( Bag, mapBag, foldrBag, foldlBag, emptyBag,
+                          unionBags, unionManyBags )
 
 import Control.Monad
 import Data.Foldable
