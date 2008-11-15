@@ -1632,7 +1632,7 @@ The first argument is dist directory (typically <project-root>/dist/)"
  (defvar scion-flycheck-last-change-time nil
    "Time of last buffer change."))
 
-(defcustom scion-flycheck-no-changes-timeout 0.5
+(defcustom scion-flycheck-no-changes-timeout 2.0
   "Time to wait after last change before starting compilation."
   :group 'scion
   :type 'number)
@@ -1686,6 +1686,7 @@ The first argument is dist directory (typically <project-root>/dist/)"
 		 (> (- (scion-float-time) scion-flycheck-last-change-time)
                     scion-flycheck-no-changes-timeout))
 	(setq scion-flycheck-last-change-time nil)
+	(save-buffer buffer)
 	(scion-flycheck-start-check)))))
 
 (defun scion-flycheck-start-check ()
