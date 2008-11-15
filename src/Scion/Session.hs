@@ -445,10 +445,11 @@ backgroundTypecheckFile fname = do
 
       ghandle (\(e :: SourceError) -> finish_up False (srcErrorMessages e)) $
         do
+          -- TODO: measure time and stop after a phase if it takes too long?
           modsum <- preprocessModule mod modsum0
           parsed_mod <- parseModule modsum
-          _tcd_mod <- typecheckModule parsed_mod
-                      
+          tcd_mod <- typecheckModule parsed_mod
+          _ <- desugarModule tcd_mod
           finish_up True mempty
 
    -- XXX: is this efficient enough?
