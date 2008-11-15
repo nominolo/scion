@@ -128,8 +128,3 @@ mkHeader len = reverse . take 6 $ reverse (showHex len "") ++ repeat '0'
 
 log :: MonadIO m => Int -> String -> m ()
 log _ s = liftIO $ putStrLn s
-
-
-
-
-

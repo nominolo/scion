@@ -16,12 +16,10 @@
 module Scion.Inspect where
 
 import GHC
---import GHC.SYB.Instances
 import Bag
 import Data.Generics.Biplate
 import Data.Generics.UniplateStr hiding ( Str (..) )
 import qualified Data.Generics.Str as U 
---import GHC.Uniplate.Instances
 
 import Data.Map ( Map )
 import qualified Data.Map as M
@@ -223,4 +221,3 @@ instance Biplate [(Located a)] a where
 instance Biplate a b => Biplate (Bag a) b where
   biplate b = (foldBag 
 -}
-
