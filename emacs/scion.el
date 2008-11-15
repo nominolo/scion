@@ -1669,8 +1669,9 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (setq scion-flycheck-last-change-time (scion-float-time)))
 
 (defun scion-after-save-hook ()
-  (if scion-mode
-      (scion-flycheck-start-check)))
+  (when scion-mode
+    (setq scion-flycheck-last-change-time nil)
+    (scion-flycheck-start-check)))
  
 (defun scion-kill-buffer-hook ()
   (when scion-flycheck-timer
