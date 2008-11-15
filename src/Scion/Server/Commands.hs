@@ -10,7 +10,7 @@
 --
 -- Commands provided by the server.
 --
-module Scion.Server.Commands where
+module Scion.Server.Commands ( allCommands ) where
 
 import Prelude as P
 import Scion.Types
