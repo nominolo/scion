@@ -145,12 +145,15 @@ current state will be saved and later restored."
 
 ;;;---------------------------------------------------------------------------
 
+(make-variable-buffer-local
+ (defvar scion-mode-line " Scion"))
+
 (define-minor-mode scion-mode
   "\\<scion-mode-map>\
 Scion: Smart Haskell mode.
 \\{scion-mode-map}"
   nil
-  " Scion"
+  scion-mode-line
   ;; Fake binding to coax `define-minor-mode' to create the keymap
   '((" " 'self-insert-command)))
 
