@@ -1701,7 +1701,10 @@ The first argument is dist directory (typically <project-root>/dist/)"
 	   (setq scion-flycheck-is-running nil)
 	   (funcall (scion-handling-failure (result)
 		      (destructuring-bind (ok comp-rslt) result
-			(scion-report-compilation-result comp-rslt (current-buffer))))
+			(if ok
+			    (scion-report-compilation-result comp-rslt 
+							     (current-buffer))
+			  (scion-report-status "[?]"))))
 		    res)
 	   nil)))))
 

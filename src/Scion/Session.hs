@@ -29,8 +29,8 @@ import Data.List        ( intercalate )
 import Data.Maybe       ( isJust )
 import Data.Monoid
 import Data.Time.Clock  ( getCurrentTime, diffUTCTime, NominalDiffTime )
-import System.Directory ( setCurrentDirectory )
-import System.FilePath  ( (</>) )
+import System.Directory ( setCurrentDirectory, getCurrentDirectory )
+import System.FilePath  ( (</>), isRelative, makeRelative )
 import Control.Exception
 
 import Distribution.ModuleName ( components )
@@ -142,7 +142,19 @@ noLibError :: ScionM a
 noLibError = liftIO $ throwIO $ ComponentDoesNotExist Library
 
 noExeError :: String -> ScionM a
-noExeError = liftIO . throwIO . ComponentDoesNotExist . Executable 
+noExeError = liftIO . throwIO . ComponentDoesNotExist . Executable
+
+-- | Root directory of the current Cabal project.
+--
+-- Throws:
+--
+--  * 'NoCurrentCabalProject' if there is no current Cabal project.
+--
+projectRootDir :: ScionM FilePath
+projectRootDir = do
+   _ <- getLocalBuildInfo -- ensure we have a current project
+   -- TODO: error handling
+   liftIO $ getCurrentDirectory
 
 -- | Set GHC's dynamic flags for the given component of the current Cabal
 -- project (see 'openCabalProject').
@@ -408,6 +420,10 @@ setContextForBGTC fname = do
        return (CompilationResult False warns (srcErrorMessages err)
                                  (diffUTCTime end_time start_time))
 
+-- | Return the 'ModSummary' that refers to the source file.
+--
+-- Assumes that there is exactly one such 'ModSummary'.
+-- 
 modSummaryForFile :: FilePath -> ModuleGraph -> ModSummary
 modSummaryForFile fname mod_graph =
     case [ m | m <- mod_graph
@@ -418,18 +434,28 @@ modSummaryForFile fname mod_graph =
        _     -> dieHard $ "modSummaryForFile: Too many ModSummaries found for "
                           ++ fname
 
+isPartOfProject :: FilePath -> ScionM Bool
+isPartOfProject fname = do
+   root_dir <- projectRootDir
+   return (isRelative (makeRelative root_dir fname))
+  `gcatch` \(_ :: NoCurrentCabalProject) -> return False
+
 backgroundTypecheckFile :: FilePath -> ScionM (Bool, CompilationResult)
 backgroundTypecheckFile fname = do
-   mb_focusmod <- gets focusedModule
-   case mb_focusmod of
-     Just (f, m, ms) | f == fname -> 
-        backgroundTypecheckFile' mempty m ms
-     _otherwise -> do
-        (_, rslt) <- setContextForBGTC fname
-        if compilationSucceeded rslt
-          then do Just (_f, m, ms) <- gets focusedModule
-                  backgroundTypecheckFile' rslt m ms
-          else return (False, rslt)
+   ok <- isPartOfProject fname
+   if ok
+    then do
+     mb_focusmod <- gets focusedModule
+     case mb_focusmod of
+       Just (f, m, ms) | f == fname -> 
+          backgroundTypecheckFile' mempty m ms
+       _otherwise -> do
+          (_, rslt) <- setContextForBGTC fname
+          if compilationSucceeded rslt
+            then do Just (_f, m, ms) <- gets focusedModule
+                    backgroundTypecheckFile' rslt m ms
+            else return (False, rslt)
+    else return (False, mempty)
   where
    backgroundTypecheckFile' comp_rslt mod modsum0 = do
       clearWarnings
