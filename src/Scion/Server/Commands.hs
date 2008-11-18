@@ -55,6 +55,7 @@ allCommands =
     , cmdSetGHCVerbosity
     , cmdBackgroundTypecheckFile
     , cmdForceUnload
+    , cmdAddCmdLineFlag
     ]
 
 ------------------------------------------------------------------------------
@@ -195,3 +196,11 @@ cmdForceUnload =
       string "force-unload"
       return $
         toString `fmap` unload
+
+cmdAddCmdLineFlag :: Command
+cmdAddCmdLineFlag =
+    Command $ do
+      string "add-command-line-flag" >> sp
+      str <- getString
+      return $
+        toString `fmap` (addCmdLineFlags [str] >> return ())

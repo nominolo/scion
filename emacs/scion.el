@@ -1567,6 +1567,10 @@ The first argument is dist directory (typically <project-root>/dist/)"
      (list (ido-completing-read "Flag: " flags))))
   (insert flag))
 
+(defun scion-set-command-line-flag (flag)
+  (interactive "sCommand Line Flag: ")
+  (scion-eval `(add-command-line-flag ,flag)))
+
 (defun scion-exposed-modules ()
   (scion-eval '(list-exposed-modules)))
 
