@@ -13,14 +13,20 @@
 --
 -- Functionality to inspect Haskell programs.
 --
-module Scion.Inspect where
+module Scion.Inspect 
+  ( module Scion.Inspect
+  , module Scion.Inspect.Find
+  ) where
+
+import Scion.Utils()
+import Scion.Inspect.Find
 
 import GHC
 import Bag
+
 import Data.Generics.Biplate
 import Data.Generics.UniplateStr hiding ( Str (..) )
 import qualified Data.Generics.Str as U 
-
 import Data.Map ( Map )
 import qualified Data.Map as M
 
@@ -94,31 +100,6 @@ data LocMap a
   = LocLeaf a  -- INVARIANT: not at top-level
   | LocNode (Map SrcSpan (LocMap a)) -- INVARIANT: non-overlapping, good SrcSpans
 
--- | Given two good SrcSpans (see 'SrcLoc.isGoodSrcSpan'), returns 'EQ' if the
--- spans overlap or, if not, the relative ordering of both.
-cmpOverlap :: SrcSpan -> SrcSpan -> Ordering
-cmpOverlap sp1 sp2
-  | end1 < start2 = LT
-  | end2 < start1 = GT
-  | otherwise     = EQ
- where
-   start1 = (srcSpanStartLine sp1, srcSpanStartCol sp1)
-   end1   = (srcSpanEndLine sp1, srcSpanEndCol sp1)
-   start2 = (srcSpanStartLine sp2, srcSpanStartCol sp2)
-   end2   = (srcSpanEndLine sp2, srcSpanEndCol sp2)
-
-#ifdef DEBUG
-
-prop_invCmpOverlap :: SrcSpan -> SrcSpan -> Bool
-prop_invCmpOverlap s1 s2 =
-  case cmpOverlap s1 s2 of
-    LT -> cmpOverlap s2 s1 == GT
-    EQ -> cmpOverlap s2 s1 == EQ
-    GT -> cmpOverlap s2 s1 == LT
-
--- prop_sane : if overlap -> there is some point which is in both spans
-
-#endif
 
 ------------------------------------------------------------------------------
 

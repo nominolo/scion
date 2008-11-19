@@ -41,6 +41,7 @@ library
   exposed-modules:
                    Scion.Types,
                    Scion.Inspect,
+                   Scion.Inspect.Find,
                    Scion.Utils,
                    Scion
   if flag(testing)
