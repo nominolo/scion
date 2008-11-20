@@ -196,14 +196,42 @@ instance Search (HsValBindsLR Name Name) where
   search _ _ _ = []
 
 instance Search (StmtLR Name Name) where
-  search p s st = FoundStmt s st `above` search_inside
+  search p s st 
+    | RecStmt _ _ _ _ _ <- st = search_inside -- see Note [SearchRecStmt]
+    | otherwise               = FoundStmt s st `above` search_inside
     where
       search_inside =
         case st of
           BindStmt pat e _ _ -> search p s pat ++ search p s e
           ExprStmt e _ _     -> search p s e
           LetStmt bs         -> search p s bs
-          _  -> [] -- TODO!
+          ParStmt ss         -> search p s (concatMap fst ss)
+          TransformStmt (ss,_) f e -> search p s ss ++ search p s f
+                                      ++ search p s e
+          GroupStmt (ss, _) g -> search p s ss ++ search p s g
+          RecStmt ss _ _ _ _ -> search p s ss
+
+--
+-- Note [SearchRecStmt]
+-- --------------------
+--
+-- We only return children of a RecStmt but not the RecStmt itself, even
+-- though a RecStmt may occur in the source code (under very rare
+-- circumstances).  The reasons are:
+--
+--  * We have no way of knowing whether the RecStmt actually occured in the
+--    source code.  We could add a flag in GHC, but its probably not
+--    worthwhile due to the other reason.
+--
+--  * GHC may move things out of the recursive group if it detects that these
+--    things are in fact not recursive at all.  Source locations are
+--    preserved, so this is fine.
+--
+
+instance Search (GroupByClause Name) where
+  search p s (GroupByNothing f) = search p s f
+  search p s (GroupBySomething using_f e) =
+      either (search p s) (const []) using_f ++ search p s e
 
 instance Search (ArithSeqInfo Name) where
   search p s (From e)         = search p s e
