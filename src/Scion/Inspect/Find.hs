@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances, FunctionalDependencies, FlexibleContexts #-}
+{-# LANGUAGE TypeSynonymInstances, MultiParamTypeClasses #-}
 {-# LANGUAGE PatternGuards, FlexibleInstances, CPP #-}
 -- |
 -- Module      : Scion.Inspect.Search
@@ -24,6 +26,7 @@ import Scion.Utils()
 
 import GHC
 import Bag
+import Var ( varName )
 import Outputable
 
 import Data.Monoid ( mempty, mappend, mconcat )
@@ -37,23 +40,36 @@ data PosTree a = Node { val :: a, children :: PosForest a }
 type PosForest a = S.Set (PosTree a)
 
 -- | Lookup all the things in a certain region.
-findHsThing :: Search a => (SrcSpan -> Bool) -> a -> SearchResults
+findHsThing :: Search id a => (SrcSpan -> Bool) -> a -> SearchResults id
 findHsThing p a = search p noSrcSpan a
 
-data SearchResult
-  = FoundBind { resLoc :: SrcSpan, resBind :: (HsBind Name) }
-  | FoundPat  { resLoc :: SrcSpan, resPat  :: (Pat Name) }
-  | FoundType { resLoc :: SrcSpan, resType :: (HsType Name) }
-  | FoundExpr { resLoc :: SrcSpan, resExpr :: (HsExpr Name) }
-  | FoundStmt { resLoc :: SrcSpan, resStmt ::  (Stmt Name) }
+data SearchResult id
+  = FoundBind SrcSpan (HsBind id)
+  | FoundPat  SrcSpan (Pat id)
+  | FoundType SrcSpan (HsType id)
+  | FoundExpr SrcSpan (HsExpr id)
+  | FoundStmt SrcSpan (Stmt id)
+  | FoundId   Id
+  | FoundName Name
+  | FoundCon  SrcSpan DataCon
 
-instance Eq SearchResult where
+resLoc :: SearchResult id -> SrcSpan
+resLoc (FoundId i) = nameSrcSpan (varName i)
+resLoc (FoundName n) = nameSrcSpan n
+resLoc (FoundBind s _) = s
+resLoc (FoundPat s _)  = s
+resLoc (FoundType s _) = s
+resLoc (FoundExpr s _) = s
+resLoc (FoundStmt s _) = s
+resLoc (FoundCon s _)  = s
+
+instance Eq (SearchResult id) where
   a == b = resLoc a == resLoc b   -- TODO: sufficient?
 
-instance Ord SearchResult where
+instance Ord (SearchResult id) where
   compare a b = compare (resLoc a) (resLoc b)
 
-type SearchResults = PosForest SearchResult
+type SearchResults id = PosForest (SearchResult id)
 
 -- | Given two good SrcSpans (see 'SrcLoc.isGoodSrcSpan'), returns 'EQ' if the
 -- spans overlap or, if not, the relative ordering of both.
@@ -97,46 +113,59 @@ prop_invCmpOverlap s1 s2 =
 
 ------------------------------------------------------------------------------
 
-instance Outputable SearchResult where
+instance (OutputableBndr id, Outputable id)
+    => Outputable (SearchResult id) where
   ppr (FoundBind s b) = text "bind:" <+> ppr s $$ nest 4 (ppr b)
   ppr (FoundPat s b)  = text "pat: " <+> ppr s $$ nest 4 (ppr b)
   ppr (FoundType s t) = text "type:" <+> ppr s $$ nest 4 (ppr t)
   ppr (FoundExpr s e) = text "expr:" <+> ppr s $$ nest 4 (ppr e)
   ppr (FoundStmt s t) = text "stmt:" <+> ppr s $$ nest 4 (ppr t)
+  ppr (FoundId i)     = text "id:  " <+> ppr i
+  ppr (FoundName n)   = text "name:" <+> ppr n
+  ppr (FoundCon s c)  = text "con: " <+> ppr s $$ nest 4 (ppr c)
 
 instance Outputable a => Outputable (PosTree a) where
   ppr (Node v cs) = ppr v $$ nest 2 (vcat (map ppr (S.toList cs)))
 
-class Search a where
-  search :: (SrcSpan -> Bool) -> SrcSpan -> a -> SearchResults
+class Search id a | a -> id where
+  search :: (SrcSpan -> Bool) -> SrcSpan -> a -> SearchResults id
 
-only :: SearchResult -> SearchResults
+only :: SearchResult id -> SearchResults id
 only r = S.singleton (Node r S.empty)
 
-above :: SearchResult -> SearchResults -> SearchResults
+above :: SearchResult id -> SearchResults id -> SearchResults id
 above r rest = S.singleton (Node r rest)
 
-instance Search a => Search (Located a) where
+instance Search Id Id where
+  search _ _ i = only (FoundId i)
+
+instance Search Name Name where
+  search _ _ i = only (FoundName i)
+
+instance Search id DataCon where
+  search _ s d = only (FoundCon s d)
+
+instance Search id a => Search id (Located a) where
   search p _ (L s a)
     | p s   = search p s a
     | otherwise = mempty
 
-instance Search a => Search (Bag a) where
+instance Search id a => Search id (Bag a) where
   search p s bs = mconcat $ fmap (search p s) (F.toList bs)
 
-instance Search a => Search [a] where
+instance Search id a => Search id [a] where
   search p s bs = mconcat $ fmap (search p s) bs
 
-instance Search a => Search (Maybe a) where
+instance Search id a => Search id (Maybe a) where
   search _ _ Nothing = mempty
   search p s (Just a) = search p s a
 
-instance Search (HsGroup Name) where
+instance (Search id id) => Search id (HsGroup id) where
   search p s grp =
       search p s (hs_valds grp)
       -- TODO
 
-instance Search (HsBindLR Name Name) where
+instance (Search id id) => Search id (HsBindLR id id) where
   search p s b = FoundBind s b `above` search_inside
     where
       search_inside = 
@@ -144,57 +173,81 @@ instance Search (HsBindLR Name Name) where
           FunBind { fun_matches = ms } -> search p s ms
           _ -> mempty
 
-instance Search (MatchGroup Name) where
+instance (Search id id) => Search id (MatchGroup id) where
   search p s (MatchGroup ms _) = search p s ms
 
-instance Search (Match Name) where
+instance (Search id id) => Search id (Match id) where
   search p s (Match pats tysig rhss) =
     search p s pats `mappend` search p s tysig `mappend` search p s rhss
     
-instance Search (Pat Name) where
+instance (Search id id) => Search id (Pat id) where
   search p s pat0 = FoundPat s pat0 `above` search_inside
     where
       search_inside = 
         case pat0 of
+          VarPat i              -> search p s i
+          VarPatOut i _         -> search p s i
           LazyPat pat           -> search p s pat
-          AsPat _ pat           -> search p s pat
+          AsPat i pat           -> search p s i `mappend` search p s pat
           ParPat pat            -> search p s pat
           BangPat pat           -> search p s pat
           ListPat ps _          -> search p s ps
           TuplePat ps _ _       -> search p s ps
           PArrPat ps _          -> search p s ps
-          ConPatIn _ d          -> search p s d
-          ConPatOut _ _ _ _ d _ -> search p s d
+          ConPatIn i d          -> search p s i `mappend` search p s d
+          ConPatOut c _ _ _ d _ -> search p s c `mappend` search p s d
           ViewPat e pt _        -> search p s e `mappend` search p s pt
           TypePat t             -> search p s t
           SigPatIn pt t         -> search p s pt `mappend` search p s t
           SigPatOut pt _        -> search p s pt
+          NPlusKPat n _ _ _     -> search p s n
           _ -> mempty
 
 -- type HsConPatDetails id = HsConDetails (LPat id) (HsRecFields id (LPat id))
-instance (Search arg, Search rec) => Search (HsConDetails arg rec) where
+instance (Search id arg, Search id rec) => Search id (HsConDetails arg rec) where
   search p s (PrefixCon args) = search p s args
   search p s (RecCon rec)     = search p s rec
   search p s (InfixCon a1 a2) = search p s a1 `mappend` search p s a2
 
-instance Search (HsType Name) where
+instance (Search id id) => Search id (HsType id) where
   search _ s t = only (FoundType s t)
 
-instance Search (GRHSs Name) where
+instance (Search id id) => Search id (GRHSs id) where
   search p s (GRHSs rhss local_binds) =
     search p s rhss `mappend` search p s local_binds
 
-instance Search (GRHS Name) where
+instance (Search id id) => Search id (GRHS id) where
   search p s (GRHS _guards rhs) =
     -- guards look like statements, but we should probably treat them
     -- differently
     search p s rhs
 
-instance Search (HsExpr Name) where
+instance (Search id id) => Search id (HsExpr id) where
   search p s e0 = FoundExpr s e0 `above` search_inside
     where
       search_inside = 
         case e0 of
+          ExprWithTySigOut e _t -> search p s e --`mappend` search p s t
+          HsBracketOut _b _ -> mempty -- search p s b
+{-          _ -> search_inside_expr p s e0
+
+-- search_inside_expr :: (SrcSpan -> Bool) -> SrcSpan -> HsExpr id 
+--                    -> SearchResults id
+search_inside_expr :: (Search id (MatchGroup t),
+                       Search id (HsExpr t),
+                       Search id (HsLocalBinds t),
+                       Search id (StmtLR t t),
+                       Search id (HsRecordBinds t),
+                       Search id (HsType t),
+                       Search id (ArithSeqInfo t),
+                       Search id (HsBracket t),
+                       Search id (HsSplice t),
+                       Search id (Pat t),
+                       Search id (HsCmdTop t)) =>
+                      (SrcSpan -> Bool) -> SrcSpan -> HsExpr t -> SearchResults id
+search_inside_expr p s e0 =
+        case e0 of
+-}
           HsLam mg -> search p s mg
           HsApp l r -> search p s l `mappend` search p s r
           OpApp l o _ r -> search p s l `mappend` search p s o 
@@ -214,13 +267,13 @@ instance Search (HsExpr Name) where
           RecordCon _ _ bs      -> search p s bs
           RecordUpd es bs _ _ _ -> search p s es `mappend` search p s bs
           ExprWithTySig e t     -> search p s e `mappend` search p s t
-          ExprWithTySigOut e t  -> search p s e `mappend` search p s t
+          --ExprWithTySigOut e t  -> mempty
           ArithSeq _ i          -> search p s i
           PArrSeq _ i           -> search p s i
           HsSCC _ e             -> search p s e
           HsCoreAnn _ e         -> search p s e
           HsBracket b      -> search p s b
-          HsBracketOut b _ -> search p s b
+          --HsBracketOut b _ -> search p s b --
           HsSpliceE sp     -> search p s sp
           HsQuasiQuoteE _  -> mempty
           HsProc pat ct        -> search p s pat `mappend` search p s ct
@@ -232,19 +285,19 @@ instance Search (HsExpr Name) where
           HsWrap _ e       -> search p s e
           _ -> mempty
 
-instance Search (HsLocalBindsLR Name Name) where
+instance (Search id id) => Search id (HsLocalBindsLR id id) where
   search p s (HsValBinds val_binds) = search p s val_binds
   search _ _ _ = mempty
 
-instance Search (HsValBindsLR Name Name) where
+instance (Search id id) => Search id (HsValBindsLR id id) where
   search p s (ValBindsOut rec_binds _) =
       mconcat $ fmap (search p s . snd) rec_binds
   search _ _ _ = mempty
 
-instance Search (HsCmdTop Name) where
+instance (Search id id) => Search id (HsCmdTop id) where
   search p s (HsCmdTop c _ _ _) = search p s c
 
-instance Search (StmtLR Name Name) where
+instance (Search id id) => Search id (StmtLR id id) where
   search p s st 
     | RecStmt _ _ _ _ _ <- st = search_inside -- see Note [SearchRecStmt]
     | otherwise               = FoundStmt s st `above` search_inside
@@ -277,12 +330,12 @@ instance Search (StmtLR Name Name) where
 --    preserved, so this is fine.
 --
 
-instance Search (GroupByClause Name) where
+instance (Search id id) => Search id (GroupByClause id) where
   search p s (GroupByNothing f) = search p s f
   search p s (GroupBySomething using_f e) =
       either (search p s) (const mempty) using_f `mappend` search p s e
 
-instance Search (ArithSeqInfo Name) where
+instance (Search id id) => Search id (ArithSeqInfo id) where
   search p s (From e)         = search p s e
   search p s (FromThen e1 e2) = search p s e1 `mappend` search p s e2
   search p s (FromTo e1 e2)   = search p s e1 `mappend` search p s e2
@@ -290,19 +343,19 @@ instance Search (ArithSeqInfo Name) where
       search p s e1 `mappend` search p s e2 `mappend` search p s e3
 
 -- type HsRecordBinds id = HsRecFields id (LHsExpr id)
-instance Search e => Search (HsRecFields Name e) where
+instance Search id e => Search id (HsRecFields id e) where
   search p s (HsRecFields flds _) = search p s flds
 
-instance Search e => Search (HsRecField Name e) where
+instance Search id e => Search id (HsRecField id e) where
   search p s (HsRecField _lid a _) = search p s a
 
-instance Search (HsBracket Name) where
+instance (Search id id) => Search id (HsBracket id) where
   search p s (ExpBr e) = search p s e
   search p s (PatBr q) = search p s q
   search p s (DecBr g) = search p s g
   search p s (TypBr t) = search p s t
   search _ _ (VarBr _) = mempty
 
-instance Search (HsSplice Name) where
+instance (Search id id) => Search id (HsSplice id) where
   search p s (HsSplice _ e) = search p s e
 
