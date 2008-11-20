@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, CPP #-}
+{-# LANGUAGE PatternGuards, FlexibleInstances, CPP #-}
 -- |
 -- Module      : Scion.Inspect.Search
 -- Copyright   : (c) Thomas Schilling 2008
@@ -120,6 +120,11 @@ instance Search a => Search (Maybe a) where
   search _ _ Nothing = []
   search p s (Just a) = search p s a
 
+instance Search (HsGroup Name) where
+  search p s grp =
+      search p s (hs_valds grp)
+      -- TODO
+
 instance Search (HsBindLR Name Name) where
   search p s b = FoundBind s b `above` search_inside
     where
@@ -178,8 +183,13 @@ instance Search (HsExpr Name) where
           PArrSeq _ i           -> search p s i
           HsSCC _ e             -> search p s e
           HsCoreAnn _ e         -> search p s e
-          -- TODO: template haskell stuff
-          -- TODO: arrow stuff
+          HsBracket b      -> search p s b
+          HsBracketOut b _ -> search p s b
+          HsSpliceE sp     -> search p s sp
+          HsQuasiQuoteE _  -> []
+          HsProc pat ct        -> search p s pat ++ search p s ct
+          HsArrApp f arg _ _ _ -> search p s f ++ search p s arg
+          HsArrForm e _ cmds   -> search p s e ++ search p s cmds
           HsTick _ _ e     -> search p s e
           HsBinTick _ _ e  -> search p s e
           HsTickPragma _ e -> search p s e 
@@ -194,6 +204,9 @@ instance Search (HsValBindsLR Name Name) where
   search p s (ValBindsOut rec_binds _) =
       concatMap (search p s . snd) rec_binds
   search _ _ _ = []
+
+instance Search (HsCmdTop Name) where
+  search p s (HsCmdTop c _ _ _) = search p s c
 
 instance Search (StmtLR Name Name) where
   search p s st 
@@ -246,4 +259,14 @@ instance Search e => Search (HsRecFields Name e) where
 
 instance Search e => Search (HsRecField Name e) where
   search p s (HsRecField _lid a _) = search p s a
+
+instance Search (HsBracket Name) where
+  search p s (ExpBr e) = search p s e
+  search p s (PatBr q) = search p s q
+  search p s (DecBr g) = search p s g
+  search p s (TypBr t) = search p s t
+  search _ _ (VarBr _) = []
+
+instance Search (HsSplice Name) where
+  search p s (HsSplice _ e) = search p s e
 
