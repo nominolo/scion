@@ -141,7 +141,30 @@ instance Search (Match Name) where
     search p s pats ++ search p s tysig ++ search p s rhss
     
 instance Search (Pat Name) where
-  search _ s p = only (FoundPat s p)
+  search p s pat0 = FoundPat s pat0 `above` search_inside
+    where
+      search_inside = 
+        case pat0 of
+          LazyPat pat           -> search p s pat
+          AsPat _ pat           -> search p s pat
+          ParPat pat            -> search p s pat
+          BangPat pat           -> search p s pat
+          ListPat ps _          -> search p s ps
+          TuplePat ps _ _       -> search p s ps
+          PArrPat ps _          -> search p s ps
+          ConPatIn _ d          -> search p s d
+          ConPatOut _ _ _ _ d _ -> search p s d
+          ViewPat e pt _        -> search p s e ++ search p s pt
+          TypePat t             -> search p s t
+          SigPatIn pt t         -> search p s pt ++ search p s t
+          SigPatOut pt _        -> search p s pt
+          _ -> []
+
+-- type HsConPatDetails id = HsConDetails (LPat id) (HsRecFields id (LPat id))
+instance (Search arg, Search rec) => Search (HsConDetails arg rec) where
+  search p s (PrefixCon args) = search p s args
+  search p s (RecCon rec)     = search p s rec
+  search p s (InfixCon a1 a2) = search p s a1 ++ search p s a2
 
 instance Search (HsType Name) where
   search _ s t = only (FoundType s t)
