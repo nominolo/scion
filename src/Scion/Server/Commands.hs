@@ -14,16 +14,19 @@ module Scion.Server.Commands ( allCommands ) where
 
 import Prelude as P
 import Scion.Types
-import Scion.Utils()
+import Scion.Utils
 import Scion.Session
 import Scion.Server.Protocol
 import Scion.Inspect.Find
 
 import FastString
 import GHC
+import Var        ( varType, varName )
+import PprTyThing ( pprTypeForUser )
 import Exception
 import DynFlags ( supportedLanguages, allFlags )
-import Outputable ( ppr, showSDoc )
+import Outputable ( ppr, showSDoc, showSDocDump, dcolon, showSDocForUser )
+import qualified Outputable as O ( (<+>) )
 
 import Control.Monad
 import Data.Foldable as F
@@ -34,6 +37,7 @@ import qualified Data.Map as M
 import qualified Distribution.PackageDescription as PD
 import Distribution.Text ( display )
 import qualified Data.Set as S
+import GHC.SYB.Utils
 
 #ifndef HAVE_PACKAGE_DB_MODULES
 import UniqFM ( eltsUFM )
@@ -228,8 +232,21 @@ cmdThingAtPoint =
         Just (Typechecked tcm) -> do
             --let Just (src, _, _, _, _) = renamedSource tcm
             let src = typecheckedSource tcm
-            let r = S.toList $ findHsThing (overlaps loc) src
-            return (Just (showSDoc $ ppr r))
+            --let in_range = const True
+            let in_range = overlaps loc
+            let r = findHsThing in_range src
+            --return (Just (showSDoc (ppr $ S.toList r)))
+            unqual <- unqualifiedForModule tcm
+            case S.toList r of
+              [] -> return Nothing
+              (x:_) -> 
+                let l = deepestLeaf x in
+                case l of
+                  FoundId i -> 
+                      return $ Just $ showSDocForUser unqual
+                        (ppr (varName i) O.<+> dcolon O.<+> 
+                          pprTypeForUser True (varType i))
+                  _ -> return (Just (showSDoc (ppr l)))
         _ -> return Nothing
 
 cmdDumpSources :: Command
@@ -243,7 +260,7 @@ cmdDumpSources =
             Just (Typechecked tcm) -> do
               let Just (rn, _, _, _, _) = renamedSource tcm
               let tc = typecheckedSource tcm
-              liftIO $ putStrLn $ showSDoc $ ppr rn
-              liftIO $ putStrLn $ showSDoc $ ppr tc
+              liftIO $ putStrLn $ showSDocDump $ ppr rn
+              liftIO $ putStrLn $ showData TypeChecker 2 tc
               return ()
             _ -> return ()
