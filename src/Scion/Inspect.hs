@@ -25,6 +25,8 @@ import GHC
 import Bag
 import Var ( varType )
 import DataCon ( dataConUserType )
+import Type ( tidyType )
+import VarEnv ( emptyTidyEnv )
 
 import Data.Generics.Biplate
 import Data.Generics.UniplateStr hiding ( Str (..) )
@@ -44,7 +46,7 @@ import GHC.SYB.Utils
 ------------------------------------------------------------------------------
 
 typeOfResult :: SearchResult Id -> Maybe Type
-typeOfResult (FoundId i) = Just $ varType i
+typeOfResult (FoundId i) = Just $ tidyType emptyTidyEnv $ varType i
 typeOfResult (FoundCon _ c) = Just $ dataConUserType c
 typeOfResult _ = Nothing
 
