@@ -25,6 +25,7 @@ where
 import Scion.Utils()
 
 import GHC
+import BasicTypes ( IPName(..) )
 import Bag
 import Var ( varName )
 import Outputable
@@ -153,6 +154,9 @@ instance Search Name Name where
 instance Search id DataCon where
   search _ s d = only (FoundCon s d)
 
+instance Search id id => Search id (IPName id) where
+  search p s (IPName i) = search p s i
+
 instance Search id a => Search id (Located a) where
   search p _ (L s a)
     | p s   = search p s a
@@ -179,6 +183,9 @@ instance (Search id id) => Search id (HsBindLR id id) where
       search_inside = 
         case b of
           FunBind { fun_matches = ms } -> search p s ms
+          AbsBinds { abs_binds = bs }  -> search p s bs
+          PatBind { pat_lhs = lhs, pat_rhs = rhs } ->
+              search p s lhs `mappend` search p s rhs
           _ -> mempty
 
 instance (Search id id) => Search id (MatchGroup id) where
@@ -235,6 +242,8 @@ instance (Search id id) => Search id (HsExpr id) where
     where
       search_inside = 
         case e0 of
+          HsVar i -> search p s i
+          HsIPVar i -> search p s i
           ExprWithTySigOut e _t -> search p s e --`mappend` search p s t
           HsBracketOut _b _ -> mempty -- search p s b
 {-          _ -> search_inside_expr p s e0
