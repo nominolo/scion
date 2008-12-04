@@ -61,6 +61,7 @@ data SearchResult id
   | FoundId   Id
   | FoundName Name
   | FoundCon  SrcSpan DataCon
+  | FoundLit  SrcSpan HsLit
 
 resLoc :: SearchResult id -> SrcSpan
 resLoc (FoundId i) = nameSrcSpan (varName i)
@@ -71,6 +72,7 @@ resLoc (FoundType s _) = s
 resLoc (FoundExpr s _) = s
 resLoc (FoundStmt s _) = s
 resLoc (FoundCon s _)  = s
+resLoc (FoundLit s _)  = s
 
 instance Eq (SearchResult id) where
   a == b = resLoc a == resLoc b   -- TODO: sufficient?
@@ -132,6 +134,7 @@ instance (OutputableBndr id, Outputable id)
   ppr (FoundId i)     = text "id:  " <+> ppr i
   ppr (FoundName n)   = text "name:" <+> ppr n
   ppr (FoundCon s c)  = text "con: " <+> ppr s $$ nest 4 (ppr c)
+  ppr (FoundLit s l)  = text "lit: " <+> ppr s $$ nest 4 (ppr l)
 
 instance Outputable a => Outputable (PosTree a) where
   ppr (Node v cs) = ppr v $$ nest 2 (vcat (map ppr (S.toList cs)))
@@ -153,6 +156,9 @@ instance Search Name Name where
 
 instance Search id DataCon where
   search _ s d = only (FoundCon s d)
+
+instance Search id HsLit where
+  search _ s l = only (FoundLit s l)
 
 instance Search id id => Search id (IPName id) where
   search p s (IPName i) = search p s i
@@ -245,6 +251,7 @@ instance (Search id id) => Search id (HsExpr id) where
         case e0 of
           HsVar i -> search p s i
           HsIPVar i -> search p s i
+          HsLit l -> search p s l
           ExprWithTySigOut e _t -> search p s e --`mappend` search p s t
           HsBracketOut _b _ -> mempty -- search p s b
 {-          _ -> search_inside_expr p s e0
