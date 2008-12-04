@@ -14,7 +14,7 @@
 --
 module Scion.Inspect.Find 
   ( findHsThing, SearchResult(..), SearchResults
-  , PosTree(..), PosForest
+  , PosTree(..), PosForest, deepestLeaf
   , surrounds, overlaps
 #ifdef DEBUG
   , prop_invCmpOverlap
@@ -30,7 +30,8 @@ import Var ( varName )
 import Outputable
 
 import Data.Monoid ( mempty, mappend, mconcat )
-import Data.Foldable as F ( toList )
+import Data.Foldable as F ( toList, maximumBy )
+import Data.Ord    ( comparing )
 import qualified Data.Set as S
 
 ------------------------------------------------------------------------------
@@ -42,6 +43,13 @@ type PosForest a = S.Set (PosTree a)
 -- | Lookup all the things in a certain region.
 findHsThing :: Search id a => (SrcSpan -> Bool) -> a -> SearchResults id
 findHsThing p a = search p noSrcSpan a
+
+deepestLeaf :: Ord a => PosTree a -> a
+deepestLeaf t = snd $ go (0::Int) t
+  where
+    go n (Node x xs)
+      | S.null xs = (n,x)
+      | otherwise = maximumBy (comparing fst) (S.map (go (n+1)) xs)
 
 data SearchResult id
   = FoundBind SrcSpan (HsBind id)
