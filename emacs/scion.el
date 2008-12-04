@@ -1730,3 +1730,5 @@ The first argument is dist directory (typically <project-root>/dist/)"
 (defun scion-dump-sources ()
   (interactive)
   (scion-eval '(dump-sources)))
+
+(define-key scion-mode-map "\C-c\C-t" 'scion-thing-at-point)
