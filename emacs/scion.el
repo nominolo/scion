@@ -1722,7 +1722,7 @@ The first argument is dist directory (typically <project-root>/dist/)"
 
 (defun scion-thing-at-point ()
   (interactive)
-  (let ((filename "") ;; XXX: should be fully expanded buffer filename
+  (let ((filename (buffer-file-name))
 	(line (line-number-at-pos))
 	(col (current-column)))
     (message (scion-eval `(thing-at-point ,filename ,line ,col)))))

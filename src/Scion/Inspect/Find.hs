@@ -90,7 +90,7 @@ cmpOverlap sp1 sp2
    start1 = srcSpanStart sp1
    end1   = srcSpanEnd sp1
    start2 = srcSpanStart sp2
-   end2   = srcSpanStart sp2
+   end2   = srcSpanEnd sp2
    -- TODO: don't ignore file name
 
 surrounds :: SrcSpan -> SrcSpan -> Bool
@@ -99,7 +99,7 @@ surrounds outer inner = start1 <= start2 && end2 <= end1
    start1 = srcSpanStart outer
    end1   = srcSpanEnd outer
    start2 = srcSpanStart inner
-   end2   = srcSpanStart inner
+   end2   = srcSpanEnd inner
 
 overlaps :: SrcSpan -> SrcSpan -> Bool
 overlaps sp1 sp2 = cmpOverlap sp1 sp2 == EQ
