@@ -23,6 +23,8 @@ import Scion.Inspect.Find
 
 import GHC
 import Bag
+import Var ( varType )
+import DataCon ( dataConUserType )
 
 import Data.Generics.Biplate
 import Data.Generics.UniplateStr hiding ( Str (..) )
@@ -39,6 +41,19 @@ import Outputable
 import GHC.SYB.Utils
 --import StaticFlags ( initStaticOpts )
 #endif
+------------------------------------------------------------------------------
+
+typeOfResult :: SearchResult Id -> Maybe Type
+typeOfResult (FoundId i) = Just $ varType i
+typeOfResult (FoundCon _ c) = Just $ dataConUserType c
+typeOfResult _ = Nothing
+
+prettyResult :: OutputableBndr id => SearchResult id -> SDoc
+prettyResult (FoundId i) = ppr i
+prettyResult (FoundName n) = ppr n
+prettyResult (FoundCon _ c) = ppr c
+prettyResult r = ppr r
+
 ------------------------------------------------------------------------------
 
 typeDecls :: TypecheckedMod m => m -> [LTyClDecl Name]

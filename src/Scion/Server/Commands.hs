@@ -17,11 +17,10 @@ import Scion.Types
 import Scion.Utils
 import Scion.Session
 import Scion.Server.Protocol
-import Scion.Inspect.Find
+import Scion.Inspect
 
 import FastString
 import GHC
-import Var        ( varType, varName )
 import PprTyThing ( pprTypeForUser )
 import Exception
 import DynFlags ( supportedLanguages, allFlags )
@@ -241,11 +240,11 @@ cmdThingAtPoint =
               [] -> return Nothing
               (x:_) -> 
                 let l = deepestLeaf x in
-                case l of
-                  FoundId i -> 
+                case typeOfResult l of
+                  Just t ->
                       return $ Just $ showSDocForUser unqual
-                        (ppr (varName i) O.<+> dcolon O.<+> 
-                          pprTypeForUser True (varType i))
+                        (prettyResult l O.<+> dcolon O.<+> 
+                          pprTypeForUser True t)
                   _ -> return (Just (showSDoc (ppr l)))
         _ -> return Nothing
 
