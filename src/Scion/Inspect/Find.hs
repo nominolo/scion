@@ -79,19 +79,19 @@ cmpOverlap sp1 sp2
   | end2 < start1 = GT
   | otherwise     = EQ
  where
-   start1 = (srcSpanStartLine sp1, srcSpanStartCol sp1)
-   end1   = (srcSpanEndLine sp1, srcSpanEndCol sp1)
-   start2 = (srcSpanStartLine sp2, srcSpanStartCol sp2)
-   end2   = (srcSpanEndLine sp2, srcSpanEndCol sp2)
+   start1 = srcSpanStart sp1
+   end1   = srcSpanEnd sp1
+   start2 = srcSpanStart sp2
+   end2   = srcSpanStart sp2
    -- TODO: don't ignore file name
 
 surrounds :: SrcSpan -> SrcSpan -> Bool
 surrounds outer inner = start1 <= start2 && end2 <= end1
   where
-   start1 = (srcSpanStartLine outer, srcSpanStartCol outer)
-   end1   = (srcSpanEndLine outer, srcSpanEndCol outer)
-   start2 = (srcSpanStartLine inner, srcSpanStartCol inner)
-   end2   = (srcSpanEndLine inner, srcSpanEndCol inner)
+   start1 = srcSpanStart outer
+   end1   = srcSpanEnd outer
+   start2 = srcSpanStart inner
+   end2   = srcSpanStart inner
 
 overlaps :: SrcSpan -> SrcSpan -> Bool
 overlaps sp1 sp2 = cmpOverlap sp1 sp2 == EQ
