@@ -15,14 +15,17 @@ module Scion.Utils where
 import Scion.Types
 
 import GHC              ( GhcMonad, ModSummary, spans, getLoc, Located
-                        , depanal, topSortModuleGraph )
+                        , depanal, topSortModuleGraph, TypecheckedMod
+                        , mkPrintUnqualifiedForModule, moduleInfo )
 import Digraph          ( flattenSCCs )
 import Bag              ( Bag, mapBag, foldrBag, foldlBag, emptyBag,
                           unionBags, unionManyBags )
+import Outputable
 
 import Control.Monad
 import Data.Foldable
 import Data.Monoid
+import Data.Maybe ( fromMaybe )
 
 thingsAroundPoint :: (Int, Int) -> [Located n] -> [Located n]
 thingsAroundPoint pt ls = [ l | l <- ls, spans (getLoc l) pt ]
@@ -56,3 +59,7 @@ expectJust :: String -> Maybe a -> a
 expectJust _ (Just a) = a
 expectJust msg Nothing = 
     dieHard $ "Just x expected.\n  grep for \"" ++ msg ++ "\""
+
+unqualifiedForModule :: TypecheckedMod m => m -> ScionM PrintUnqualified
+unqualifiedForModule tcm = do
+  fromMaybe alwaysQualify `fmap` mkPrintUnqualifiedForModule (moduleInfo tcm)
