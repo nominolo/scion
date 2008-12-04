@@ -17,7 +17,9 @@ import Scion.Types
 import Scion.Utils()
 import Scion.Session
 import Scion.Server.Protocol
+import Scion.Inspect.Find
 
+import FastString
 import GHC
 import Exception
 import DynFlags ( supportedLanguages, allFlags )
@@ -31,6 +33,7 @@ import qualified Data.Map as M
 
 import qualified Distribution.PackageDescription as PD
 import Distribution.Text ( display )
+import qualified Data.Set as S
 
 #ifndef HAVE_PACKAGE_DB_MODULES
 import UniqFM ( eltsUFM )
@@ -56,6 +59,8 @@ allCommands =
     , cmdBackgroundTypecheckFile
     , cmdForceUnload
     , cmdAddCmdLineFlag
+    , cmdThingAtPoint
+    , cmdDumpSources
     ]
 
 ------------------------------------------------------------------------------
@@ -204,3 +209,41 @@ cmdAddCmdLineFlag =
       str <- getString
       return $
         toString `fmap` (addCmdLineFlags [str] >> return ())
+
+cmdThingAtPoint :: Command
+cmdThingAtPoint =
+    Command $ do
+      string "thing-at-point" >> sp
+      fname <- getString
+      sp
+      line <- getInt
+      sp
+      col <- getInt
+      return $ toString `fmap` cmd fname line col
+  where
+    cmd fname line col = do
+      let loc = srcLocSpan $ mkSrcLoc (fsLit fname) line col
+      tc_res <- gets bgTcCache
+      case tc_res of
+        Just (Typechecked tcm) -> do
+            --let Just (src, _, _, _, _) = renamedSource tcm
+            let src = typecheckedSource tcm
+            let r = S.toList $ findHsThing (overlaps loc) src
+            return (Just (showSDoc $ ppr r))
+        _ -> return Nothing
+
+cmdDumpSources :: Command
+cmdDumpSources =
+    Command $ do
+      string "dump-sources"
+      return $ toString `fmap` cmd
+  where cmd = do
+          tc_res <- gets bgTcCache
+          case tc_res of
+            Just (Typechecked tcm) -> do
+              let Just (rn, _, _, _, _) = renamedSource tcm
+              let tc = typecheckedSource tcm
+              liftIO $ putStrLn $ showSDoc $ ppr rn
+              liftIO $ putStrLn $ showSDoc $ ppr tc
+              return ()
+            _ -> return ()

@@ -1719,3 +1719,14 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (let ((stats-str (concat " Scion" status)))
     (setq scion-mode-line stats-str)
     (force-mode-line-update)))
+
+(defun scion-thing-at-point ()
+  (interactive)
+  (let ((filename "") ;; XXX: should be fully expanded buffer filename
+	(line (line-number-at-pos))
+	(col (current-column)))
+    (message (scion-eval `(thing-at-point ,filename ,line ,col)))))
+
+(defun scion-dump-sources ()
+  (interactive)
+  (scion-eval '(dump-sources)))
