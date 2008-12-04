@@ -116,10 +116,10 @@ cmdLoadComponent =
       loadComponent comp
         
 instance Sexp CompilationResult where
-  toSexp (CompilationResult succeeded warns errs time) = toSexp $
+  toSexp (CompilationResult success warns errs time) = toSexp $
       ExactSexp $ parens $ 
         showString "compilation-result" <+>
-        toSexp succeeded <+>
+        toSexp success <+>
         toSexp (Lst (map DiagWarning (toList warns))) <+>
         toSexp (Lst (map DiagError (toList errs))) <+>
         toSexp (ExactSexp (showString (show 
