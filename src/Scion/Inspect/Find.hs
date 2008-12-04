@@ -182,7 +182,8 @@ instance (Search id id) => Search id (HsBindLR id id) where
     where
       search_inside = 
         case b of
-          FunBind { fun_matches = ms } -> search p s ms
+          FunBind { fun_id = i, fun_matches = ms } -> 
+              search p s i `mappend` search p s ms
           AbsBinds { abs_binds = bs }  -> search p s bs
           PatBind { pat_lhs = lhs, pat_rhs = rhs } ->
               search p s lhs `mappend` search p s rhs
