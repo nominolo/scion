@@ -27,6 +27,7 @@ import Data.IORef
 import Data.Typeable
 import Control.Exception
 
+-- XXX: Can we get rid of some of this maybe stuff?
 data SessionState 
   = SessionState {
       scionVerbosity :: Verbosity,
@@ -42,13 +43,20 @@ data SessionState
         -- ^ The current active Cabal component.  This affects DynFlags and
         -- targets.  ATM, we don't support multiple active components.
 
-      focusedModule :: Maybe (FilePath, ModuleName, ModSummary)
+      focusedModule :: Maybe (FilePath, ModuleName, ModSummary),
         -- ^ The currently focused module for background typechecking.
+
+      bgTcCache :: Maybe BgTcCache
+        -- ^ Cached state of the background typechecker.
     }
+
+data BgTcCache
+  = Parsed ParsedModule
+  | Typechecked TypecheckedModule
 
 mkSessionState :: DynFlags -> IO (IORef SessionState)
 mkSessionState dflags =
-    newIORef (SessionState normal dflags Nothing Nothing Nothing)
+    newIORef (SessionState normal dflags Nothing Nothing Nothing Nothing)
 
 newtype ScionM a
   = ScionM { unScionM :: IORef SessionState -> Ghc a }

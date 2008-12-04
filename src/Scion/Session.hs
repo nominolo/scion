@@ -461,22 +461,24 @@ backgroundTypecheckFile fname = do
       clearWarnings
       start_time <- liftIO $ getCurrentTime
       
-      let finish_up ok errs = do
+      let finish_up tc_res errs = do
               warns <- getWarnings
               clearWarnings
               end_time <- liftIO $ getCurrentTime
+              let ok = isJust tc_res
+              modifySessionState (\s -> s { bgTcCache = tc_res })
               let res = CompilationResult ok warns errs
                                           (diffUTCTime end_time start_time)
               return (True, res `mappend` comp_rslt)
 
-      ghandle (\(e :: SourceError) -> finish_up False (srcErrorMessages e)) $
+      ghandle (\(e :: SourceError) -> finish_up Nothing (srcErrorMessages e)) $
         do
           -- TODO: measure time and stop after a phase if it takes too long?
           modsum <- preprocessModule mod modsum0
           parsed_mod <- parseModule modsum
           tcd_mod <- typecheckModule parsed_mod
           _ <- desugarModule tcd_mod
-          finish_up True mempty
+          finish_up (Just (Typechecked tcd_mod)) mempty
 
    -- XXX: is this efficient enough?
    preprocessModule _mod _modsum = do
