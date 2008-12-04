@@ -51,6 +51,9 @@ instance Sexp Bool where
     toSexp False = showString "nil"
 instance (Sexp a, Sexp b) => Sexp (a, b) where
   toSexp (x, y) = parens (toSexp x <+> toSexp y)
+instance Sexp a => Sexp (Maybe a) where
+  toSexp Nothing = showString "nil"
+  toSexp (Just x) = toSexp x
 
 newtype Lst a = Lst [a]
 instance Sexp a => Sexp (Lst a) where
