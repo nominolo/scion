@@ -132,7 +132,7 @@ inplace GHC, the following steps should work:
 
  1. On windows, make sure that Cabal finds the inplace gcc
 
-    $ cd <path-to-ghc>
+    $ cd /path/to/ghc
     $ cp `which gcc` ghc/
 
     (Adjust to version of GCC that GHC was compiled with.)
