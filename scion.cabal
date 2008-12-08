@@ -12,7 +12,8 @@ stability:       provisional
 build-type:      Simple
 cabal-version:   >= 1.4
 -- tested-with:     GHC ==6.10.1
--- extra-source-files: README
+extra-source-files: README.markdown emacs/scion.el
+
 flag testing
   description: Enable Debugging things like QuickCheck properties, etc.
   default: False
