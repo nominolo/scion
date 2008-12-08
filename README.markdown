@@ -8,13 +8,15 @@ other features that may be useful for an IDE.
 
 Most of Scion's functionality is based on the GHC API.  Scion tries to
 be front-end agnostic; it provides both a Haskell API and servers for
-non-Haskell clients such as Emacs or Vim.
+non-Haskell clients such as Emacs (no Vim, volunteers required).
 
   [home]: http://code.google.com/p/scion-lib/
 
 
 Installation
 ============
+
+(For developer builds see section "Hacking" below.)
 
 Scion requires [GHC 6.10.1][ghc] or later.  All other dependencies
 should be on [Hackage][hackage] and can be installed using
@@ -29,6 +31,8 @@ working on Scion itself.
   [ghc]: http://haskell.org/ghc/download.html
   [hackage]: http://hackage.haskell.org/packages/hackage.html
   [ci]: http://hackage.haskell.org/trac/hackage/wiki/CabalInstall
+
+
 
 Usage
 =====
@@ -89,3 +93,52 @@ dot com).  Note that, if you fork the project on Github your fork
 won't take up additional space on your account.
 
   [gh]: http://github.com
+
+
+Building
+--------
+
+For development it is probably easier to use the GNU make than Cabal
+directly.  The makefile includes a file called `config.mk` which is
+not present by default.  You can use the provided `config.mk.sample`
+and edit it:
+
+    $ cp config.mk.sample config.mk
+    $ edit config.mk
+
+After that, the makefile takes care of the rest.
+
+    $ make           # configure and build
+    $ make install   # configure, build, and install
+
+If you don't have the dependencies, yet, and have `cabal-install`, the
+following may be helpful (If it's not in the path, adjust `config.mk`
+accordingly):
+
+    $ make cabal-install
+
+(This also installs Scion, but that shouldn't interfere with hacking.)
+
+
+Using an in-place GHC
+---------------------
+
+GHC 6.10.1 has a couple of problems.  For example, not all error
+messages are reported using the GHC API but instead are printed to
+stdout/stderr.  Some parts also call `exitWith` directly.  GHC's HEAD
+branch has some of these bugs fixed and may contain new features not
+present in the stable branch.  If you want to compile against an
+inplace GHC, the following steps should work:
+
+ 1. On windows, make sure that Cabal finds the inplace gcc
+
+    $ cd <path-to-ghc>
+    $ cp `which gcc` ghc/
+
+    (Adjust to version of GCC that GHC was compiled with.)
+
+ 2. Set the `GHC_PATH` variable to the correct path to for your
+    system.  Make sure *not* to set `HC`, `PKG`, or `HADDOCK`, they
+    will automatically set to point to the inplace versions.
+
+ 3. Use `make` or `make cabal-install` as above.
