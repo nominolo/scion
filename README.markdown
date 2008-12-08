@@ -132,13 +132,13 @@ inplace GHC, the following steps should work:
 
  1. On windows, make sure that Cabal finds the inplace gcc
 
-    $ cd /path/to/ghc
-    $ cp `which gcc` ghc/
+        $ cd /path/to/ghc
+        $ cp `which gcc` ghc/
 
     (Adjust to version of GCC that GHC was compiled with.)
 
  2. Set the `GHC_PATH` variable to the correct path to for your
     system.  Make sure *not* to set `HC`, `PKG`, or `HADDOCK`, they
-    will automatically set to point to the inplace versions.
+    will automatically be set to point to the inplace versions.
 
  3. Use `make` or `make cabal-install` as above.
