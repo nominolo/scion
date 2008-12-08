@@ -33,14 +33,14 @@ import Data.Generics.UniplateStr hiding ( Str (..) )
 import qualified Data.Generics.Str as U 
 import Data.Map ( Map )
 import qualified Data.Map as M
+import Outputable
+import GHC.SYB.Utils
 
 #ifdef DEBUG
 --import FastString
 import Test.QuickCheck()
 import Test.GHC.Gen()
 --import Debug.Trace
-import Outputable
-import GHC.SYB.Utils
 --import StaticFlags ( initStaticOpts )
 #endif
 ------------------------------------------------------------------------------
