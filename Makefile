@@ -10,6 +10,8 @@ SETUP_DIST = setup-dist
 SETUP_CONFIG = $(DIST)/setup-config
 SETUP = $(SETUP_DIST)/Setup
 
+CABAL_INSTALL_OPTS += --ghc --with-compiler=$(HC) --with-hc-pkg=$(PKG)
+
 main: build
 
 setup: $(SETUP)
@@ -33,7 +35,7 @@ test: build
 #	./dist/build/test_get_imports/test_get_imports $(GHC_PATH)/compiler dist-stage2 +RTS -s -RTS
 
 clean:
-	$(SETUP) clean
+	$(SETUP) clean || rm -rf $(DIST)
 
 distclean: clean
 	rm -rf $(SETUP_DIST)
@@ -42,7 +44,17 @@ doc:
 	$(SETUP) haddock --with-haddock=$(HADDOCK)
 
 printvars:
-	@echo "GHC_PATH = $(GHC_PATH)"
-	@echo "HC       = $(HC)"
-	@echo "PKG      = $(PKG)"
-	@echo "HADDOCK  = $(HADDOCK)"
+	@echo "UseInplaceGhc    = $(UseInplaceGhc)"
+	@echo "GHC_PATH         = $(GHC_PATH)"
+	@echo "HC               = $(HC)"
+	@echo "PKG              = $(PKG)"
+	@echo "HADDOCK          = $(HADDOCK)"
+	@echo "CABAL_INSTALL    = $(CABAL_INSTALL)"
+	@echo "        ..._OPTS = $(CABAL_INSTALL_OPTS)"
+	@echo "---------------------------------------------------------------"
+	@echo "DIST         = $(DIST)"
+	@echo "SETUP_CONFIG = $(SETUP_CONFIG)"
+	@echo "SETUP_DIST   = $(SETUP_DIST)"
+
+cabal-install:
+	$(CABAL_INSTALL) install $(CABAL_INSTALL_OPTS)

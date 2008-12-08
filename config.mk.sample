@@ -4,13 +4,13 @@
 # As Scion depends on features or bugfixes of GHC's HEAD branch, by
 # default we assume that we use an inplace GHC.
 
-UseInplaceGhc = "NO"
+UseInplaceGhc = NO
 
 # ----------------------------------------------------------------------
 
 ifeq "$(UseInplaceGhc)" "YES"
 
-GHC_PATH = ../ghc
+GHC_PATH = /absolute/path/to/ghc
 
 else
 
@@ -19,3 +19,6 @@ PKG     = ghc-pkg
 HADDOCK = haddock
 
 endif
+
+# path to 'cabal' program from the 'cabal-install' tool.
+CABAL_INSTALL = cabal
