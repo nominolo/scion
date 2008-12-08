@@ -1,1 +1,21 @@
-GHC_PATH=../ghc
+# ----------------------------------------------------------------------
+# Customise this file for your system.
+#
+# As Scion depends on features or bugfixes of GHC's HEAD branch, by
+# default we assume that we use an inplace GHC.
+
+UseInplaceGhc = "NO"
+
+# ----------------------------------------------------------------------
+
+ifeq "$(UseInplaceGhc)" "YES"
+
+GHC_PATH = ../ghc
+
+else
+
+HC      = ghc
+PKG     = ghc-pkg
+HADDOCK = haddock
+
+endif
