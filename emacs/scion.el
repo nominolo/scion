@@ -48,6 +48,8 @@ This applies to the *inferior-lisp* buffer and the network connections."
   :type 'boolean
   :group 'scion-ui)
 
+;;;---------------------------------------------------------------------------
+
 (defgroup scion-haskell nil
   "Haskell server configuration."
   :prefix "scion-"
@@ -145,6 +147,9 @@ current state will be saved and later restored."
 
 ;;;---------------------------------------------------------------------------
 
+(defvar scion-program "scion_emacs"
+  "Program name of the Scion server.")
+
 (make-variable-buffer-local
  (defvar scion-mode-line " Scion"))
 
@@ -164,7 +169,41 @@ Scion: Smart Haskell mode.
 (defvar scion-net-processes)
 (defvar scion-default-connection)
 
+(defun scion (&optional command)
+  "Start a Scion server and connect to it."
+  (interactive)
+  (let ((server-program (or command scion-program)))
+    (scion-start :program server-program)))
 
+(defun* scion-start (&key (program scion-program)
+			  program-args
+			  env
+			  directory
+			  name
+			  (buffer "*scion-server*"))
+  (let ((proc (scion-maybe-start-server program program-args env
+					directory buffer)))
+    ;; TODO: Use polling + run-with-time + optional retry limit
+    (sleep-for 3)
+    (scion-connect "127.0.0.1" 4005)))
+
+(defun scion-maybe-start-server (program program-args env directory buffer)
+  (cond
+   ((not (comint-check-proc buffer))
+    (scion-start-server program program-args env directory buffer))
+   (t
+    nil)))
+
+(defun scion-start-server (program program-args env directory buffer)
+  (with-current-buffer (get-buffer-create buffer)
+    (when directory
+      (cd (expand-file-name directory)))
+    (comint-mode)
+    (let ((process-environment (append env process-environment)))
+      (comint-exec (current-buffer) "scion-emacs" program nil program-args))
+    (let ((proc (get-buffer-process (current-buffer))))
+      ; (scion-set-query-on-exit-flag proc)
+      proc)))
 
 (defun scion-connect (host port &optional coding-system)
   "Connect to a running Swank server."
@@ -1751,3 +1790,8 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (scion-eval '(dump-sources)))
 
 (define-key scion-mode-map "\C-c\C-t" 'scion-thing-at-point)
+
+
+;; Local Variables: 
+;; outline-regexp: ";;;;+"
+;; indent-tabs-mode: nil
