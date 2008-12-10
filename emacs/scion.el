@@ -1535,7 +1535,7 @@ does something special this is always \"dist\"."
      (list (funcall (if (fboundp 'read-directory-name)
                         'read-directory-name
                       'read-file-name)
-		    "Directory" root root)
+		    "Directory: " root root)
 	   (read-from-minibuffer "Dist directory: " "dist"))))
   (lexical-let ((root-dir root-dir))
     (scion-eval-async `(open-cabal-project ,(expand-file-name root-dir)
