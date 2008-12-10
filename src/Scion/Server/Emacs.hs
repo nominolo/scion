@@ -32,6 +32,7 @@ import Network.Socket.ByteString
 import Numeric ( showHex )
 import Prelude hiding ( log )
 import System.IO.Error (catch, isEOFError)
+import System.IO ( hSetBuffering, stdout, stderr, BufferMode(..) )
 import Text.ParserCombinators.ReadP
 import qualified Data.ByteString.Char8 as S
 
@@ -44,6 +45,8 @@ runServer :: ScionM ()
 runServer =
     reifyScionM $ \s ->
       withSocketsDo $ do
+        liftIO $ do hSetBuffering stdout LineBuffering
+                    hSetBuffering stderr LineBuffering
         log 1 "starting up server..."
         sock <- liftIO $ listenOn (PortNumber 4005)
         log 1 "listing on port 4005"
