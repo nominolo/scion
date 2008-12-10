@@ -96,7 +96,7 @@ executable test_thing_at_point
     build-depends: QuickCheck == 2.*
     cpp-options:   -DDEBUG
 
-executable emacs_server
+executable scion_emacs
   main-is: EmacsServer.hs
   hs-source-dirs: programs src
   if !flag(emacs)
