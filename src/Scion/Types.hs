@@ -43,7 +43,7 @@ data SessionState
         -- ^ The current active Cabal component.  This affects DynFlags and
         -- targets.  ATM, we don't support multiple active components.
 
-      focusedModule :: Maybe (FilePath, ModuleName, ModSummary),
+      focusedModule :: Maybe ModSummary,
         -- ^ The currently focused module for background typechecking.
 
       bgTcCache :: Maybe BgTcCache

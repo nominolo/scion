@@ -15,7 +15,7 @@ module Scion.Session where
 
 import Prelude hiding ( mod )
 import GHC hiding ( flags, load )
-import HscTypes ( srcErrorMessages,SourceError )
+import HscTypes ( srcErrorMessages, SourceError, isBootSummary )
 import Exception
 import ErrUtils ( WarningMessages, ErrorMessages )
 
@@ -30,7 +30,7 @@ import Data.Maybe       ( isJust )
 import Data.Monoid
 import Data.Time.Clock  ( getCurrentTime, diffUTCTime, NominalDiffTime )
 import System.Directory ( setCurrentDirectory, getCurrentDirectory )
-import System.FilePath  ( (</>), isRelative, makeRelative )
+import System.FilePath  ( (</>), isRelative, makeRelative, normalise )
 import Control.Exception
 
 import Distribution.ModuleName ( components )
@@ -381,85 +381,53 @@ setGHCVerbosity lvl = do
 
 -- ** Background Typechecking
 
--- | Load all dependencies of the file so we can typecheck it with minimum
---   delay.
-setContextForBGTC :: FilePath -> ScionM (Maybe ModuleName, CompilationResult)
-setContextForBGTC fname = do
-   let target = Target (TargetFile fname Nothing)
-                       True
-                       Nothing
-   setTargets [target]
-   start_time <- liftIO $ getCurrentTime
-   -- find out the module name of our target
-   mb_mod_graph <- gtry $ depanal [] False
-   case mb_mod_graph of
-     Left (e :: SourceError) -> do
-         r <- srcErrToCompilationResult start_time e
-         return (Nothing, r)
-     Right mod_graph -> do
-         let mod = modSummaryForFile fname mod_graph
-         let mod_name = ms_mod_name mod
-         -- load does its own time tracking
-         end_time <- liftIO $ getCurrentTime
-         r0 <- load (LoadDependenciesOf mod_name) 
-                `gcatch` \(e :: SourceError) -> 
-                            srcErrToCompilationResult start_time e
-         let r = r0 { compilationTime = compilationTime r0 +
-                                         diffUTCTime end_time start_time }
-         modifySessionState $ \sess ->
-             sess { focusedModule = if compilationSucceeded r
-                                     then Just (fname, mod_name, mod)
-                                     else Nothing
-                  }
-         return (Just mod_name, r)
-  where
-    srcErrToCompilationResult start_time err = do
-       end_time <- liftIO $ getCurrentTime
-       warns <- getWarnings
-       clearWarnings
-       return (CompilationResult False warns (srcErrorMessages err)
-                                 (diffUTCTime end_time start_time))
-
--- | Return the 'ModSummary' that refers to the source file.
+-- | Takes an absolute path to a file and attempts to typecheck it.
 --
--- Assumes that there is exactly one such 'ModSummary'.
--- 
-modSummaryForFile :: FilePath -> ModuleGraph -> ModSummary
-modSummaryForFile fname mod_graph =
-    case [ m | m <- mod_graph
-         , Just src <- [ml_hs_file (ms_location m)]
-         , src == fname ]
-    of [ m ] -> m
-       []    -> dieHard $ "modSummaryForFile: No ModSummary found for " ++ fname
-       _     -> dieHard $ "modSummaryForFile: Too many ModSummaries found for "
-                          ++ fname
-
-isPartOfProject :: FilePath -> ScionM Bool
-isPartOfProject fname = do
-   root_dir <- projectRootDir
-   return (isRelative (makeRelative root_dir fname))
-  `gcatch` \(_ :: NoCurrentCabalProject) -> return False
-
-backgroundTypecheckFile :: FilePath -> ScionM (Bool, CompilationResult)
+-- This performs the following steps:
+--
+--   1. Check whether the file is actually part of the current project.
+--      Furthermore, it must not be a .hs-boot file (arguably a bug.)  We
+--      simply bail out if these conditions are met.
+--
+--   2. Make sure that all dependencies of the module are up to date.
+--
+--   3. Parse, typecheck, desugar and load the module.  The last step is
+--      necessary so that we can we don't have to recompile in the case that
+--      we switch to another module.
+--
+--   4. If the previous step was successful, cache the results in the session
+--      for use by source code inspection utilities.  Some of the above steps
+--      are skipped if we know that they are not necessary.
+--
+backgroundTypecheckFile :: 
+       FilePath 
+    -> ScionM (Bool, CompilationResult)
+       -- ^ First element is @False@ <=> step 1 above failed.
 backgroundTypecheckFile fname = do
-   ok <- isPartOfProject fname
-   if ok
-    then do
+   ok <- isRelativeToProjectRoot fname
+   if not ok then return (False, mempty)
+    else do
+     -- check whether it's cached
      mb_focusmod <- gets focusedModule
      case mb_focusmod of
-       Just (f, m, ms) | f == fname -> 
-          backgroundTypecheckFile' mempty m ms
+       Just ms | Just f <- ml_hs_file (ms_location ms)
+               , f == fname -> 
+          backgroundTypecheckFile' mempty
        _otherwise -> do
-          (_, rslt) <- setContextForBGTC fname
-          if compilationSucceeded rslt
-            then do Just (_f, m, ms) <- gets focusedModule
-                    backgroundTypecheckFile' rslt m ms
-            else return (False, rslt)
-    else return (False, mempty)
+          mb_modsum <- filePathToProjectModule fname
+          case mb_modsum of
+            Nothing -> return (False, mempty)
+            Just modsum -> do
+              (_, rslt) <- setContextForBGTC modsum
+              if compilationSucceeded rslt
+               then backgroundTypecheckFile' rslt
+               else return (True, rslt)
   where
-   backgroundTypecheckFile' comp_rslt mod modsum0 = do
+   backgroundTypecheckFile' comp_rslt = do
       clearWarnings
       start_time <- liftIO $ getCurrentTime
+
+      modsum <- preprocessModule
       
       let finish_up tc_res errs = do
               warns <- getWarnings
@@ -474,17 +442,88 @@ backgroundTypecheckFile fname = do
       ghandle (\(e :: SourceError) -> finish_up Nothing (srcErrorMessages e)) $
         do
           -- TODO: measure time and stop after a phase if it takes too long?
-          modsum <- preprocessModule mod modsum0
+          
           parsed_mod <- parseModule modsum
           tcd_mod <- typecheckModule parsed_mod
           _ <- desugarModule tcd_mod
           finish_up (Just (Typechecked tcd_mod)) mempty
 
-   -- XXX: is this efficient enough?
-   preprocessModule _mod _modsum = do
-      let target = Target (TargetFile fname Nothing)
-                          True
-                          Nothing
-      setTargets [target]
-      modSummaryForFile fname `fmap` depanal [] False
-      -- TODO: re-set context if dependencies changed
+   preprocessModule = do
+     depanal [] True
+     -- reload-calculate the modsummary because it contains the cached
+     -- preprocessed source code
+     mb_modsum <- filePathToProjectModule fname
+     case mb_modsum of
+       Nothing -> error "Huh? No modsummary after preprocessing?"
+       Just ms -> return ms
+       
+-- | Return whether the filepath refers to a file inside the current project
+--   root.
+isRelativeToProjectRoot :: FilePath -> ScionM Bool
+isRelativeToProjectRoot fname = do
+   root_dir <- projectRootDir
+   return (isRelative (makeRelative root_dir fname))
+  `gcatch` \(_ :: NoCurrentCabalProject) -> return False
+
+
+filePathToProjectModule :: FilePath -> ScionM (Maybe ModSummary)
+filePathToProjectModule fname = do
+   -- We use the current module graph, don't bother to do a new depanal
+   -- if it's empty then we have no current component, hence no BgTc.
+   --
+   -- We check for both relative and absolute filenames because we don't seem
+   -- to have any guarantee from GHC what the filenames will look like.
+   -- TODO: not sure what happens for names like "../foo"
+   root_dir <- projectRootDir
+   let rel_fname = normalise (makeRelative root_dir fname)
+   mod_graph <- getModuleGraph
+   case [ m | m <- mod_graph
+            , not (isBootSummary m)
+            , Just src <- [ml_hs_file (ms_location m)]
+            , src == fname || src == rel_fname ]
+    of [ m ] -> return (Just m)
+       _     -> return Nothing  -- ambiguous or not present
+  `gcatch` \(_ :: NoCurrentCabalProject) -> return Nothing
+
+isPartOfProject :: FilePath -> ScionM Bool
+isPartOfProject fname = fmap isJust (filePathToProjectModule fname)
+
+
+-- | Ensure that all dependencies of the module are already loaded.
+--
+-- Sets 'focusedModule' if it was successful.
+setContextForBGTC :: ModSummary -> ScionM (Maybe ModuleName, CompilationResult)
+setContextForBGTC modsum = do
+   let mod_name = ms_mod_name modsum
+   start_time <- liftIO $ getCurrentTime
+   r <- load (LoadDependenciesOf mod_name) 
+           `gcatch` \(e :: SourceError) -> 
+               srcErrToCompilationResult start_time e
+   modifySessionState $ \sess ->
+       sess { focusedModule = if compilationSucceeded r
+                               then Just modsum
+                               else Nothing
+            }
+   return (Nothing, r)
+  where
+    srcErrToCompilationResult start_time err = do
+       end_time <- liftIO $ getCurrentTime
+       warns <- getWarnings
+       clearWarnings
+       return (CompilationResult False warns (srcErrorMessages err)
+                                 (diffUTCTime end_time start_time))
+  
+-- | Return the 'ModSummary' that refers to the source file.
+--
+-- Assumes that there is exactly one such 'ModSummary'.
+-- 
+modSummaryForFile :: FilePath -> ModuleGraph -> ModSummary
+modSummaryForFile fname mod_graph =
+    case [ m | m <- mod_graph
+         , Just src <- [ml_hs_file (ms_location m)]
+         , src == fname ]
+    of [ m ] -> m
+       []    -> dieHard $ "modSummaryForFile: No ModSummary found for " ++ fname
+       _     -> dieHard $ "modSummaryForFile: Too many ModSummaries found for "
+                          ++ fname
+
