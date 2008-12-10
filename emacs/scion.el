@@ -1522,9 +1522,14 @@ The overlay has several properties:
           (scion-cabal-root-dir next-dir))))))
 
 (defun scion-open-cabal-project (root-dir rel-dist-dir)
-  "Open a Cabal project.
+  "Load project metadata from a Cabal description.  
 
-The first argument is dist directory (typically <project-root>/dist/)"
+This does not load the project but merely loads the metadata.
+
+The first argument is the project root directory \(the directory
+which contains the .cabal file\).  The second argument is the
+directory name relative to the project root.  Unless the Cabal project
+does something special this is always \"dist\"."
   (interactive ;"DProject dir: \nsDist-dir"
    (let ((root (scion-cabal-root-dir)))
      (list (funcall (if (fboundp 'read-directory-name)
@@ -1541,7 +1546,9 @@ The first argument is dist directory (typically <project-root>/dist/)"
   nil)
 
 (defun scion-load-library ()
-  "Load the library of the current cabal project."
+  "Load the library of the current cabal project.
+
+Sets the GHC flags for the library from the current Cabal project and loads it."
   (interactive)
   (scion-eval-async `(load-component library)
     (scion-handling-failure (result)
@@ -1592,6 +1599,7 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (scion-eval '(list-supported-languages)))
 
 (defun haskell-insert-language (lang)
+  "Insert a LANGUAGE pragma at the top of the file."
   ;; TODO: automatically jump to or insert LANGUAGE pragma
   (interactive
    (let ((langs (scion-supported-languages)))
@@ -1606,6 +1614,7 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (scion-eval '(list-supported-pragmas)))
 
 (defun haskell-insert-pragma (pragma)
+  "Insert a pragma at the current point."
   (interactive (let ((choices (scion-supported-pragmas)))
 		 ;; standard completing-read cannot even deal properly
 		 ;; with upper-case words.
@@ -1618,6 +1627,7 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (scion-eval '(list-supported-flags)))
 
 (defun haskell-insert-flag (flag)
+  "Insert a command line flag at the curretn point."
   ;; TODO: automatically insert/add OPTIONS pragma
   (interactive
    (let ((flags (scion-supported-flags)))
@@ -1632,6 +1642,10 @@ The first argument is dist directory (typically <project-root>/dist/)"
   (scion-eval '(list-exposed-modules)))
 
 (defun haskell-insert-module-name (mod)
+  "Insert a module name at the current point.
+
+When called interactively tries to complete to modules of all
+installed packages (However, not of the current project.)"
   (interactive 
    (let ((mods (scion-exposed-modules)))
      (list (ido-completing-read "Module: " mods))))
