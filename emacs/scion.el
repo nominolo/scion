@@ -1668,7 +1668,7 @@ installed packages (However, not of the current project.)"
   (insert "-- |"
           "\n-- Module      : " module-name
 	  "\n-- Copyright   : (c) " author " " (substring (current-time-string) -4)
-	  "\n-- License     : BSD-style\n--"
+	  "\n-- License     : BSD-style\n--" ;; TODO: extract from .cabal file
 	  "\n-- Maintainer  : " email
 	  "\n-- Stability   : experimental"
 	  "\n-- Portability : portable\n--\n"))
