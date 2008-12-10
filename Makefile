@@ -1,3 +1,5 @@
+all: build
+
 include config.mk
 
 # If not set in custom config.mk, use the inplace GHC
@@ -13,7 +15,6 @@ SETUP = $(SETUP_DIST)/Setup
 CABAL_INSTALL_OPTS += --ghc --with-compiler=$(HC) --with-hc-pkg=$(PKG)
 CABAL_FLAGS ?= -ftesting -femacs
 
-main: build
 
 setup: $(SETUP)
 $(SETUP): Setup.hs
@@ -60,3 +61,6 @@ printvars:
 
 cabal-install:
 	$(CABAL_INSTALL) install $(CABAL_INSTALL_OPTS) $(CABAL_FLAGS)
+
+run-emacs: build
+	./$(DIST)/build/scion_emacs/scion_emacs

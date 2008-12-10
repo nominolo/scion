@@ -22,3 +22,5 @@ endif
 
 # path to 'cabal' program from the 'cabal-install' tool.
 CABAL_INSTALL = cabal
+
+run: run-emacs
