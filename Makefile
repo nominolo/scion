@@ -11,6 +11,7 @@ SETUP_CONFIG = $(DIST)/setup-config
 SETUP = $(SETUP_DIST)/Setup
 
 CABAL_INSTALL_OPTS += --ghc --with-compiler=$(HC) --with-hc-pkg=$(PKG)
+CABAL_FLAGS ?= -ftesting -femacs
 
 main: build
 
@@ -21,7 +22,7 @@ $(SETUP): Setup.hs
 
 configure: $(SETUP_CONFIG)
 $(SETUP_CONFIG): scion.cabal setup
-	$(SETUP) configure -v --with-compiler=$(HC) --with-hc-pkg=$(PKG) --user -ftesting -femacs
+	$(SETUP) configure -v --with-compiler=$(HC) --with-hc-pkg=$(PKG) --user $(CABAL_FLAGS)
 
 .PHONY: build
 build: configure
@@ -51,10 +52,11 @@ printvars:
 	@echo "HADDOCK          = $(HADDOCK)"
 	@echo "CABAL_INSTALL    = $(CABAL_INSTALL)"
 	@echo "        ..._OPTS = $(CABAL_INSTALL_OPTS)"
+	@echo "CABAL_FLAGS      = $(CABAL_FLAGS)"
 	@echo "---------------------------------------------------------------"
 	@echo "DIST         = $(DIST)"
 	@echo "SETUP_CONFIG = $(SETUP_CONFIG)"
 	@echo "SETUP_DIST   = $(SETUP_DIST)"
 
 cabal-install:
-	$(CABAL_INSTALL) install $(CABAL_INSTALL_OPTS)
+	$(CABAL_INSTALL) install $(CABAL_INSTALL_OPTS) $(CABAL_FLAGS)
