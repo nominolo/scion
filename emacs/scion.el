@@ -1470,11 +1470,29 @@ The overlay has several properties:
 
 (put 'scion-handling-failure 'lisp-indent-function 1)
 
+(defun scion-cabal-root-dir (&optional start-directory)
+  "Look for a <name>.cabal file from START-DIRECTORY upwards."
+  (let ((dir (or start-directory
+		 default-directory
+		 (error "No start directory given"))))
+    (if (car (directory-files dir t ".cabal$"))
+	dir
+      (let ((next-dir (file-name-directory (directory-file-name
+                                            (file-truename dir)))))
+	(unless (or (equal dir next-dir) (null next-dir))
+          (scion-cabal-root-dir next-dir))))))
+
 (defun scion-open-cabal-project (root-dir rel-dist-dir)
   "Open a Cabal project.
 
 The first argument is dist directory (typically <project-root>/dist/)"
-  (interactive "DProject dir: \nsDist-dir")
+  (interactive ;"DProject dir: \nsDist-dir"
+   (let ((root (scion-cabal-root-dir)))
+     (list (funcall (if (fboundp 'read-directory-name)
+                        'read-directory-name
+                      'read-file-name)
+		    "Directory" root root)
+	   (read-from-minibuffer "Dist directory: " "dist"))))
   (lexical-let ((root-dir root-dir))
     (scion-eval-async `(open-cabal-project ,(expand-file-name root-dir)
 					   ,rel-dist-dir)
@@ -1585,6 +1603,7 @@ The first argument is dist directory (typically <project-root>/dist/)"
 (define-key scion-mode-map "\C-cif" 'haskell-insert-flag)
 (define-key scion-mode-map "\C-cim" 'haskell-insert-module-name)
 
+(define-key scion-mode-map "\C-c\C-o" 'scion-open-cabal-project)
 (define-key scion-mode-map "\C-c\C-l" 'scion-load-library)
 
 (defun haskell-insert-module-header (module-name &optional
