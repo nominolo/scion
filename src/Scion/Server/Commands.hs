@@ -36,7 +36,6 @@ import qualified Data.Map as M
 
 import qualified Distribution.PackageDescription as PD
 import Distribution.Text ( display )
-import qualified Data.Set as S
 import GHC.SYB.Utils
 
 #ifndef HAVE_PACKAGE_DB_MODULES
@@ -79,9 +78,16 @@ instance Sexp a => Sexp (OkErr a) where
 
 -- encode expected errors as proper return values
 handleScionException :: ScionM a -> ScionM (OkErr a)
-handleScionException m = do
-   (m >>= return . Ok)
-   `gcatch` \(e :: SomeScionException) -> return (Error (show e))
+handleScionException m = (do
+   r <- m
+   return (Ok r)
+  `gcatch` \(e :: SomeScionException) -> return (Error (show e)))
+  `gcatch` \(e' :: GhcException) -> 
+               case e' of
+                Panic _ -> throw e'
+                InstallationError _ -> throw e'
+                Interrupted -> throw e'
+                _ -> return (Error (show e'))
 
 ------------------------------------------------------------------------------
 
@@ -204,7 +210,7 @@ cmdForceUnload =
     Command $ do
       string "force-unload"
       return $
-        toString `fmap` unload
+        toString `fmap` (handleScionException $ unload)
 
 cmdAddCmdLineFlag :: Command
 cmdAddCmdLineFlag =
@@ -212,7 +218,7 @@ cmdAddCmdLineFlag =
       string "add-command-line-flag" >> sp
       str <- getString
       return $
-        toString `fmap` (addCmdLineFlags [str] >> return ())
+        toString `fmap` (handleScionException $ addCmdLineFlags [str] >> return ())
 
 cmdThingAtPoint :: Command
 cmdThingAtPoint =
@@ -225,7 +231,7 @@ cmdThingAtPoint =
       col <- getInt
       return $ toString `fmap` cmd fname line col
   where
-    cmd fname line col = do
+    cmd fname line col = handleScionException $ do
       let loc = srcLocSpan $ mkSrcLoc (fsLit fname) line col
       tc_res <- gets bgTcCache
       case tc_res of
@@ -254,7 +260,7 @@ cmdDumpSources =
     Command $ do
       string "dump-sources"
       return $ toString `fmap` cmd
-  where cmd = do
+  where cmd = handleScionException $ do
           tc_res <- gets bgTcCache
           case tc_res of
             Just (Typechecked tcm) -> do

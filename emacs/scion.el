@@ -1797,7 +1797,9 @@ installed packages (However, not of the current project.)"
   (let ((filename (buffer-file-name))
 	(line (line-number-at-pos))
 	(col (current-column)))
-    (message (scion-eval `(thing-at-point ,filename ,line ,col)))))
+    (message 
+     (let ((rslt (scion-eval `(thing-at-point ,filename ,line ,col))))
+       (funcall (scion-handling-failure (r) r) rslt)))))
 
 (defun scion-dump-sources ()
   (interactive)
