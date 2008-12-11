@@ -53,7 +53,7 @@ library
     cpp-options:   -DHAVE_PACKAGE_DB_MODULES
 
   -- TODO: drop after 6.10.2 is out
-  if !(impl(ghc >= 6.11.20081113) || impl(ghc == 6.10.* && >= 6.10.2))
+  if impl(ghc >= 6.11.20081113) || impl(ghc == 6.10.* && >= 6.10.2)
     cpp-options:   -DRECOMPILE_BUG_FIXED
 
   if flag(emacs)
