@@ -16,10 +16,12 @@
 module Scion.Inspect 
   ( module Scion.Inspect
   , module Scion.Inspect.Find
+  , module Scion.Inspect.TypeOf
   ) where
 
 import Scion.Utils()
 import Scion.Inspect.Find
+import Scion.Inspect.TypeOf
 
 import GHC
 import Bag
