@@ -257,25 +257,6 @@ instance (Search id id) => Search id (HsExpr id) where
           HsLit l -> search p s l
           ExprWithTySigOut e _t -> search p s e --`mappend` search p s t
           HsBracketOut _b _ -> mempty -- search p s b
-{-          _ -> search_inside_expr p s e0
-
--- search_inside_expr :: (SrcSpan -> Bool) -> SrcSpan -> HsExpr id 
---                    -> SearchResults id
-search_inside_expr :: (Search id (MatchGroup t),
-                       Search id (HsExpr t),
-                       Search id (HsLocalBinds t),
-                       Search id (StmtLR t t),
-                       Search id (HsRecordBinds t),
-                       Search id (HsType t),
-                       Search id (ArithSeqInfo t),
-                       Search id (HsBracket t),
-                       Search id (HsSplice t),
-                       Search id (Pat t),
-                       Search id (HsCmdTop t)) =>
-                      (SrcSpan -> Bool) -> SrcSpan -> HsExpr t -> SearchResults id
-search_inside_expr p s e0 =
-        case e0 of
--}
           HsLam mg -> search p s mg
           HsApp l r -> search p s l `mappend` search p s r
           OpApp l o _ r -> search p s l `mappend` search p s o 
