@@ -86,15 +86,18 @@ type SearchResults id = PosForest (SearchResult id)
 -- spans overlap or, if not, the relative ordering of both.
 cmpOverlap :: SrcSpan -> SrcSpan -> Ordering
 cmpOverlap sp1 sp2
+  | not (isGoodSrcSpan sp1) = LT
+  | not (isGoodSrcSpan sp2) = GT
   | end1 < start2 = LT
   | end2 < start1 = GT
   | otherwise     = EQ
  where
-   start1 = srcSpanStart sp1
-   end1   = srcSpanEnd sp1
-   start2 = srcSpanStart sp2
-   end2   = srcSpanEnd sp2
-   -- TODO: don't ignore file name
+   -- At this point we assume that both spans are good.  We also ignore the
+   -- file names since faststrings seem to be rather unreliable.
+   start1 = (srcSpanStartLine sp1, srcSpanStartCol sp1)
+   end1   = (srcSpanEndLine sp1, srcSpanEndCol sp1)
+   start2 = (srcSpanStartLine sp2, srcSpanStartCol sp2)
+   end2   = (srcSpanEndLine sp2, srcSpanEndCol sp2)
 
 surrounds :: SrcSpan -> SrcSpan -> Bool
 surrounds outer inner = start1 <= start2 && end2 <= end1
