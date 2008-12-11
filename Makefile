@@ -27,7 +27,7 @@ $(SETUP_CONFIG): scion.cabal setup
 
 .PHONY: build
 build: configure
-	$(SETUP) build
+	$(SETUP) build -v
 
 install: build
 	$(SETUP) install
