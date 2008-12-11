@@ -72,6 +72,11 @@ instance Exception ComponentDoesNotExist where
 initialScionDynFlags :: DynFlags -> DynFlags
 initialScionDynFlags dflags =
   dflags {
+      -- GHC 6.10.1 has a bug in that it doesn't properly keep track of which
+      -- modules were compiled in HscNothing mode.  To avoid this, we use
+      -- HscInterpreted.  Unfortunately, that means we cannot use Scion with
+      -- projects that use unboxed tuples, as those are not supported by the
+      -- byte code compiler.
 #ifdef RECOMPILE_BUG_FIXED
       hscTarget = HscNothing  -- by default, don't modify anything
     , ghcLink   = NoLink      -- just to be sure
@@ -385,9 +390,9 @@ setGHCVerbosity lvl = do
 --
 -- This performs the following steps:
 --
---   1. Check whether the file is actually part of the current project.
---      Furthermore, it must not be a .hs-boot file (arguably a bug.)  We
---      simply bail out if these conditions are met.
+--   1. Check whether the file is actually part of the current project.  It's
+--      also currently not possible to typecheck a .hs-boot file using this
+--      function.  We simply bail out if these conditions are not met.
 --
 --   2. Make sure that all dependencies of the module are up to date.
 --
