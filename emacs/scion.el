@@ -1808,4 +1808,5 @@ installed packages (However, not of the current project.)"
 
 ;; Local Variables: 
 ;; outline-regexp: ";;;;+"
+;; End:
 ;; indent-tabs-mode: nil
