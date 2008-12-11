@@ -14,7 +14,7 @@
 --
 module Scion.Inspect.Find 
   ( findHsThing, SearchResult(..), SearchResults
-  , PosTree(..), PosForest, deepestLeaf
+  , PosTree(..), PosForest, deepestLeaf, pathToDeepest
   , surrounds, overlaps
 #ifdef DEBUG
   , prop_invCmpOverlap
@@ -51,6 +51,32 @@ deepestLeaf t = snd $ go (0::Int) t
     go n (Node x xs)
       | S.null xs = (n,x)
       | otherwise = maximumBy (comparing fst) (S.map (go (n+1)) xs)
+
+-- | Returns the deepest leaf, together with the path to this leaf.  For
+-- example, for the following tree with root @A@:
+-- @
+--     A -+- B --- C
+--        '- D --- E --- F
+-- @
+-- this function will return:
+-- @
+--    (F, [E, D, A])
+-- @
+-- If @F@ were missing the result is either @(C, [B,A])@ or @(E, [D,A])@.
+-- 
+pathToDeepest :: Ord a => PosForest a -> Maybe (a, [a])
+pathToDeepest forest 
+  | S.null forest = Nothing
+  | otherwise = Just $ ptl3 $ go_many (0::Int) [] forest
+  where
+    go n path (Node x xs)
+      | S.null xs = (n, x, path)
+      | otherwise = go_many (n+1) (x:path) xs
+    go_many n path xs = 
+      maximumBy (comparing fst3) (S.map (go n path) xs)
+    fst3 (x,_,_) = x
+    ptl3 (_,x,y) = (x,y)
+
 
 data SearchResult id
   = FoundBind SrcSpan (HsBind id)
