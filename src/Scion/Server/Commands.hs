@@ -24,8 +24,9 @@ import GHC
 import PprTyThing ( pprTypeForUser )
 import Exception
 import DynFlags ( supportedLanguages, allFlags )
-import Outputable ( ppr, showSDoc, showSDocDump, dcolon, showSDocForUser )
-import qualified Outputable as O ( (<+>) )
+import Outputable ( ppr, showSDoc, showSDocDump, dcolon, showSDocForUser,
+                    showSDocDebug )
+import qualified Outputable as O ( (<+>), ($$) )
 
 import Control.Monad
 import Data.Foldable as F
@@ -236,16 +237,16 @@ cmdThingAtPoint =
             let r = findHsThing in_range src
             --return (Just (showSDoc (ppr $ S.toList r)))
             unqual <- unqualifiedForModule tcm
-            case S.toList r of
-              [] -> return Nothing
-              (x:_) -> 
-                let l = deepestLeaf x in
-                case typeOfResult l of
+            case pathToDeepest r of
+              Nothing -> return (Just "no info")
+              Just (x,xs) ->
+                --return $ Just (showSDoc (ppr x O.$$ ppr xs))
+                case typeOf (x,xs) of
                   Just t ->
                       return $ Just $ showSDocForUser unqual
-                        (prettyResult l O.<+> dcolon O.<+> 
+                        (prettyResult x O.<+> dcolon O.<+> 
                           pprTypeForUser True t)
-                  _ -> return (Just (showSDoc (ppr l)))
+                  _ -> return (Just (showSDocDebug (ppr x O.$$ ppr xs )))
         _ -> return Nothing
 
 cmdDumpSources :: Command
