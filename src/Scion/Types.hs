@@ -26,6 +26,7 @@ import Control.Monad ( when )
 import Data.IORef
 import Data.Typeable
 import Control.Exception
+import Control.Applicative
 
 -- XXX: Can we get rid of some of this maybe stuff?
 data SessionState 
@@ -72,6 +73,12 @@ instance Monad ScionM where
 instance Functor ScionM where
   fmap f (ScionM ma) =
       ScionM $ \s -> fmap f (ma s)
+
+instance Applicative ScionM where
+  pure a = ScionM $ \_ -> return a
+  ScionM mf <*> ScionM ma = ScionM $ \s -> do f <- mf s
+                                              a <- ma s
+                                              return (f a)
 
 liftScionM :: Ghc a -> ScionM a
 liftScionM m = ScionM $ \_ -> m
