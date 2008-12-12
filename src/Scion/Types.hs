@@ -174,3 +174,7 @@ dieHard last_wish = do
               "\nPlease file a bug report at:\n  " ++ bug_tracker_url
   where
     bug_tracker_url = "http://code.google.com/p/scion-lib/issues/list"
+
+-- | Use this as a short version of 'undefined'.
+__ :: a
+__ = undefined
