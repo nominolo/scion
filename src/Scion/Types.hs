@@ -33,8 +33,8 @@ data SessionState
   = SessionState {
       scionVerbosity :: Verbosity,
       initialDynFlags :: DynFlags,
-        -- ^ The DynFlags as they when Scion was started.  This is used to
-        -- reset flags when opening a new project.  Arguably, the GHC API
+        -- ^ The DynFlags as they were when Scion was started.  This is used
+        -- to reset flags when opening a new project.  Arguably, the GHC API
         -- should provide calls to reset a session.
 
       localBuildInfo :: Maybe LocalBuildInfo,
