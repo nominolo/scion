@@ -18,6 +18,7 @@ import Scion.Utils
 import Scion.Session
 import Scion.Server.Protocol
 import Scion.Inspect
+import Scion.Configure
 
 import FastString
 import GHC
@@ -64,6 +65,7 @@ allCommands =
     , cmdAddCmdLineFlag
     , cmdThingAtPoint
     , cmdDumpSources
+    , cmdConfigProject
     ]
 
 ------------------------------------------------------------------------------
@@ -270,3 +272,13 @@ cmdDumpSources =
               liftIO $ putStrLn $ showData TypeChecker 2 tc
               return ()
             _ -> return ()
+
+cmdConfigProject :: Command
+cmdConfigProject =
+    Command $ do
+      string "config-cabal-project"
+      fname <- sp >> getString
+      return $ toString `fmap` cmd fname
+  where
+    cmd fname = handleScionException $ do
+      configCabalProjectWithArgs fname ["configure", "--builddir=dist-scion"]

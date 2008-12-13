@@ -15,10 +15,12 @@ module Scion
   , module Scion  -- at least for now
   , module Scion.Session
   , module Scion.Utils
+  , module Scion.Configure
   ) where
 
 import Scion.Types
 import Scion.Session
+import Scion.Configure
 import Scion.Utils
 
 import GHC
