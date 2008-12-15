@@ -15,7 +15,10 @@ module Scion.Types
   , liftIO, MonadIO
   ) where
 
+import Scion.Types.ExtraInstances()
+
 import GHC
+import ErrUtils ( WarningMessages, ErrorMessages )
 import HscTypes
 import MonadUtils ( liftIO, MonadIO )
 import Exception
@@ -24,6 +27,8 @@ import qualified GHC
 import Distribution.Simple.LocalBuildInfo
 import Control.Monad ( when )
 import Data.IORef
+import Data.Monoid
+import Data.Time.Clock  ( NominalDiffTime )
 import Data.Typeable
 import Control.Exception
 import Control.Applicative
@@ -44,6 +49,8 @@ data SessionState
         -- ^ The current active Cabal component.  This affects DynFlags and
         -- targets.  ATM, we don't support multiple active components.
 
+      lastCompResult :: CompilationResult,
+
       focusedModule :: Maybe ModSummary,
         -- ^ The currently focused module for background typechecking.
 
@@ -55,9 +62,31 @@ data BgTcCache
   = Parsed ParsedModule
   | Typechecked TypecheckedModule
 
+data CompilationResult = CompilationResult { 
+      compilationSucceeded :: Bool,
+      compilationWarnings  :: WarningMessages,
+      compilationErrors    :: ErrorMessages,
+      compilationTime      :: NominalDiffTime
+    }
+
+
+
+instance Monoid CompilationResult where
+  mempty = CompilationResult True mempty mempty 0
+  mappend r1 r2 =
+      CompilationResult 
+        { compilationSucceeded = 
+              compilationSucceeded r1 && compilationSucceeded r2
+        , compilationWarnings = 
+            compilationWarnings r1 `mappend` compilationWarnings r2
+        , compilationErrors =
+            compilationErrors r1 `mappend` compilationErrors r2
+        , compilationTime = compilationTime r1 + compilationTime r2
+        }
+
 mkSessionState :: DynFlags -> IO (IORef SessionState)
 mkSessionState dflags =
-    newIORef (SessionState normal dflags Nothing Nothing Nothing Nothing)
+    newIORef (SessionState normal dflags Nothing Nothing mempty Nothing Nothing)
 
 newtype ScionM a
   = ScionM { unScionM :: IORef SessionState -> Ghc a }

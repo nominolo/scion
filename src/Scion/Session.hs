@@ -17,7 +17,6 @@ import Prelude hiding ( mod )
 import GHC hiding ( flags, load )
 import HscTypes ( srcErrorMessages, SourceError, isBootSummary )
 import Exception
-import ErrUtils ( WarningMessages, ErrorMessages )
 
 import Scion.Types
 import Scion.Utils()
@@ -28,7 +27,7 @@ import Data.IORef
 import Data.List        ( intercalate )
 import Data.Maybe       ( isJust )
 import Data.Monoid
-import Data.Time.Clock  ( getCurrentTime, diffUTCTime, NominalDiffTime )
+import Data.Time.Clock  ( getCurrentTime, diffUTCTime )
 import System.Directory ( setCurrentDirectory, getCurrentDirectory )
 import System.FilePath  ( (</>), isRelative, makeRelative, normalise )
 import Control.Exception
@@ -223,26 +222,6 @@ setTargetsFromCabal Library = do
 setTargetsFromCabal (Executable _) = do
   error "unimplemented"
 
-data CompilationResult = CompilationResult { 
-      compilationSucceeded :: Bool,
-      compilationWarnings  :: WarningMessages,
-      compilationErrors    :: ErrorMessages,
-      compilationTime      :: NominalDiffTime
-    }
-
-instance Monoid CompilationResult where
-  mempty = CompilationResult True mempty mempty 0
-  mappend r1 r2 =
-      CompilationResult 
-        { compilationSucceeded = 
-              compilationSucceeded r1 && compilationSucceeded r2
-        , compilationWarnings = 
-            compilationWarnings r1 `mappend` compilationWarnings r2
-        , compilationErrors =
-            compilationErrors r1 `mappend` compilationErrors r2
-        , compilationTime = compilationTime r1 + compilationTime r2
-        }
-
 -- | Load the specified component from the current Cabal project.
 --
 -- Throws:
@@ -262,7 +241,9 @@ loadComponent comp = do
    -- TODO: group warnings by file
    setActiveComponent comp
    setTargetsFromCabal comp
-   load LoadAllTargets
+   rslt <- load LoadAllTargets
+   modifySessionState $ \s -> s { lastCompResult = rslt }
+   return rslt
 
 -- | Make the specified component the active one, i. e., set the DynFlags to
 --  those specified for the given component.
@@ -295,9 +276,10 @@ load how_much = do
    end_time <- liftIO $ getCurrentTime
    let time_diff = diffUTCTime end_time start_time
    (warns, errs) <- liftIO $ readIORef ref
-   case res of
-     Succeeded -> return (CompilationResult True warns mempty time_diff)
-     Failed -> return (CompilationResult False warns errs time_diff)
+   let comp_rslt = case res of
+                     Succeeded -> CompilationResult True warns mempty time_diff
+                     Failed -> CompilationResult False warns errs time_diff
+   return comp_rslt
   where
     logWarnErr ref err = do
       let errs = case err of
@@ -324,6 +306,7 @@ unload :: ScionM ()
 unload = do
    setTargets []
    load LoadAllTargets
+   modifySessionState $ \st -> st { lastCompResult = mempty }
    return ()
 
 -- | Parses the list of 'Strings' as command line arguments and sets the

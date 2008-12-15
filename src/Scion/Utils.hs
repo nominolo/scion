@@ -50,11 +50,6 @@ instance Foldable Bag where
   foldr = foldrBag
   foldl = foldlBag
 
-instance Monoid (Bag a) where
-  mempty = emptyBag
-  mappend = unionBags
-  mconcat = unionManyBags
-
 expectJust :: String -> Maybe a -> a
 expectJust _ (Just a) = a
 expectJust msg Nothing = 
