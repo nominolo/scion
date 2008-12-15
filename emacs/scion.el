@@ -183,27 +183,57 @@ Scion: Smart Haskell mode.
 			  (buffer "*scion-server*"))
   (let ((proc (scion-maybe-start-server program program-args env
 					directory buffer)))
-    ;; TODO: Use polling + run-with-time + optional retry limit
-    (sleep-for 3)
-    (scion-connect "127.0.0.1" 4005)))
+    ))
 
 (defun scion-maybe-start-server (program program-args env directory buffer)
   (cond
    ((not (comint-check-proc buffer))
     (scion-start-server program program-args env directory buffer))
    (t
+    (message "Scion server is already running")
     nil)))
+
+(defvar scion-connect-buffer nil
+  "Buffer that is currently trying to connect to a Scion server.")
 
 (defun scion-start-server (program program-args env directory buffer)
   (with-current-buffer (get-buffer-create buffer)
     (when directory
       (cd (expand-file-name directory)))
+    (delete-region (point-min) (point-max))
     (comint-mode)
+    (setq scion-connect-buffer (current-buffer))
+    (message "Connecting... (Abort with `M-x scion-abort-connect`.)")
+    (add-hook 'comint-output-filter-functions 
+              'scion-check-server-ready nil t)
     (let ((process-environment (append env process-environment)))
       (comint-exec (current-buffer) "scion-emacs" program nil program-args))
     (let ((proc (get-buffer-process (current-buffer))))
       ; (scion-set-query-on-exit-flag proc)
       proc)))
+
+(defun scion-check-server-ready (server-output)
+  "Watches the server's output for the port number to connect to."
+  (let* ((regexp "^=== Listening on port: \\([0-9]+\\)$")
+         (port (save-excursion
+                 (goto-char (point-min))
+                 (when (re-search-forward regexp nil t)
+                   (read (match-string 1)) ))))
+    (when port
+      (remove-hook 'comint-output-filter-functions 
+                   'scion-check-server-ready t)
+      (setq scion-connect-buffer nil)
+      (sleep-for 0.1)  ;; give the server some time to get connected
+      (scion-connect "127.0.0.1" port))))
+
+(defun scion-abort-connect ()
+  "Abort the current connection attempt."
+  (interactive)
+  (cond (scion-connect-buffer
+         (kill-buffer scion-connect-buffer)
+         (message "Connection attempt aborted."))
+        (t
+         (error "Not connecting."))))
 
 (defun scion-connect (host port &optional coding-system)
   "Connect to a running Swank server."

@@ -49,11 +49,11 @@ runServer =
                     hSetBuffering stderr LineBuffering
         log 1 "starting up server..."
         sock <- liftIO $ listenOn (PortNumber 4005)
-        log 1 "listing on port 4005"
         reflectScionM (loop sock) s
   where
     loop sock = do
       log 4 "accepting"
+      liftIO $ putStrLn "=== Listening on port: 4005"
       (sock', _addr) <- liftIO $ accept sock
       log 4 "starting to serve"
       more <- eventLoop sock'
