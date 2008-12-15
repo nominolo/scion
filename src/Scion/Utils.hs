@@ -56,3 +56,6 @@ expectJust msg Nothing =
 unqualifiedForModule :: TypecheckedMod m => m -> ScionM PrintUnqualified
 unqualifiedForModule tcm = do
   fromMaybe alwaysQualify `fmap` mkPrintUnqualifiedForModule (moduleInfo tcm)
+
+second :: (a -> b) -> (c, a) -> (c, b)
+second f (x,y) = (x, f y)
