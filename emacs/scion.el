@@ -160,7 +160,9 @@ Scion: Smart Haskell mode.
   nil
   scion-mode-line
   ;; Fake binding to coax `define-minor-mode' to create the keymap
-  '((" " 'self-insert-command)))
+  '((" " 'self-insert-command))
+  (when scion-last-compilation-result
+    (scion-highlight-notes (scion-compiler-notes) (current-buffer))))
 
 (define-key scion-mode-map " " 'self-insert-command)
 
