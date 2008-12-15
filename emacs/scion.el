@@ -146,6 +146,117 @@ current state will be saved and later restored."
 
 (put 'scion-with-popup-buffer 'lisp-indent-function 1)
 
+(defmacro* with-struct ((conc-name &rest slots) struct &body body)
+  "Like with-slots but works only for structs.
+\(fn (CONC-NAME &rest SLOTS) STRUCT &body BODY)"
+  (flet ((reader (slot) (intern (concat (symbol-name conc-name)
+					(symbol-name slot)))))
+    (let ((struct-var (gensym "struct")))
+      `(let ((,struct-var ,struct))
+	 (symbol-macrolet
+	     ,(mapcar (lambda (slot)
+			(etypecase slot
+			  (symbol `(,slot (,(reader slot) ,struct-var)))
+			  (cons `(,(first slot) (,(reader (second slot)) 
+						 ,struct-var)))))
+		      slots)
+	   . ,body)))))
+
+(put 'with-struct 'lisp-indent-function 2)
+
+(defmacro scion-define-keys (keymap &rest key-command)
+  "Define keys in KEYMAP. Each KEY-COMMAND is a list of (KEY COMMAND)."
+  `(progn . ,(mapcar (lambda (k-c) `(define-key ,keymap . ,k-c))
+		     key-command)))
+
+(put 'slime-define-keys 'lisp-indent-function 1)
+
+
+;;;---------------------------------------------------------------------------
+;;;;;; Tree View Widget
+
+(defstruct (scion-tree (:conc-name scion-tree.))
+  item
+  (print-fn #'scion-tree-default-printer :type function)
+  (kids '() :type list)
+  (collapsed-p t :type boolean)
+  (prefix "" :type string)
+  (start-mark nil)
+  (end-mark nil)
+  (plist '() :type list))
+
+(defun scion-tree-leaf-p (tree)
+  (not (scion-tree.kids tree)))
+
+(defun scion-tree-default-printer (tree)
+  (princ (scion-tree.item tree) (current-buffer)))
+
+(defun scion-tree-decoration (tree)
+  (cond ((scion-tree-leaf-p tree) "-- ")
+	((scion-tree.collapsed-p tree) "[+] ")
+	(t "-+  ")))
+
+(defun scion-tree-insert-list (list prefix)
+  "Insert a list of trees."
+  (loop for (elt . rest) on list 
+	do (cond (rest
+		  (insert prefix " |")
+		  (scion-tree-insert elt (concat prefix " |"))
+                  (insert "\n"))
+		 (t
+		  (insert prefix " `")
+		  (scion-tree-insert elt (concat prefix "  "))))))
+
+(defun scion-tree-insert-decoration (tree)
+  (insert (scion-tree-decoration tree)))
+
+(defun scion-tree-indent-item (start end prefix)
+  "Insert PREFIX at the beginning of each but the first line.
+This is used for labels spanning multiple lines."
+  (save-excursion
+    (goto-char end)
+    (beginning-of-line)
+    (while (< start (point))
+      (insert-before-markers prefix)
+      (forward-line -1))))
+
+(defun scion-tree-insert (tree prefix)
+  "Insert TREE prefixed with PREFIX at point."
+  (with-struct (scion-tree. print-fn kids collapsed-p start-mark end-mark) tree
+    (let ((line-start (line-beginning-position)))
+      (setf start-mark (point-marker))
+      (scion-tree-insert-decoration tree)
+      (funcall print-fn tree)
+      (scion-tree-indent-item start-mark (point) (concat prefix "   "))
+      (add-text-properties line-start (point) (list 'scion-tree tree))
+      (set-marker-insertion-type start-mark t)
+      (when (and kids (not collapsed-p))
+        (terpri (current-buffer))
+        (scion-tree-insert-list kids prefix))
+      (setf (scion-tree.prefix tree) prefix)
+      (setf end-mark (point-marker)))))
+
+(defun scion-tree-at-point ()
+  (cond ((get-text-property (point) 'scion-tree))
+        (t (error "No tree at point"))))
+
+(defun scion-tree-delete (tree)
+  "Delete the region for TREE."
+  (delete-region (scion-tree.start-mark tree)
+                 (scion-tree.end-mark tree)))
+
+(defun scion-tree-toggle (tree)
+  "Toggle the visibility of TREE's children."
+  (with-struct (scion-tree. collapsed-p start-mark end-mark prefix) tree
+    (setf collapsed-p (not collapsed-p))
+    (scion-tree-delete tree)
+    (insert-before-markers " ") ; move parent's end-mark
+    (backward-char 1)
+    (scion-tree-insert tree prefix)
+    (delete-char 1)
+    (goto-char start-mark)))
+
+
 ;;;---------------------------------------------------------------------------
 
 (defvar scion-program "scion_emacs"
@@ -1442,6 +1553,13 @@ PREDICATE is executed in the buffer to test."
 (defun scion-note.severity (note)
   (car note))
 
+(defun scion-note.location (note)
+  (destructure-case note
+    ((:warning loc msg info)
+     loc)
+    ((:error loc msg info)
+     loc)))
+
 (defun scion-location-to-region (start-line start-col end-line end-col
 				 &optional buffer)
   "Translate a Haskell (line,col) region into an Emacs region.
@@ -1527,6 +1645,109 @@ The overlay has several properties:
     notes))
 
 ;;;---------------------------------------------------------------------------
+;;; The buffer that shows the compiler notes
+
+(defvar scion-compiler-notes-mode-map)
+
+(define-derived-mode scion-compiler-notes-mode fundamental-mode 
+  "Compiler-Notes"
+  "\\<scion-compiler-notes-mode-map>\
+\\{scion-compiler-notes-mode-map}
+\\{scion-popup-buffer-mode-map}
+"
+  ;(scion-set-truncate-lines)
+  )
+
+(scion-define-keys scion-compiler-notes-mode-map
+  ((kbd "RET") 'scion-compiler-notes-default-action-or-show-details)
+  ([return] 'scion-compiler-notes-default-action-or-show-details)
+  ([mouse-2] 'scion-compiler-notes-default-action-or-show-details/mouse))
+
+(defun scion-compiler-notes-default-action-or-show-details/mouse (event)
+  "Invoke the action pointed at by the mouse, or show details."
+  (interactive "e")
+  (destructuring-bind (mouse-2 (w pos &rest _) &rest __) event
+    (save-excursion
+      (goto-char pos)
+      (let ((fn (get-text-property (point) 
+                                   'scion-compiler-notes-default-action)))
+	(if fn (funcall fn) (scion-compiler-notes-show-details))))))
+
+(defun scion-compiler-notes-default-action-or-show-details ()
+  "Invoke the action at point, or show details."
+  (interactive)
+  (let ((fn (get-text-property (point) 'scion-compiler-notes-default-action)))
+    (if fn (funcall fn) (scion-compiler-notes-show-details))))
+
+(defun scion-compiler-notes-show-details ()
+  (interactive)
+  (let* ((tree (scion-tree-at-point))
+         (note (plist-get (scion-tree.plist tree) 'note))
+         (inhibit-read-only t))
+    (cond ((not (scion-tree-leaf-p tree))
+           (scion-tree-toggle tree))
+          (t
+           (scion-show-source-location (scion-note.location note) t)))))
+
+(defun scion-show-source-location (source-location &optional no-highlight-p)
+  (save-selected-window   ; show the location, but don't hijack focus.
+    (scion-goto-source-location source-location)
+    ;(unless no-highlight-p (sldb-highlight-sexp))
+    ;(scion-show-buffer-position (point))
+    ))
+
+(defun scion-goto-source-location (loc)
+  (message "Unimplemented. Sorry."))
+
+(defun scion-list-compiler-notes (notes)
+  "Show the compiler notes NOTES in tree view."
+  (interactive (list (scion-compiler-notes)))
+  (with-temp-message "Preparing compiler note tree..."
+    (scion-with-popup-buffer ("*SCION Compiler-Notes*")
+      (erase-buffer)
+      (scion-compiler-notes-mode)
+      (when (null notes)
+        (insert "[no notes]"))
+      (let ((collapsed-p))
+        (dolist (tree (scion-compiler-notes-to-tree notes))
+          (when (scion-tree.collapsed-p tree) (setf collapsed-p t))
+          (scion-tree-insert tree "")
+          (insert "\n"))
+        (goto-char (point-min))))))
+
+(defvar scion-tree-printer 'scion-tree-default-printer)
+
+(defun scion-compiler-notes-to-tree (notes)
+  (let ((warns nil)
+	(errs nil))
+    (maphash (lambda (file notes)
+	       (loop for note in notes
+		     do (case (scion-note.severity note)
+			  (:warning (setq warns (cons note warns)))
+			  (:error (setq errs (cons note warns))))))
+	     notes)
+    (let ((alist (list (cons :error errs)
+		       (cons :warning warns))))
+      (loop for (severity . notes) in alist
+	    collect (scion-tree-for-severity severity notes nil)))))
+
+(defun scion-tree-for-severity (severity notes collapsed-p)
+  (make-scion-tree :item (format "%s (%d)"
+				 (case severity
+				   (:warning "Warnings")
+				   (:error "Errors")
+				   (t (print severity)))
+				 (length notes))
+		   :kids (mapcar #'scion-tree-for-note notes)
+		   :collapsed-p collapsed-p))
+
+(defun scion-tree-for-note (note)
+  (make-scion-tree :item (scion-note.message note)
+		   :plist (list 'note note)
+		   :print-fn scion-tree-printer))
+
+
+;;;---------------------------------------------------------------------------
 
 (defmacro* scion-handling-failure ((res-var) &body body)
   (let ((x (gensym))
@@ -1596,8 +1817,10 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
       (setq scion-last-compilation-result
 	    (list tag successp notes duration))
       (scion-highlight-notes notes buf)
-      (if (not buf)
-	(scion-show-note-counts successp nwarnings nerrors duration))
+      (when (not buf)
+	(scion-show-note-counts successp nwarnings nerrors duration)
+	(when (< 0 (+ nwarnings nerrors))
+	  (scion-list-compiler-notes notes)))
       (scion-report-status (format ":%d/%d" nerrors nwarnings))
       nil)))
     
