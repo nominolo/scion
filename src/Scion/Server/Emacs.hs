@@ -41,6 +41,7 @@ import qualified Data.ByteString.Char8 as S
 data SocketClosed = SocketClosed deriving (Show, Typeable)
 instance Exception SocketClosed
 
+logLevel :: Int
 logLevel = 2
 
 runServer :: ScionM ()

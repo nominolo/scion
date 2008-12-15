@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables, CPP #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 -- |
 -- Module      : Scion.Server.Commands
 -- Copyright   : (c) Thomas Schilling 2008

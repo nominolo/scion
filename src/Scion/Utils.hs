@@ -18,13 +18,11 @@ import GHC              ( GhcMonad, ModSummary, spans, getLoc, Located
                         , depanal, topSortModuleGraph, TypecheckedMod
                         , mkPrintUnqualifiedForModule, moduleInfo )
 import Digraph          ( flattenSCCs )
-import Bag              ( Bag, mapBag, foldrBag, foldlBag, emptyBag,
-                          unionBags, unionManyBags )
+import Bag              ( Bag, mapBag, foldrBag, foldlBag )
 import Outputable
 
 import Control.Monad
 import Data.Foldable
-import Data.Monoid
 import Data.Maybe ( fromMaybe )
 
 thingsAroundPoint :: (Int, Int) -> [Located n] -> [Located n]
