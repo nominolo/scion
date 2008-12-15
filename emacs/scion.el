@@ -1540,6 +1540,11 @@ PREDICATE is executed in the buffer to test."
     ((:loc fn sl sc el ec) fn)
     ((:no-loc _)           nil)))
 
+(defun scion-note.line (note)
+  (destructure-case (cadr note)
+    ((:loc fn sl sc el ec) sl)
+    ((:no-loc r)           nil)))
+
 (defun scion-note.region (note buffer)
   (destructuring-bind (tag loc msg more) note
     (destructure-case loc
@@ -1687,17 +1692,20 @@ The overlay has several properties:
     (cond ((not (scion-tree-leaf-p tree))
            (scion-tree-toggle tree))
           (t
-           (scion-show-source-location (scion-note.location note) t)))))
+           (scion-show-source-location note t)))))
 
-(defun scion-show-source-location (source-location &optional no-highlight-p)
+(defun scion-show-source-location (note &optional no-highlight-p)
   (save-selected-window   ; show the location, but don't hijack focus.
-    (scion-goto-source-location source-location)
+    (scion-goto-source-location note)
     ;(unless no-highlight-p (sldb-highlight-sexp))
     ;(scion-show-buffer-position (point))
     ))
 
 (defun scion-goto-source-location (loc)
-  (message "Unimplemented. Sorry."))
+  (let ((file (scion-note.filename loc)))
+    (when file
+      (find-file file)
+      (goto-line (scion-note.line loc)))))
 
 (defun scion-list-compiler-notes (notes)
   "Show the compiler notes NOTES in tree view."
@@ -1742,7 +1750,9 @@ The overlay has several properties:
 		   :collapsed-p collapsed-p))
 
 (defun scion-tree-for-note (note)
-  (make-scion-tree :item (scion-note.message note)
+  (make-scion-tree :item (format "%s:\n%s"
+				 (scion-note.filename note)
+				 (scion-note.message note))
 		   :plist (list 'note note)
 		   :print-fn scion-tree-printer))
 
