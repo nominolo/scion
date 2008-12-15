@@ -41,6 +41,8 @@ import qualified Data.ByteString.Char8 as S
 data SocketClosed = SocketClosed deriving (Show, Typeable)
 instance Exception SocketClosed
 
+logLevel = 2
+
 runServer :: ScionM ()
 runServer =
     reifyScionM $ \s ->
@@ -130,4 +132,4 @@ mkHeader :: Int -> String
 mkHeader len = reverse . take 6 $ reverse (showHex len "") ++ repeat '0'
 
 log :: MonadIO m => Int -> String -> m ()
-log _ s = liftIO $ putStrLn s
+log lvl s = when (lvl <= logLevel) $ liftIO $ putStrLn s
