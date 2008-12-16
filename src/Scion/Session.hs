@@ -17,6 +17,9 @@ import Prelude hiding ( mod )
 import GHC hiding ( flags, load )
 import HscTypes ( srcErrorMessages, SourceError, isBootSummary )
 import Exception
+import Bag ( filterBag )
+import FastString ( unpackFS )
+import ErrUtils ( errMsgSpans )
 
 import Scion.Types
 import Scion.Utils()
@@ -29,7 +32,7 @@ import Data.Maybe       ( isJust )
 import Data.Monoid
 import Data.Time.Clock  ( getCurrentTime, diffUTCTime )
 import System.Directory ( setCurrentDirectory, getCurrentDirectory )
-import System.FilePath  ( (</>), isRelative, makeRelative, normalise )
+import System.FilePath  ( (</>), isRelative, makeRelative, normalise, combine )
 import Control.Exception
 
 import Distribution.ModuleName ( components )
@@ -279,6 +282,9 @@ load how_much = do
    let comp_rslt = case res of
                      Succeeded -> CompilationResult True warns mempty time_diff
                      Failed -> CompilationResult False warns errs time_diff
+   -- TODO: We need to somehow find out which modules were recompiled so we
+   -- only update the part that we have new information for.
+   modifySessionState $ \s -> s { lastCompResult = comp_rslt }
    return comp_rslt
   where
     logWarnErr ref err = do
@@ -414,23 +420,27 @@ backgroundTypecheckFile fname = do
    backgroundTypecheckFile' comp_rslt = do
       clearWarnings
       start_time <- liftIO $ getCurrentTime
-
       modsum <- preprocessModule
-      
+
       let finish_up tc_res errs = do
               warns <- getWarnings
               clearWarnings
               end_time <- liftIO $ getCurrentTime
               let ok = isJust tc_res
-              modifySessionState (\s -> s { bgTcCache = tc_res })
               let res = CompilationResult ok warns errs
                                           (diffUTCTime end_time start_time)
-              return (True, res `mappend` comp_rslt)
+
+              full_comp_rslt <- removeMessagesForFile fname =<< gets lastCompResult
+              let comp_rslt' =  full_comp_rslt `mappend` comp_rslt `mappend` res
+
+              modifySessionState (\s -> s { bgTcCache = tc_res
+                                          , lastCompResult = comp_rslt' })
+
+              return (True, comp_rslt')
 
       ghandle (\(e :: SourceError) -> finish_up Nothing (srcErrorMessages e)) $
         do
           -- TODO: measure time and stop after a phase if it takes too long?
-          
           parsed_mod <- parseModule modsum
           tcd_mod <- typecheckModule parsed_mod
           _ <- desugarModule tcd_mod
@@ -438,12 +448,13 @@ backgroundTypecheckFile fname = do
 
    preprocessModule = do
      depanal [] True
-     -- reload-calculate the modsummary because it contains the cached
+     -- reload-calculate the ModSummary because it contains the cached
      -- preprocessed source code
      mb_modsum <- filePathToProjectModule fname
      case mb_modsum of
        Nothing -> error "Huh? No modsummary after preprocessing?"
        Just ms -> return ms
+
        
 -- | Return whether the filepath refers to a file inside the current project
 --   root.
@@ -515,3 +526,22 @@ modSummaryForFile fname mod_graph =
        _     -> dieHard $ "modSummaryForFile: Too many ModSummaries found for "
                           ++ fname
 
+
+removeMessagesForFile :: FilePath -> CompilationResult -> ScionM CompilationResult
+removeMessagesForFile fname0 res = do
+    root <- projectRootDir
+    let 
+      norm = normalise . combine root 
+      fname = norm fname0
+      warnings' = stripFileMsgs (compilationWarnings res)
+      errors' = stripFileMsgs (compilationErrors res)
+      stripFileMsgs = filterBag filterIt
+      filterIt msg =
+          case errMsgSpans msg of
+            s:_ | isGoodSrcSpan s,
+                  norm (unpackFS (srcSpanFile s)) == fname -> False
+            _ -> True
+
+    return $ 
+        res { compilationWarnings = warnings'
+            , compilationErrors = errors' }
