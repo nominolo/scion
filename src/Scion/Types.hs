@@ -8,7 +8,7 @@
 -- Stability   : experimental
 -- Portability : portable
 --
--- Core types used throughout Scion. 
+-- Types used throughout Scion. 
 --
 module Scion.Types 
   ( module Scion.Types
@@ -32,6 +32,9 @@ import Data.Time.Clock  ( NominalDiffTime )
 import Data.Typeable
 import Control.Exception
 import Control.Applicative
+
+------------------------------------------------------------------------------
+-- * The Scion Monad and Session State
 
 -- XXX: Can we get rid of some of this maybe stuff?
 data SessionState 
@@ -58,35 +61,10 @@ data SessionState
         -- ^ Cached state of the background typechecker.
     }
 
-data BgTcCache
-  = Parsed ParsedModule
-  | Typechecked TypecheckedModule
-
-data CompilationResult = CompilationResult { 
-      compilationSucceeded :: Bool,
-      compilationWarnings  :: WarningMessages,
-      compilationErrors    :: ErrorMessages,
-      compilationTime      :: NominalDiffTime
-    }
-
-
-
-instance Monoid CompilationResult where
-  mempty = CompilationResult True mempty mempty 0
-  mappend r1 r2 =
-      CompilationResult 
-        { compilationSucceeded = 
-              compilationSucceeded r1 && compilationSucceeded r2
-        , compilationWarnings = 
-            compilationWarnings r1 `mappend` compilationWarnings r2
-        , compilationErrors =
-            compilationErrors r1 `mappend` compilationErrors r2
-        , compilationTime = compilationTime r1 + compilationTime r2
-        }
-
 mkSessionState :: DynFlags -> IO (IORef SessionState)
 mkSessionState dflags =
     newIORef (SessionState normal dflags Nothing Nothing mempty Nothing Nothing)
+
 
 newtype ScionM a
   = ScionM { unScionM :: IORef SessionState -> Ghc a }
@@ -105,9 +83,8 @@ instance Functor ScionM where
 
 instance Applicative ScionM where
   pure a = ScionM $ \_ -> return a
-  ScionM mf <*> ScionM ma = ScionM $ \s -> do f <- mf s
-                                              a <- ma s
-                                              return (f a)
+  ScionM mf <*> ScionM ma = 
+      ScionM $ \s -> do f <- mf s; a <- ma s; return (f a)
 
 liftScionM :: Ghc a -> ScionM a
 liftScionM m = ScionM $ \_ -> m
@@ -142,6 +119,9 @@ gets sel = getSessionState >>= return . sel
 setSessionState :: SessionState -> ScionM ()
 setSessionState s' = ScionM $ \r -> liftIO $ writeIORef r s'
 
+------------------------------------------------------------------------------
+-- ** Verbosity Levels
+
 data Verbosity
   = Silent
   | Normal
@@ -175,10 +155,34 @@ reifyScionM :: ((IORef SessionState, Session) -> IO a) -> ScionM a
 reifyScionM act = ScionM $ \st -> reifyGhc $ \sess -> act (st, sess)
 
 ------------------------------------------------------------------------------
+-- * Compilation Results
 
-data CabalComponent = Library | Executable String deriving (Eq, Show, Typeable)
+data BgTcCache
+  = Parsed ParsedModule
+  | Typechecked TypecheckedModule
+
+data CompilationResult = CompilationResult { 
+      compilationSucceeded :: Bool,
+      compilationWarnings  :: WarningMessages,
+      compilationErrors    :: ErrorMessages,
+      compilationTime      :: NominalDiffTime
+    }
+
+instance Monoid CompilationResult where
+  mempty = CompilationResult True mempty mempty 0
+  mappend r1 r2 =
+      CompilationResult 
+        { compilationSucceeded = 
+              compilationSucceeded r1 && compilationSucceeded r2
+        , compilationWarnings = 
+            compilationWarnings r1 `mappend` compilationWarnings r2
+        , compilationErrors =
+            compilationErrors r1 `mappend` compilationErrors r2
+        , compilationTime = compilationTime r1 + compilationTime r2
+        }
 
 ------------------------------------------------------------------------------
+-- * Exceptions
 
 -- | Any exception raised inside Scion is a subtype of this exception.
 data SomeScionException
@@ -196,6 +200,7 @@ scionFromException x = do
   SomeScionException e <- fromException x
   cast e
 
+-- | A fatal error.  Like 'error' but suggests submitting a bug report.
 dieHard :: String -> a
 dieHard last_wish = do
    error $ "************** Panic **************\n" ++ 
@@ -204,6 +209,11 @@ dieHard last_wish = do
   where
     bug_tracker_url = "http://code.google.com/p/scion-lib/issues/list"
 
--- | Use this as a short version of 'undefined'.
+------------------------------------------------------------------------------
+-- * Others \/ Helpers
+
+data CabalComponent = Library | Executable String deriving (Eq, Show, Typeable)
+
+-- | Shorthand for 'undefined'.
 __ :: a
 __ = undefined
