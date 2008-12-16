@@ -11,9 +11,10 @@
 module Scion.Configure where
 
 import Scion.Types
-import Scion.Session ( load, resetSessionState )
+import Scion.Session
 
 import GHC hiding ( load )
+import GHC.Paths  ( ghc, ghc_pkg )
 import Exception
 import Data.Typeable
 import Outputable
@@ -22,17 +23,44 @@ import System.Directory
 import System.FilePath
 import Control.Monad
 
+import Debug.Trace
+
+configureCabalProject :: FilePath -> FilePath -> ScionM ()
+configureCabalProject root_dir dist_dir =
+   openCabalProject root_dir dist_dir
+  `gcatch` (\(_ :: CannotOpenCabalProject) -> do
+     cabal_file <- find_cabal_file
+     let dist_dir' = "dist-scion"
+     let args = [ "configure"
+                , "-v"
+                , "--builddir=" ++ dist_dir'
+                , "--with-compiler=" ++ ghc
+                , "--with-hc-pkg=" ++ ghc_pkg ]
+     liftIO $ print args
+     setWorkingDir root_dir
+     ok <- cabalSetupWithArgs cabal_file args
+     if ok then openCabalProject root_dir dist_dir'
+           else liftIO $ throwIO $ 
+                  CannotOpenCabalProject "Failed to configure")
+ where
+   find_cabal_file = do
+      fs <- liftIO $ getDirectoryContents root_dir
+      case [ f | f <- fs, takeExtension f == ".cabal" ] of
+        [f] -> return $ root_dir </> f
+        [] -> liftIO $ throwIO $ CannotOpenCabalProject "no .cabal file"
+        _ -> liftIO $ throwIO $ CannotOpenCabalProject "Too many .cabal files"
+
 data ConfigException = ConfigException deriving (Show, Typeable)
 instance Exception ConfigException
 
-configCabalProjectWithArgs :: FilePath -> [String] -> ScionM Bool
-configCabalProjectWithArgs cabal_file args =
+cabalSetupWithArgs :: FilePath -> [String] -> ScionM Bool
+cabalSetupWithArgs cabal_file args =
    ghandle (\(_ :: ConfigException) -> return False) $ do
     ensureFileExists
     let dir = dropFileName cabal_file
     setup <- findSetup dir
     liftIO $ putStrLn $ "Using setup file: " ++ setup
-    mainfun <- compileMain setup
+    _mainfun <- compileMain setup
     
     return True
   where

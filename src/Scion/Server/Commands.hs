@@ -66,7 +66,6 @@ allCommands =
     , cmdAddCmdLineFlag
     , cmdThingAtPoint
     , cmdDumpSources
-    , cmdConfigProject
     ]
 
 ------------------------------------------------------------------------------
@@ -112,7 +111,8 @@ cmdOpenCabalProject =
                 return (toString `fmap` cmd n d))
   where
     cmd path rel_dist = handleScionException $ do
-        openCabalProject path rel_dist
+        --openCabalProject path rel_dist
+        configureCabalProject path rel_dist
         (display . PD.package) `fmap` currentCabalPackage
 
 cmdLoadComponent :: Command
@@ -273,13 +273,3 @@ cmdDumpSources =
               liftIO $ putStrLn $ showData TypeChecker 2 tc
               return ()
             _ -> return ()
-
-cmdConfigProject :: Command
-cmdConfigProject =
-    Command $ do
-      string "config-cabal-project"
-      fname <- sp >> getString
-      return $ toString `fmap` cmd fname
-  where
-    cmd fname = handleScionException $ do
-      configCabalProjectWithArgs fname ["configure", "--builddir=dist-scion"]
