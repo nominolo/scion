@@ -88,6 +88,12 @@ initialScionDynFlags dflags =
 #endif
     }
 
+-- | Reset the state of the session to a defined default state.
+--
+-- Due to some bugs in GHC this isn't completely possible.  For example, GHC
+-- retains instance declarations which can lead to problems when you load a
+-- new module which defines a different instance.  (You'll get a conflicting
+-- instance error, which can only resolved by re-starting GHC.)
 resetSessionState :: ScionM ()
 resetSessionState = do
    unload
@@ -468,7 +474,7 @@ isRelativeToProjectRoot fname = do
 filePathToProjectModule :: FilePath -> ScionM (Maybe ModSummary)
 filePathToProjectModule fname = do
    -- We use the current module graph, don't bother to do a new depanal
-   -- if it's empty then we have no current component, hence no BgTc.
+   -- if it's empty then we have no current component, hence no BgTcCache.
    --
    -- We check for both relative and absolute filenames because we don't seem
    -- to have any guarantee from GHC what the filenames will look like.
