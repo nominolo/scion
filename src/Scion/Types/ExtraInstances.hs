@@ -13,9 +13,17 @@ module Scion.Types.ExtraInstances where
 import Bag
 
 import Data.Monoid
+import Data.Foldable
 
 instance Monoid (Bag a) where
   mempty = emptyBag
   mappend = unionBags
   mconcat = unionManyBags
+
+instance Functor Bag where
+  fmap = mapBag
+
+instance Foldable Bag where
+  foldr = foldrBag
+  foldl = foldlBag
 

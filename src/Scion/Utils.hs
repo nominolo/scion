@@ -18,11 +18,9 @@ import GHC              ( GhcMonad, ModSummary, spans, getLoc, Located
                         , depanal, topSortModuleGraph, TypecheckedMod
                         , mkPrintUnqualifiedForModule, moduleInfo )
 import Digraph          ( flattenSCCs )
-import Bag              ( Bag, mapBag, foldrBag, foldlBag )
 import Outputable
 
 import Control.Monad
-import Data.Foldable
 import Data.Maybe ( fromMaybe )
 
 thingsAroundPoint :: (Int, Int) -> [Located n] -> [Located n]
@@ -40,13 +38,6 @@ foldModSummaries :: GhcMonad m =>
 foldModSummaries f seed =
   modulesInDepOrder >>= foldM f seed
 
-
-instance Functor Bag where
-  fmap = mapBag
-
-instance Foldable Bag where
-  foldr = foldrBag
-  foldl = foldlBag
 
 expectJust :: String -> Maybe a -> a
 expectJust _ (Just a) = a
