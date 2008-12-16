@@ -2011,7 +2011,8 @@ installed packages (However, not of the current project.)"
   (setq scion-flycheck-last-change-time (scion-float-time)))
 
 (defun scion-after-save-hook ()
-  (when scion-mode
+  (when (and scion-mode
+	     (not scion-flycheck-is-running))
     (setq scion-flycheck-last-change-time nil)
     (scion-flycheck-start-check)))
  
@@ -2029,6 +2030,8 @@ installed packages (However, not of the current project.)"
 		 (> (- (scion-float-time) scion-flycheck-last-change-time)
                     scion-flycheck-no-changes-timeout))
 	(setq scion-flycheck-last-change-time nil)
+	;; HACK: prevent scion-after-save-hook from running a typecheck
+	(setq scion-flycheck-is-running t)
 	(save-buffer buffer)
 	(scion-flycheck-start-check)))))
 
