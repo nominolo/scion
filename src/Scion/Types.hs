@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE ExistentialQuantification, DeriveDataTypeable #-}
 -- |
 -- Module      : Scion.Types
@@ -22,7 +23,6 @@ import ErrUtils ( WarningMessages, ErrorMessages )
 import HscTypes
 import MonadUtils ( liftIO, MonadIO )
 import Exception
-import qualified GHC
 
 import Distribution.Simple.LocalBuildInfo
 import Control.Monad ( when )
@@ -150,7 +150,7 @@ message v s = do
 reflectScionM :: ScionM a -> (IORef SessionState, Session) -> IO a
 reflectScionM (ScionM f) = \(st, sess) -> reflectGhc (f st) sess
 
--- > Dual to 'reflectGhc'.  See its documentation.
+-- | Dual to 'reflectScionM'.  See its documentation.
 reifyScionM :: ((IORef SessionState, Session) -> IO a) -> ScionM a
 reifyScionM act = ScionM $ \st -> reifyGhc $ \sess -> act (st, sess)
 
