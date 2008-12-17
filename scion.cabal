@@ -41,9 +41,12 @@ library
   extensions:      CPP, PatternGuards
   exposed-modules:
                    Scion.Types,
+                   Scion.Types.ExtraInstances,
                    Scion.Inspect,
                    Scion.Inspect.Find,
                    Scion.Utils,
+                   Scion.Session,
+                   Scion.Configure,
                    Scion
   if flag(testing)
     build-depends: QuickCheck == 2.*
@@ -63,7 +66,9 @@ library
     build-depends: network >= 2.1 && < 2.3,
                    network-bytestring == 0.1.*,
                    bytestring == 0.9.*
-    exposed-modules: Scion.Server.Emacs
+    exposed-modules: Scion.Server.Emacs,
+                     Scion.Server.Commands,
+                     Scion.Server.Protocol
   ghc-options:  -Wall
 
 executable test_get_imports
