@@ -56,6 +56,9 @@ library
   if impl(ghc >= 6.11.20081113) || impl(ghc == 6.10.* && >= 6.10.2)
     cpp-options:   -DRECOMPILE_BUG_FIXED
 
+  if impl(ghc == 6.10.*)
+    cpp-options:   -DWPINLINE
+
   if flag(emacs)
     build-depends: network >= 2.1 && < 2.3,
                    network-bytestring == 0.1.*,
