@@ -57,7 +57,7 @@ instance Exception ConfigException
 cabalSetupWithArgs :: FilePath -> [String] -> ScionM Bool
 cabalSetupWithArgs cabal_file args =
    ghandle (\(_ :: ConfigException) -> return False) $ do
-    ensureFileExists
+    ensureCabalFileExists
     let dir = dropFileName cabal_file
     setup <- findSetup dir
     liftIO $ putStrLn $ "Using setup file: " ++ setup
@@ -65,7 +65,7 @@ cabalSetupWithArgs cabal_file args =
     
     return True
   where
-    ensureFileExists = do
+    ensureCabalFileExists = do
       ok <- liftIO (doesFileExist cabal_file)
       unless ok (liftIO $ throwIO ConfigException)
 
