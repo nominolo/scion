@@ -113,6 +113,7 @@ cmdOpenCabalProject =
   where
     cmd path rel_dist extra_args = handleScionException $ do
         configureCabalProject path rel_dist extra_args
+        preprocessPackage rel_dist
         (display . PD.package) `fmap` currentCabalPackage
 
 cmdLoadComponent :: Command
