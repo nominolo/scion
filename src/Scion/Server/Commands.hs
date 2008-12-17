@@ -35,6 +35,7 @@ import Data.Foldable as F
 import Data.List ( nub )
 import Text.ParserCombinators.ReadP
 import qualified Data.Map as M
+import System.Exit ( ExitCode(..) )
 
 import qualified Distribution.PackageDescription as PD
 import Distribution.Text ( display )
@@ -80,7 +81,7 @@ instance Sexp a => Sexp (OkErr a) where
 
 -- encode expected errors as proper return values
 handleScionException :: ScionM a -> ScionM (OkErr a)
-handleScionException m = (do
+handleScionException m = (((do
    r <- m
    return (Ok r)
   `gcatch` \(e :: SomeScionException) -> return (Error (show e)))
@@ -89,7 +90,12 @@ handleScionException m = (do
                 Panic _ -> throw e'
                 InstallationError _ -> throw e'
                 Interrupted -> throw e'
-                _ -> return (Error (show e'))
+                _ -> return (Error (show e')))
+  `gcatch` \(e :: ExitCode) -> 
+                -- client code may not exit the server!
+                return (Error (show e)))
+--   `gcatch` \(e :: SomeException) ->
+--                 liftIO (print e) >> liftIO (throwIO e)
 
 ------------------------------------------------------------------------------
 
