@@ -1,6 +1,6 @@
 {-# LANGUAGE PatternGuards, CPP,
              FlexibleInstances, FlexibleContexts, MultiParamTypeClasses,
-             StandaloneDeriving, TypeSynonymInstances #-}
+             TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans -fno-warn-name-shadowing #-}
 -- |
 -- Module      : Scion.Inspect
@@ -14,7 +14,9 @@
 -- Functionality to inspect Haskell programs.
 --
 module Scion.Inspect 
-  ( module Scion.Inspect
+  ( typeOfResult, prettyResult
+  , typeDecls, classDecls, familyDecls
+  , toplevelNames
   , module Scion.Inspect.Find
   , module Scion.Inspect.TypeOf
   ) where
@@ -33,8 +35,6 @@ import VarEnv ( emptyTidyEnv )
 import Data.Generics.Biplate
 import Data.Generics.UniplateStr hiding ( Str (..) )
 import qualified Data.Generics.Str as U 
-import Data.Map ( Map )
-import qualified Data.Map as M
 import Outputable
 import GHC.SYB.Utils
 
@@ -106,21 +106,8 @@ toplevelNames m | Just (grp, _imps, _exps, _doc, _hmi) <- renamedSource m =
     pat_bind_name _ = Nothing
 toplevelNames _ = []
 
-data ThingAtPoint
-  = ExprThing (HsExpr Name)
-  | PatThing  (Pat Name)
-  | NoThing
-
-thingAtPoint :: TypecheckedMod m => m -> ThingAtPoint
-thingAtPoint _m = NoThing
-
 ------------------------------------------------------------------------------
-data LocMap a
-  = LocLeaf a  -- INVARIANT: not at top-level
-  | LocNode (Map SrcSpan (LocMap a)) -- INVARIANT: non-overlapping, good SrcSpans
 
-
-------------------------------------------------------------------------------
 
 instance Uniplate a => Biplate a a where
   biplate = uniplate
@@ -174,21 +161,6 @@ uniplateOnBag :: (a -> (U.Str b, U.Str b -> a))
               -> Bag a -> (U.Str b, U.Str b -> Bag a)
 uniplateOnBag f bag = (as, \ns -> listToBag (bs ns))
                       where (as, bs) = uniplateOnList f (bagToList bag)
-
-
-{-
-deriving instance Show (Pat n)
-deriving instance Show (Located l)
-deriving instance Show (HsOverLit n)
-deriving instance Show (HsExpr n)
-deriving instance Show (HsQuasiQuote n)
-deriving instance Show (HsSplice n)
-deriving instance (Show idL, Show idR) => Show (HsLocalBindsLR idL idR)
-deriving instance Show id => Show (HsGroup id)
-deriving instance Show id => Show (HsBracket id)
-deriving instance (Show id, Show arg) => Show (HsRecFields id arg)
-deriving instance (Show id, Show arg) => Show (HsRecField id arg)
--}
 
 down :: Biplate from to => from -> (from -> c) -> (U.Str to, U.Str to -> c)
 down b f = (ps, \ps' -> f (set ps'))
