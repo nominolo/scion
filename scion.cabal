@@ -5,7 +5,7 @@ license-file:    LICENSE
 author:          Thomas Schilling <nominolo@googlemail.com>
 maintainer:      Thomas Schilling <nominolo@googlemail.com>
 homepage:        http://github.com/nominolo/scion
-description:     Haskell Source Code Inspection and Interaction blah
+description:     Haskell Source Code Inspection and Interaction library
 synopsis:        Haskell IDE library
 category:        Development
 stability:       provisional
