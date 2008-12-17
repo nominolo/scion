@@ -106,13 +106,13 @@ cmdConnectionInfo = Command (string "connection-info" >> return (toString `fmap`
 cmdOpenCabalProject :: Command
 cmdOpenCabalProject =
     Command (do string "open-cabal-project" >> sp
-                n <- getString
-                d <- sp >> getString
-                return (toString `fmap` cmd n d))
+                root_dir <- getString
+                dist_dir <- sp >> getString
+                extra_args <- sp >> getString
+                return (toString `fmap` cmd root_dir dist_dir (words extra_args)))
   where
-    cmd path rel_dist = handleScionException $ do
-        --openCabalProject path rel_dist
-        configureCabalProject path rel_dist
+    cmd path rel_dist extra_args = handleScionException $ do
+        configureCabalProject path rel_dist extra_args
         (display . PD.package) `fmap` currentCabalPackage
 
 cmdLoadComponent :: Command

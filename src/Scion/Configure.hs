@@ -23,10 +23,10 @@ import System.Directory
 import System.FilePath
 import Control.Monad
 
-import Debug.Trace
+------------------------------------------------------------------------------
 
-configureCabalProject :: FilePath -> FilePath -> ScionM ()
-configureCabalProject root_dir dist_dir =
+configureCabalProject :: FilePath -> FilePath -> [String] -> ScionM ()
+configureCabalProject root_dir dist_dir extra_args =
    openCabalProject root_dir dist_dir
   `gcatch` (\(_ :: CannotOpenCabalProject) -> do
      cabal_file <- find_cabal_file
@@ -35,7 +35,8 @@ configureCabalProject root_dir dist_dir =
                 , "-v"
                 , "--builddir=" ++ dist_dir'
                 , "--with-compiler=" ++ ghc
-                , "--with-hc-pkg=" ++ ghc_pkg ]
+                , "--with-hc-pkg=" ++ ghc_pkg
+                ] ++ extra_args
      liftIO $ print args
      setWorkingDir root_dir
      ok <- cabalSetupWithArgs cabal_file args
