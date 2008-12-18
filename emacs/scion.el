@@ -1,5 +1,5 @@
-
-
+;;; scion.el --- Haskell Minor Mode for Interacting with the Scion Library
+;;
 ;;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
 ;;     Copyright (C) 2004,2005,2006  Luke Gorrie, Helmut Eller
@@ -20,6 +20,8 @@
 ;;     Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
 ;;     MA 02111-1307, USA.
 
+;;;; Dependencies and setup
+
 (eval-and-compile
   (require 'cl)
   (unless (fboundp 'define-minor-mode)
@@ -33,13 +35,20 @@
   ;; (require 'etags)
   )
 
+;;;---------------------------------------------------------------------------
+;;;; Customize groups
+;; 
+;;;;; scion
+
 (defgroup scion nil
-  "Interaction with the Superior Lisp Environment."
+  "Interaction with the Scion Server."
   :prefix "scion-"
   :group 'applications)
 
+;;;;; scion-ui
+
 (defgroup scion-ui nil
-  "Interaction with the Superior Lisp Environment."
+  "Interaction with the Scion Server."
   :prefix "scion-"
   :group 'scion)
 
@@ -49,7 +58,7 @@ This applies to the *inferior-lisp* buffer and the network connections."
   :type 'boolean
   :group 'scion-ui)
 
-;;;---------------------------------------------------------------------------
+;;;;; scion-haskell
 
 (defgroup scion-haskell nil
   "Haskell server configuration."
@@ -79,6 +88,8 @@ current connection, package and state of a Lisp buffer.
 The string is periodically updated by an idle timer."))
 
 ;;;---------------------------------------------------------------------------
+
+;;;; Macros
 
 (defmacro* when-let ((var value) &rest body)
   "Evaluate VALUE, and if the result is non-nil bind it to VAR and
@@ -115,6 +126,8 @@ corresponding values in the CDR of VALUE."
 	     `((t (error "Elisp destructure-case failed: %S" ,tmp))))))))
 
 (put 'destructure-case 'lisp-indent-function 1)
+
+;;;; Temporary Popup Buffers
 
 ;; Interface
 (defmacro* scion-with-popup-buffer ((name &optional package
