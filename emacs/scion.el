@@ -262,6 +262,10 @@ This is used for labels spanning multiple lines."
 (defvar scion-program "scion_emacs"
   "Program name of the Scion server.")
 
+(defvar scion-last-compilation-result nil
+  "The result of the most recently issued compilation.")
+
+
 (make-variable-buffer-local
  (defvar scion-mode-line " Scion"))
 
@@ -1454,8 +1458,6 @@ last activated the buffer."
              (:copier nil))
   tag successp notes duration)
 
-(defvar scion-last-compilation-result nil
-  "The result of the most recently issued compilation.")
 
 (defvar scion-project-root-dir nil
   "The root directory of the current project.
