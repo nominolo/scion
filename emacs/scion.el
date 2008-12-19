@@ -2091,6 +2091,7 @@ installed packages (However, not of the current project.)"
 
 (define-key scion-mode-map "\C-c\C-t" 'scion-thing-at-point)
 
+(provide 'scion)
 
 ;; Local Variables: 
 ;; outline-regexp: ";;;;+"
