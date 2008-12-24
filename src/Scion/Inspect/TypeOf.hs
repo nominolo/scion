@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- |
 -- Module      : Scion.Inspect.TypeOf
 -- Copyright   : (c) Thomas Schilling 2008
@@ -35,6 +36,10 @@ typeOf (leaf, path) = case leaf of
     -- do something else with coercion/dict vars?
     unwrap (WpApp v) t         = AppTy t (TyVarTy v)
     unwrap (WpLam v) t         = ForAllTy v t
+    unwrap (WpLet _bs) t       = t
+#ifdef WPINLINE
+    unwrap WpInline t          = t
+#endif
 
 -- | Reduce a top-level type application if possible.  That is, we perform the
 -- following simplification step:

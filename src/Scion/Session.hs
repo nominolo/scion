@@ -39,6 +39,9 @@ import Distribution.ModuleName ( components )
 import Distribution.Simple.Configure
 import Distribution.Simple.GHC ( ghcOptions )
 import Distribution.Simple.LocalBuildInfo hiding ( libdir )
+import Distribution.Simple.Build ( initialBuildSteps )
+import Distribution.Simple.PreProcess ( knownSuffixHandlers )
+import qualified Distribution.Verbosity as V
 import qualified Distribution.PackageDescription as PD
 
 ------------------------------------------------------------------------------
@@ -143,6 +146,15 @@ openCabalProject root_dir dist_rel_dir = do
         -- XXX: do something with old lbi before updating?
         modifySessionState $ \st -> st { localBuildInfo = Just lbi }
 
+-- | Run the steps that Cabal would call before building.
+preprocessPackage :: FilePath
+                  -> ScionM ()
+preprocessPackage dist_dir = do
+  lbi <- getLocalBuildInfo
+  let pd = localPkgDescr lbi
+  liftIO $ initialBuildSteps dist_dir pd lbi V.normal knownSuffixHandlers
+  return ()
+
 getLocalBuildInfo :: ScionM LocalBuildInfo
 getLocalBuildInfo =
   gets localBuildInfo >>= \mb_lbi ->
@@ -193,6 +205,7 @@ setDynFlagsFromCabal component = do
    let flags = ghcOptions lbi bi odir
    addCmdLineFlags flags
  where
+
    component_build_info Library pd
        | Just lib <- PD.library pd = return (PD.libBuildInfo lib)
        | otherwise                 = noLibError

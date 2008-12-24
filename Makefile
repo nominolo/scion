@@ -42,7 +42,7 @@ clean:
 distclean: clean
 	rm -rf $(SETUP_DIST)
 
-doc:
+doc: configure
 	$(SETUP) haddock --with-haddock=$(HADDOCK)
 
 printvars:

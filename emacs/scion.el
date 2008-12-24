@@ -1800,29 +1800,35 @@ The overlay has several properties:
 	(unless (or (equal dir next-dir) (null next-dir))
           (scion-cabal-root-dir next-dir))))))
 
-(defun scion-open-cabal-project (root-dir rel-dist-dir)
+(defun scion-open-cabal-project (root-dir rel-dist-dir extra-args)
   "Load project metadata from a Cabal description.  
 
 This does not load the project but merely loads the metadata.
 
-The first argument is the project root directory \(the directory
-which contains the .cabal file\).  The second argument is the
-directory name relative to the project root.  Unless the Cabal project
-does something special this is always \"dist\"."
+ROOT-DIR is the project root directory \(the directory
+which contains the .cabal file\).
+
+REL-EXTRA-DIR is the directory name relative to the project root.
+Unless the Cabal project does something special this is always
+\"dist\"
+
+EXTRA-ARGS is a string of command line flags."
   (interactive ;"DProject dir: \nsDist-dir"
    (let ((root (scion-cabal-root-dir)))
      (list (funcall (if (fboundp 'read-directory-name)
                         'read-directory-name
                       'read-file-name)
 		    "Directory: " root root)
-	   (read-from-minibuffer "Dist directory: " "dist"))))
+	   (read-from-minibuffer "Dist directory: " "dist")
+	   (read-from-minibuffer "Configure Flags: " ""))))
   (lexical-let ((root-dir root-dir))
     (scion-eval-async `(open-cabal-project ,(expand-file-name root-dir)
-					   ,rel-dist-dir)
+					   ,rel-dist-dir
+					   ,extra-args)
 		      (scion-handling-failure (x)
 			(setq scion-project-root-dir root-dir)
 			(message (format "Cabal project loaded: %s" x)))))
-  nil)
+  (message "Loading Cabal project."))
 
 (defun scion-load-library ()
   "Load the library of the current cabal project.
