@@ -11,7 +11,10 @@
 --
 -- Commands provided by the server.
 --
-module Scion.Server.Commands ( allCommands ) where
+module Scion.Server.Commands ( allCommands, 
+  -- these are reused in the vim interface 
+  supportedPragmas, allExposedModules
+) where
 
 import Prelude as P
 import Scion.Types
