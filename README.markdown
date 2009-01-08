@@ -37,12 +37,16 @@ working on Scion itself.
 Usage
 =====
 
-TODO
+Since Scion is a library, you should consult the haddock documentation
+for how to use it.  However, you may look at the Emacs frontend for
+inspiration.
+
+The Emacs frontend is implemented as a Haskell server 
 
 Emacs
 -----
 
-TODO
+
 
     $ cd <scion>
     $ cabal install -femacs
