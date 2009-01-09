@@ -49,7 +49,7 @@ instance ConnectionIO Socket where
         gl got = do
           c <- getN con 1
           if c == nl then return got
-                     else return $ S.concat [got, c] -- bad performance, memcpy !
+                     else gl $ S.concat [got, c] -- bad performance, memcpy !
     in do b <- gl S.empty
           when (S.length b > 1024) $ 
             logWarning "received chunk bigger than 1k. Check performance of implementation"

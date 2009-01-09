@@ -42,7 +42,7 @@ endif
 "  return haskellcomplete#CompleteWhat(a:findstart, a:base, 'module')
 "endfunction
 
-" example: echo haskellcomplete#EvalScion({'request' : 'file-info', 'file' : 'test.hs'})
+" example: echo haskellcomplete#EvalScion({'request' : 'cmdConnectionInfo', 'file' : 'test.hs'})
 function! haskellcomplete#EvalScion(request)
   " the first string converts the vim object into a string, the second
   " converts this string into a python string
@@ -71,10 +71,10 @@ def connectscion():
     # TODO add stdin out support
     if type(scionConnectionSetting) == type((0,0)):
       # tuple -> host, port
-      print "connecting to adress", scionConnectionSetting
+      print "scion: connecting to adress", scionConnectionSetting
       su = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     else: # must be path -> file socket
-      print "connecting to file socket", scionConnectionSetting
+      print "scion: connecting to file socket", scionConnectionSetting
       su = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     su.settimeout(10)
     su.connect(scionConnectionSetting)
@@ -82,9 +82,9 @@ def connectscion():
     su.send("select scion-server protocol:vim %s\n" % vim.eval('g:vim_scion_protocol_version'));
     # using file interface to be able to use readline..
     file = su.makefile('rw')
-    res = scionsocketFile.readline() 
-    if res != 'ok':
-      raise Exception("failed connecting to scion %. Reason: " % res)
+    res = file.readline() 
+    if res != "ok\n":
+      raise Exception("failed connecting to scion Reason: `%s'" % res)
     else:
       return file
 
@@ -100,7 +100,7 @@ def evalscion(str):
       scionsocketFile = connectscion()
       scionsocketFile.write(str + "\n")
     scionsocketFile.flush()
-    return scionsocketFile.readline();
+    return scionsocketFile.readline()
 
 # str see EvalScion
 def evalscionAssign(str):

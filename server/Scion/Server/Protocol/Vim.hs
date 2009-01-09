@@ -96,9 +96,16 @@ vimCommands =
 -- | get request, parse it and send reply
 handle :: (ConnectionIO con) => con -> String -> ScionM ()
 handle con "0" = do
+    -- handshake ok, accept this client version 
+    liftIO $ CIO.putLine con $ S.pack "ok"
+
+    -- handle requests:
     forever $ do
+      -- read request line 
       l <- liftM S.unpack $ liftIO $ CIO.getLine con
       liftIO $ logDebug $ "got request str" ++ l
+
+      -- handle it
       vimTypeReply <- handleFailure $ case parseVim l of
         Right (VDict map') -> case M.lookup (VString "request") map' of
           Nothing -> fail "key request missing "
@@ -112,6 +119,11 @@ handle con "0" = do
       liftIO $ do
         logDebug $ "replying " ++ reply
         putLine con $ S.pack $ reply
+handle con unkownVersion = do
+  -- handshake failure, don't accept this client version 
+  liftIO $ CIO.putLine con $ 
+    S.pack $ "failure: don't know how to talk to vim client version "
+      ++ (show unkownVersion)
 
 requireArg map key = do
   case M.lookup (VString key) map of
@@ -134,7 +146,10 @@ lookupAndReadFail dict key =
 --handleScionException  (TODO)
 handleFailure :: ScionM VimType -> ScionM VimType
 -- TODO narrow Exception type, check implementation
-handleFailure = id
+handleFailure f = do
+  rep <- f
+  -- success, put everything into the key "result" 
+  return $ toVim [("result" , rep)]
 -- handleFailure = ghandle (\(Exception e) -> return $ toVim [("error", show e)] )
 
 ------------------------------------------------------------------------------

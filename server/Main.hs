@@ -48,6 +48,7 @@ import Scion (runScion)
 
 log = HL.logM __FILE__
 logInfo = log HL.INFO
+logDebug = log HL.DEBUG
 logError = log HL.ERROR
 
 -- how should the client connect to the server? 
@@ -113,19 +114,22 @@ serve (Socketfile file) = do
 -- does the handshaking and then runs the protocol implementation 
 handleClient :: (CIO.ConnectionIO con) => con -> IO ()
 handleClient con = do
+  logDebug $ "waiting for greeting"
   greeting <- CIO.getLine con
+  logDebug $ "got greeting " ++ show greeting
   let prefix = S.pack "select scion-server protocol:" 
       quit :: String -> IO ()
       quit msg = do
         CIO.putLine con (S.pack msg)
         logError msg
-      handle "vim" version = runScion $ Vim.handle con version
-      --handle "emacs" version = runScion $ Emacs.handle con version
+      handle :: String -> String -> IO () 
+      handle "vim" v = runScion $ Vim.handle con v
+      --handle "emacs" v = runScion $ Emacs.handle con v
       handle name _ = quit $ "unkown protocol type : " ++ name
         
   if S.isPrefixOf prefix greeting 
     then let (a,b) =  S.break (== ' ') (S.drop (S.length prefix) greeting)
-         in handle (S.unpack a) (S.unpack b)
+         in handle (S.unpack a) (tail $ S.unpack b)
     else quit $ "prefix " ++ (show $ (S.unpack prefix)) ++ " expected, but got : " ++ (S.unpack greeting)
 
 main = do
