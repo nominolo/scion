@@ -24,8 +24,9 @@ module Main where
 import Prelude hiding ( log )
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitSuccess)
-import System.IO (stdin, stdout)
+import System.IO (stdin, stdout, hSetBuffering, BufferMode(..))
 import qualified System.Log.Logger as HL
+import qualified System.Log.Handler.Simple as HL
 import qualified System.Log.Handler.Syslog as HL
 import qualified Data.ByteString.Char8 as S
 import Network ( listenOn, PortID(..) )
@@ -75,18 +76,22 @@ options =
        "listen on this TCP port"
      , Option ['i'] ["stdinout"]
        (NoArg (\opts -> return $ opts { connectionMode = StdInOut}))
-       "client must connect to stdin and stdout (untested)"
+       "client must connect to stdin and stdout"
 #ifndef mingw32_HOST_OS
      , Option ['s'] ["socketfile"]
        (ReqArg (\o opts -> return $ opts { connectionMode = Socketfile o}) "/tmp/scion-io")
-       "listen on this socketfile (untested)"
+       "listen on this socketfile"
 #endif
      , Option ['h'] ["help"] (NoArg (\opts -> return $ opts { showHelp = True } )) "show this help"
+
+     , Option ['f'] ["log-file"] (ReqArg (\f opts -> do
+          fh <- HL.fileHandler f HL.DEBUG
+          HL.updateGlobalLogger "" (HL.addHandler fh)
+          return opts ) "/tmp/scion-log") "log to the given file"
      ]
 
 initializeLogging = do
-  stdout <- HL.openlog "" [] HL.USER HL.DEBUG
-  HL.updateGlobalLogger "" (HL.addHandler stdout)   -- add a default logger
+  -- by default log everything to stdout
   HL.updateGlobalLogger "" (HL.setLevel HL.DEBUG)
 
 helpText = do
@@ -96,13 +101,17 @@ helpText = do
 
 serve :: ConnectionMode -> IO ()
 serve (TCPIP nr) = do
-  sock <- liftIO $ listenOn (PortNumber 4005)
-  (sock', _addr) <- liftIO $ accept sock
-  handleClient sock'
-serve StdInOut = handleClient (stdin, stdout)
+  sock <- liftIO $ listenOn (PortNumber nr)
+  forever $ E.handle (\(e::E.IOException) -> logInfo ("caught :" ++ (show e) ++ "\n\nwaiting for next client")) $ do
+    (sock', _addr) <- liftIO $ accept sock
+    handleClient sock'
+serve StdInOut = do
+  hSetBuffering stdout LineBuffering
+  hSetBuffering stdin LineBuffering
+  handleClient (stdin, stdout)
 #ifndef mingw32_HOST_OS
 serve (Socketfile file) = do
-  sock <- liftIO $ listenOn (PortNumber 4005)
+  sock <- liftIO $ listenOn (UnixSocket file)
   forever $ do
     -- no multithreading for now (I don't know yet when it may be used.. the
     -- ghc library is using some IO refs) 

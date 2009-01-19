@@ -16,7 +16,7 @@ module Scion.Server.ConnectionIO (
 import Control.Exception (throw, IOException, Exception)
 -- import System.IO.Error (mkIOError, IOErrorType(..) )
 import Prelude hiding (log)
-import System.IO (Handle, hClose, hPutStr, hPutStrLn)
+import System.IO (Handle, hClose, hPutStr, hPutStrLn, hFlush)
 import Control.Monad (when)
 import Network.Socket (Socket, sClose)
 import Network.Socket.ByteString (recv, send)
@@ -39,7 +39,9 @@ instance ConnectionIO (Handle, Handle) where
   getLine (i, _) = S.hGetLine i
   getN (i,_) = S.hGet i
   put (_,o) = S.hPutStr o
-  putLine (_,o) = S.hPutStrLn o
+  putLine (_,o) = \l -> do
+      S.hPutStrLn o l
+      hFlush o -- don't ask me why this is needed. LineBuffering is set as well (!) 
 
 -- Socket.ByteString implemenation 
 instance ConnectionIO Socket where

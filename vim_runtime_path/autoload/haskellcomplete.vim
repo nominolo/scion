@@ -19,8 +19,6 @@ if !has('python') | call s:Log(0, "Error: scion requires vim compiled with +pyth
 
 let g:vim_scion_protocol_version = "0"
 
-" TODO: implement stdin/ out
-py scionConnectionSetting = ('127.0.0.1', 4005)
 " use this to connect to a socket
 " py scionConnectionSetting = "/tmp/scion-io"
 
@@ -63,47 +61,87 @@ endfunction
 
 function! s:DefPython()
 python << PYTHONEOF
-import sys, tokenize, cStringIO, types, socket, string, vim
+import sys, tokenize, cStringIO, types, socket, string, vim, popen2
+from subprocess import Popen, PIPE
 
-scionsocketFile = None
-lastScionResult = "";
-def connectscion():
-    # TODO add stdin out support
-    if type(scionConnectionSetting) == type((0,0)):
+
+class ScionServerConnection:
+  """base of a server connection. They all provide two methods: send and receive bothe sending or receiving a single line separated by \\n"""
+  def send(self, line):
+    self.scion_i.write("%s\n"%line)
+    self.scion_i.flush()
+  def receive(self):
+    return self.scion_o.readline()[:-1]
+
+class ScionServerConnectionStdinOut(ScionServerConnection):
+  """this connection launches the server and connects to its stdin and stdout streams"""
+  def __init__(self, scion_executable):
+    #self.scion_o,self.scion_i,e = popen2.popen3('%s -i -f /tmp/scion-log'%(scion_executable))
+    p = Popen([scion_executable,"-i","-f", "/tmp/scion-log"], shell = False, bufsize = 1, stdin = PIPE, stdout = PIPE, stderr = PIPE)
+    self.scion_o = p.stdout
+    self.scion_i = p.stdin
+
+class ScionServerConnectionSocket(ScionServerConnection):
+  """connects to the scion server by either TCP/IP or socketfile"""
+  def __init__(self, connection):
+    # connection either (host, port) or (socketfile)
+    if type(connection) == type((0,0)):
       # tuple -> host, port
-      print "scion: connecting to adress", scionConnectionSetting
       su = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     else: # must be path -> file socket
-      print "scion: connecting to file socket", scionConnectionSetting
       su = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     su.settimeout(10)
-    su.connect(scionConnectionSetting)
-    # handshake
-    su.send("select scion-server protocol:vim %s\n" % vim.eval('g:vim_scion_protocol_version'));
-    # using file interface to be able to use readline..
-    file = su.makefile('rw')
-    res = file.readline() 
-    if res != "ok\n":
-      raise Exception("failed connecting to scion Reason: `%s'" % res)
+    su.connect(connection)
+    # making file to use readline()
+    self.scion_o = su.makefile('rw')
+    self.scion_i = self.scion_o
+
+server_connection = None
+told_user_about_missing_configuration = 0
+lastScionResult = "";
+def connectscion():
+    # check that connection method has been defined
+    global server_connection
+    global told_user_about_missing_configuration
+    if 0 == told_user_about_missing_configuration:
+      try:
+        print scionConnectionSetting
+      except NameError:
+        vim.command("sp")
+        b = vim.current.buffer
+        b.append( "you haven't defined scionConnectionSetting")
+        b.append( "Do so by adding one of the following lines to your .vimrc:")
+        b.append( "TCP/IP, socket, stdio")
+        b.append( "py scionConnectionSetting = ('socket', \"socket file location\") # socket connection")
+        b.append( "py scionConnectionSetting = ('socket', (127.0.0.1', 4005)) # host, port TCIP/IP connection")
+        b.append( "py scionConnectionSetting = ('scion', \"scion_server location\") # stdio connection ")
+        told_user_about_missing_configuration = 1
+
+    if scionConnectionSetting[0] == "socket":
+      server_connection = ScionServerConnectionSocket(scionConnectionSetting[1])
     else:
-      return file
+        server_connection = ScionServerConnectionStdinOut(scionConnectionSetting[1])
+
+    # handshake
+    server_connection.send("select scion-server protocol:vim %s" % vim.eval('g:vim_scion_protocol_version'))
+    res = server_connection.receive()
+    if res != "ok":
+      raise Exception("failed connecting to scion Reason: `%s'" % res)
 
 # sends a command and returns the returned line
 def evalscion(str):
-    global scionsocketFile
-    if (scionsocketFile == None):
-      scionsocketFile = connectscion()
+    global server_connection
     try:
-      scionsocketFile.write(str + "\n")
+      server_connection.send(str)
     except:
-      vim.command('echoe "%s"' % "lost connection ? trying reconnect")
-      scionsocketFile = connectscion()
-      scionsocketFile.write(str + "\n")
-    scionsocketFile.flush()
-    return scionsocketFile.readline()
+      vim.command('echoe "%s"'% ("(re) connecting to scion"))
+      connectscion()
+      server_connection.send(str)
+    return server_connection.receive()
 
 # str see EvalScion
 def evalscionAssign(str):
+  global lastScionResult
   """assigns scion result to g:scion_result, result should either be 
     { "result" : ..., "error" : [String] }"""
   vim.command("silent! unlet g:scion_result")

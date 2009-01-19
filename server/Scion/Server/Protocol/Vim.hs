@@ -37,10 +37,10 @@ import qualified System.Log.Logger as HL
 
 import qualified Data.ByteString.Char8 as S
 import qualified Data.Map as M
-import Data.List (intercalate)
+import Data.List (intercalate, nub)
 import Data.Time.Clock  ( NominalDiffTime )
 
-import DynFlags ( supportedLanguages )
+import DynFlags ( supportedLanguages, allFlags )
 import InteractiveEval ( getNamesInScope )
 import qualified Outputable as O
 import GHC
@@ -186,7 +186,7 @@ cmdListSupportedPragmas = VimCommand "cmdListSupportedPragmas" $ \map' -> do
   return $ toVim $ supportedPragmas
 
 cmdListSupportedFlags = VimCommand "cmdListSupportedFlags" $ \map' -> do
-  return $ toVim $ supportedPragmas
+  return $ toVim $ nub $ allFlags
 
 cmdListRdrNamesInScope = VimCommand "cmdListRdrNamesInScope" $ \map' -> do
   rdr_names <- getNamesInScope
@@ -219,6 +219,7 @@ cmdThingAtPoint = VimCommand "cmdThingAtPoint" $ \map' -> do
   col <- lookupAndReadFail map' "col"
   liftM toVim $ cmd file line col
   where
+    -- TODO remove this code duplication ! 
     cmd fname line col = do
       let loc = srcLocSpan $ mkSrcLoc (fsLit fname) line col
       tc_res <- gets bgTcCache
