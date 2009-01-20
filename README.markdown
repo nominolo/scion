@@ -62,7 +62,7 @@ Emacs:
       (scion-mode 1))
     
     M-x scion-connect
-    M-x scion-load-cabal-project
+    M-x scion-open-cabal-project
     M-x scion-load-library
 
     C-c i l  -- insert language pragma
