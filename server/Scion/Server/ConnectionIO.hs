@@ -40,6 +40,9 @@ instance ConnectionIO (Handle, Handle) where
   getN (i,_) = S.hGet i
   put (_,o) = S.hPutStr o
   putLine (_,o) = \l -> do
+      -- ghc doesn't use the ghc api to print texts all the time. So mark scion replies by a leading "scion:" 
+      -- see README.markdown
+      hPutStr o "scion:"
       S.hPutStrLn o l
       hFlush o -- don't ask me why this is needed. LineBuffering is set as well (!) 
 

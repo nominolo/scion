@@ -80,6 +80,15 @@ class ScionServerConnectionStdinOut(ScionServerConnection):
     p = Popen([scion_executable,"-i","-f", "/tmp/scion-log"], shell = False, bufsize = 1, stdin = PIPE, stdout = PIPE, stderr = PIPE)
     self.scion_o = p.stdout
     self.scion_i = p.stdin
+  def receive(self):
+    let s = super.receive()
+    if s[:6] == "scion:":
+      # ghc doesn't always use the ghc API to print statements.. so ignore all
+      # lines not marked by "scion:" at the beginning
+      # see README.markdown
+      return s[6:]
+    else:
+      self.receive()
 
 class ScionServerConnectionSocket(ScionServerConnection):
   """connects to the scion server by either TCP/IP or socketfile"""
