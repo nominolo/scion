@@ -26,7 +26,7 @@ import Scion.Configure (configureCabalProject)
 import Scion.Utils ( unqualifiedForModule )
 import Scion.Session (preprocessPackage, currentCabalPackage, loadComponent,
                       backgroundTypecheckFile, unload, setGHCVerbosity, addCmdLineFlags)
-import FastString (fsLit)
+import FastString (fsLit, unpackFS)
 
 import Control.Monad (forever, liftM)
 import Control.Exception.Base (Exception)
@@ -291,26 +291,32 @@ instance ToVimType Bool where
 instance ToVimType CompilationResult where
   toVim cr = toVim [
       ("compilationSucceeded", toVim (compilationSucceeded cr)),
-      ("compilationWarnings", toVim ([] :: [ErrMsg])), --(compilationWarnings cr)),
-      ("compilationErrors", toVim ([] :: [ErrMsg])), --(compilationErrors cr)),
+      ("compilationWarnings", toVim $ concatMap errMsgToVimList ([] :: [ErrMsg])),
+      ("compilationErrors", toVim $ concatMap errMsgToVimList ([] :: [ErrMsg])),
       ("compilationTime", toVim ( "TODO" {- (compilationTime cr-} ))
     ]
-instance (ToVimType a) => ToVimType (Bag a) where
-  toVim = listToVim . bagToList
-instance ToVimType ErrMsg where
-  toVim em = toVim [
-      ("errMsgSpans", toVim (errMsgSpans em)),
-      ("errMsgContext", toVim (errMsgSpans em)),
-      ("errMsgShortDoc", toVim (errMsgSpans em)),
-      ("errMsgExtraInfo", toVim (errMsgSpans em))
-    ]
-instance ToVimType SrcSpan where
-  toVim ss = let start = srcSpanStart ss in toVim $ [
-          ("file", (toVim . show) ( srcLocFile start)),
-          ("line", toVim ( srcLocLine start)),
-          ("col", toVim ( srcLocCol start))
-      ]
-  -- TODO, what about span end ? do we need it 
+-- return list which can be passed to setqflist 
+errMsgToVimList :: ErrMsg -> [VimType]
+errMsgToVimList em =
+    let (fst:moreLocations) = errMsgSpans em
+        loc :: SrcSpan -> [(VimType, VimType)]
+        loc em = 
+            [ (toVim "filename", (toVim . unpackFS) ( (srcLocFile . srcSpanStart) em))
+            , (toVim "lnum", toVim ( srcLocLine . srcSpanStart $ em))
+            , (toVim "col", toVim ( srcLocCol . srcSpanStart $ em))
+            ]
+
+        -- ghc does print multiline messages. So add a text qf item for all
+        -- trailing lines to keep them readable
+        addText :: VimType -> [String] -> [VimType]
+        addText (VDict map') [msg] = [VDict $ M.insert (toVim "text") (toVim msg) map']
+        addText (VDict map') (msg:msgs) = addText (VDict map') [msg] ++ map (\m -> toVim [(toVim "text", toVim m)]) msgs
+        -- addText _ _ = error "never executed"        
+    in
+      -- first location and message 
+      (addText (toVim $ loc fst) $ lines $ (O.showSDoc (errMsgShortDoc em)) ++ ("\n" ++ O.showSDoc (errMsgExtraInfo em)))
+      -- more error locations - when do they occur? 
+      ++ map (toVim . loc) moreLocations
 
 instance ToVimType O.SDoc where
   toVim = toVim . O.showSDoc

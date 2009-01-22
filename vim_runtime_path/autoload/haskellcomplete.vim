@@ -1,6 +1,10 @@
-" haskellcomplete.vim - Omni Completion for haskell
+" This file contains the code necessary to talk to the scion server
+" -> haskellcomplete#EvalScion )
 "
-" This file talks to the scion server. You need python support
+" This implementation requires has('python') support
+"
+" You can look up some use cases in the ftplugin file.
+"
 " This code is based on the initial implementation found in shim by Benedikt Schmidt
 " The server side code can be found in src-scion-server/Scion/Server/ProtocolVim.hs
 
@@ -81,14 +85,15 @@ class ScionServerConnectionStdinOut(ScionServerConnection):
     self.scion_o = p.stdout
     self.scion_i = p.stdin
   def receive(self):
-    let s = super.receive()
+    s = ScionServerConnection.receive(self)
     if s[:6] == "scion:":
       # ghc doesn't always use the ghc API to print statements.. so ignore all
       # lines not marked by "scion:" at the beginning
       # see README.markdown
       return s[6:]
     else:
-      self.receive()
+      # throw away non "scion:" line and try again
+      return self.receive()
 
 class ScionServerConnectionSocket(ScionServerConnection):
   """connects to the scion server by either TCP/IP or socketfile"""
@@ -114,7 +119,7 @@ def connectscion():
     global told_user_about_missing_configuration
     if 0 == told_user_about_missing_configuration:
       try:
-        print scionConnectionSetting
+        print "connecting to scion %s"%scionConnectionSetting.__str__()
       except NameError:
         vim.command("sp")
         b = vim.current.buffer
@@ -143,7 +148,7 @@ def evalscion(str):
     try:
       server_connection.send(str)
     except:
-      vim.command('echoe "%s"'% ("(re) connecting to scion"))
+      vim.command('echom "%s"'% ("(re)connecting to scion"))
       connectscion()
       server_connection.send(str)
     return server_connection.receive()
