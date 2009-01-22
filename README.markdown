@@ -166,6 +166,35 @@ convenient to start the server from within Emacs:
     M-x scion
 
 
+Vim:
+    ensure :echo has('python')
+    returns 1
+
+    add to your ~/.vimrc (TODO make this lazy so that python is only loaded when required!):
+
+      py scionConnectionSetting = ('socket', ("localhost",4005))
+      set runtimepath+=<path to scion repo/vim_runtime_path/>
+
+    :e some_hs_file.hs
+    :OpenCabalProject
+
+    :LoadComponent library
+    or
+    :LoadComponent executable:cabal_executable_name
+
+    At this point you should already get some compilation errors.
+
+    use
+    :BackgroundTypecheckFile
+
+    before
+    :ThingAtPoint
+    You should see something like:
+      {'Just': 'print :: [Char] -> IO ()'}
+    
+    Have a look at vim_runtime_path/ftplugin/haskell.vim to see a list of all
+    commands which are implemented yet.
+
 Bug Reports
 ===========
 
