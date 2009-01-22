@@ -242,3 +242,11 @@ inplace GHC, the following steps should work:
     will automatically be set to point to the inplace versions.
 
  3. Use `make` or `make cabal-install` as above.
+
+
+
+KNOWN PITFALLS
+------------------------------
+If you get an error message like this:
+  "scion_server: mkTopLevEnv: not interpreted main:Main"
+then you should rm [Ss]etup.hi [Ss]etup.o in the project directory.
