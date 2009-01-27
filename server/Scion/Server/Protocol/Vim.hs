@@ -64,6 +64,7 @@ import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Char
 
 import Text.ParserCombinators.ReadP (skipSpaces)
+import qualified Data.Set as Set
 
 log = HL.logM __FILE__
 logInfo = log HL.INFO
@@ -88,6 +89,9 @@ vimCommands =
     , cmdForceUnload
     , cmdAddCmdLineFlag
     , cmdThingAtPoint
+    -- for testing. I'd like to get the module which is exporting the thing one day.. 
+    -- basically its the same as cmdThingAtPoint
+    , cmdThingAtPointMoreInfo
     -- , cmdDumpSources
     ]
 
@@ -242,6 +246,37 @@ cmdThingAtPoint = VimCommand "cmdThingAtPoint" $ \map' -> do
                         (prettyResult x O.<+> O.dcolon O.<+> 
                           pprTypeForUser True t)
                   _ -> return (Just (O.showSDocDebug (O.ppr x O.$$ O.ppr xs )))
+        _ -> return Nothing
+
+cmdThingAtPointMoreInfo = VimCommand "cmdThingAtPointMoreInfo" $ \map' -> do
+  file <- requireArg map' "file"
+  line <- lookupAndReadFail map' "line"
+  col <- lookupAndReadFail map' "col"
+  liftM toVim $ cmd file line col
+  where
+    -- TODO remove this code duplication ! 
+    cmd fname line col = do
+      let loc = srcLocSpan $ mkSrcLoc (fsLit fname) line col
+      tc_res <- gets bgTcCache
+      case tc_res of
+        Just (Typechecked tcm) -> do
+            --let Just (src, _, _, _, _) = renamedSource tcm
+            let src = typecheckedSource tcm
+            --let in_range = const True
+            let in_range = overlaps loc
+            let r = findHsThing in_range src
+            return (Just (O.showSDoc (O.ppr $ Set.toList r)))
+            -- unqual <- unqualifiedForModule tcm
+            -- case pathToDeepest r of
+            --   Nothing -> return (Just "no info")
+            --   Just (x,xs) ->
+            --     --return $ Just (O.showSDoc (O.ppr x O.$$ O.ppr xs))
+            --     case typeOf (x,xs) of
+            --       Just t ->
+            --           return $ Just $ O.showSDocForUser unqual
+            --             (prettyResult x O.<+> O.dcolon O.<+> 
+            --               pprTypeForUser True t)
+            --       _ -> return (Just (O.showSDocDebug (O.ppr x O.$$ O.ppr xs )))
         _ -> return Nothing
 
 -- cmdDumpSources = VimCommand "cmdDumpSources" $ \map -> do

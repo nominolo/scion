@@ -78,6 +78,12 @@ command! -buffer -nargs=* -complete=file BackgroundTypecheckFile
   \ call s:BackgroundTypecheckFile(<f-args>)
 command! -buffer ThingAtPoint
   \ echo haskellcomplete#EvalScion({'request' : 'cmdThingAtPoint', 'file' : expand('%:p'), 'line' : line('.').'', 'col' : col('.').''})
+command! -buffer ThingAtPointExportedByHack
+  \ echo filter(
+      \ split(haskellcomplete#EvalScion({'request' : 'cmdThingAtPointMoreInfo'
+        \, 'file' : expand('%:p')
+        \, 'line' : line('.').'', 'col' : col('.').''})['Just'],"\n")
+      \ , 'v:val =~ '.string(expand('<cword>').' ='))[0]
 
 command! -buffer ListRdrNamesInScope
   \ echo haskellcomplete#EvalScion({'request' : 'cmdListRdrNamesInScope'})
