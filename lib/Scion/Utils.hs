@@ -23,6 +23,8 @@ import Outputable
 import Control.Monad
 import Data.Maybe ( fromMaybe )
 
+import Data.Char (isLower, isUpper)
+
 thingsAroundPoint :: (Int, Int) -> [Located n] -> [Located n]
 thingsAroundPoint pt ls = [ l | l <- ls, spans (getLoc l) pt ]
 
@@ -55,3 +57,19 @@ ifM :: Monad m => m Bool -> m a -> m a -> m a
 ifM cm tm em = do
   c <- cm
   if c then tm else em
+
+-- an alternative to the broken Fuzzy module
+-- match sH simpleHTTP
+-- match siH simpleHTTP
+-- match sHTTP simpleHTTP
+-- match pSL putStrLn
+-- match lM liftM
+-- match DS Data.Set
+camelCaseMatch :: String -> String -> Bool
+camelCaseMatch (c:cs) (i:is)
+  | c == i = (camelCaseMatch cs $ dropWhile (\c' -> isLower c' || c' == '.') . dropWhile isUpper $ is)
+          || camelCaseMatch cs is -- to allow siH match simpleHTTP
+  | otherwise = False
+camelCaseMatch [] [] = True
+camelCaseMatch [] _ = False
+camelCaseMatch _ [] = False

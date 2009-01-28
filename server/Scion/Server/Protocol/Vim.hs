@@ -23,7 +23,7 @@ import Scion.Inspect ( prettyResult )
 import Scion.Inspect.Find ( overlaps, findHsThing, pathToDeepest)
 import Scion.Inspect.TypeOf ( typeOf )
 import Scion.Configure (configureCabalProject)
-import Scion.Utils ( unqualifiedForModule )
+import Scion.Utils ( unqualifiedForModule, camelCaseMatch )
 import Scion.Session (preprocessPackage, currentCabalPackage, loadComponent,
                       backgroundTypecheckFile, unload, setGHCVerbosity, addCmdLineFlags)
 import FastString (fsLit, unpackFS)
@@ -37,7 +37,7 @@ import qualified System.Log.Logger as HL
 
 import qualified Data.ByteString.Char8 as S
 import qualified Data.Map as M
-import Data.List (intercalate, nub)
+import Data.List (intercalate, nub, isPrefixOf)
 import Data.Time.Clock  ( NominalDiffTime )
 
 import DynFlags ( supportedLanguages, allFlags )
@@ -89,6 +89,7 @@ vimCommands =
     , cmdForceUnload
     , cmdAddCmdLineFlag
     , cmdThingAtPoint
+    , cmdModuleCompletion
     -- for testing. I'd like to get the module which is exporting the thing one day.. 
     -- basically its the same as cmdThingAtPoint
     , cmdThingAtPointMoreInfo
@@ -247,6 +248,17 @@ cmdThingAtPoint = VimCommand "cmdThingAtPoint" $ \map' -> do
                           pprTypeForUser True t)
                   _ -> return (Just (O.showSDocDebug (O.ppr x O.$$ O.ppr xs )))
         _ -> return Nothing
+
+-- module completion
+cmdModuleCompletion = VimCommand "cmdModuleCompletion" $ \map' -> do
+  short <- requireArg map' "short"
+  camelCase <- lookupAndReadFail map' "camelCase"
+  mod_names <- allExposedModules
+  let modules = map (O.showSDoc . O.ppr) mod_names
+  let filterFunc = if camelCase
+                      then \c s -> isPrefixOf c s || camelCaseMatch c s
+                      else isPrefixOf
+  return $ toVim $ filter (filterFunc short) modules
 
 cmdThingAtPointMoreInfo = VimCommand "cmdThingAtPointMoreInfo" $ \map' -> do
   file <- requireArg map' "file"

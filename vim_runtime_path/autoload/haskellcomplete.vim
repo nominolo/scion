@@ -37,12 +37,25 @@ endfunction
 if !exists('g:haskellcompleteAll')
   let g:haskellcompleteAll='' " '' or '-all'  '-all' means complete from the set of all function exported by all modules found in all used packages
 endif
-"function! haskellcomplete#CompleteIdentifier(findstart, base)
-"  return haskellcomplete#CompleteWhat(a:findstart, a:base, 'identifier'.g:haskellcompleteAll)
-"endfunction
-"function! haskellcomplete#CompleteModule(findstart, base)
-"  return haskellcomplete#CompleteWhat(a:findstart, a:base, 'module')
-"endfunction
+
+fun! haskellcomplete#CompletModule(findstart, base)
+  if a:findstart
+    let [bc,ac] = haskellcomplete#BcAc()
+    return len(bc)-len(matchstr(bc,'\S*$'))
+  else
+    let [bc,ac] = haskellcomplete#BcAc()
+    let addImport = bc !~ 'import\s\+\S*$'
+    let matches = haskellcomplete#EvalScion(
+      \ { 'request' : 'cmdModuleCompletion'
+      \ , 'camelCase' : 'True'
+      \ , 'short' : a:base
+      \ })
+    if addImport
+      call map(matches, string('import ').'.v:val')
+    endif
+    return matches
+  endif
+endf
 
 " example: echo haskellcomplete#EvalScion({'request' : 'cmdConnectionInfo', 'file' : 'test.hs'})
 function! haskellcomplete#EvalScion(request)
