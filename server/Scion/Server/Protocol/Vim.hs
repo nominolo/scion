@@ -179,9 +179,12 @@ cmdOpenCabalProject = VimCommand "cmdOpenCabalProject" $ \map' -> do
 cmdLoadComponent = VimCommand "cmdLoadComponent" $ \map' -> do
   --  component is either "library" or "executable:name"
   component <- requireArg map' "component"
-  let comp = if component == "library"
-                then Library
-                else let (_,_:b) = break (== ':') component in Executable b
+  comp <- if component == "library"
+                then return Library
+                else case break (== ':') component of
+                  (_,_:b) -> return $ Executable b
+                  _ -> fail $ "couldn't parse component argument:\n"
+                        ++ "either library or executable:executable_name expected"
   liftM toVim $ loadComponent comp
 
 cmdListSupportedLanguages = VimCommand "cmdListSupportedLanguages" $ \map' -> do
