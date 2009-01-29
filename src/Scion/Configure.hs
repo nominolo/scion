@@ -32,7 +32,8 @@ configureCabalProject root_dir dist_dir extra_args =
      cabal_file <- find_cabal_file
      let dist_dir' = "dist-scion"
      let args = [ "configure"
-                , "-v"
+                , "-v3"
+                , "--user"
                 , "--builddir=" ++ dist_dir'
                 , "--with-compiler=" ++ ghc
                 , "--with-hc-pkg=" ++ ghc_pkg
