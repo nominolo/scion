@@ -26,7 +26,7 @@ import Scion.Utils
 import GHC
 import GHC.Paths ( libdir )
 
-
+-- | Run the 'ScionM' monad.
 runScion :: ScionM a -> IO a
 runScion m = do
   runGhc (Just libdir) $ do
