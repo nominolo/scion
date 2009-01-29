@@ -44,6 +44,14 @@ fun! s:OpenCabalProject(...)
     \)
 endf
 
+fun! s:LoadComponentCompletion(A,L,P)
+  let beforeC= a:L[:a:P-1]
+  let word = matchstr(beforeC, '\zs\S*$')
+
+  let list = haskellcomplete#EvalScion({'request' : 'cmdListCabalTargets'})
+  return filter(list, 'v:val =~ '.string('^'.word))
+endf
+
 " ===== you don't need any project for these:  =============
 command! -buffer ConnectionInfo
   \ echo haskellcomplete#EvalScion({'request' : 'cmdConnectionInfo'})
@@ -68,7 +76,8 @@ command! -buffer -nargs=* -complete=file OpenCabalProject
   \ call s:OpenCabalProject(<f-args>)
 
 " arg either "library" or "executable:name"
-command! -buffer -nargs=1 LoadComponent
+command! -buffer -nargs=1 -complete=customlist,s:LoadComponentCompletion
+  \ LoadComponent
   \ echo ScionResultToErrorList('load component finished: ','setqflist',haskellcomplete#EvalScion({'request' : 'cmdLoadComponent', 'component' : <q-args>}))
 
 " list exposed 
@@ -87,3 +96,6 @@ command! -buffer ThingAtPointExportedByHack
 
 command! -buffer ListRdrNamesInScope
   \ echo haskellcomplete#EvalScion({'request' : 'cmdListRdrNamesInScope'})
+
+command! -buffer ListCabalTargets
+  \ echo haskellcomplete#EvalScion({'request' : 'cmdListCabalTargets'})

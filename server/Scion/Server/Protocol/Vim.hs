@@ -37,11 +37,12 @@ import qualified System.Log.Logger as HL
 
 import qualified Data.ByteString.Char8 as S
 import qualified Data.Map as M
+import Data.Maybe (isJust, Maybe(..))
 import Data.List (intercalate, nub, isPrefixOf)
 import Data.Time.Clock  ( NominalDiffTime )
 
 import DynFlags ( supportedLanguages, allFlags )
-import InteractiveEval ( getNamesInScope )
+import InteractiveEval ( getNamesInScope, getRdrNamesInScope )
 import qualified Outputable as O
 import GHC
 import Exception (ghandle)
@@ -94,6 +95,7 @@ vimCommands =
     -- basically its the same as cmdThingAtPoint
     , cmdThingAtPointMoreInfo
     -- , cmdDumpSources
+    , cmdListCabalTargets
     ]
 
 ------------------------------------------------------------------------------
@@ -306,7 +308,15 @@ cmdThingAtPointMoreInfo = VimCommand "cmdThingAtPointMoreInfo" $ \map' -> do
 --         return ()
 --       _ -> return ()
 
+-- only used to pass a completion list over to vim
+cmdListCabalTargets  = VimCommand "cmdListCabalTargets" $ \_ -> do
+  cp <- currentCabalPackage
+  return $ toVim $
+        (if isJust (PD.library cp) then ["library"] else [] )
+      ++ map ( ("executable:" ++) . PD.exeName) (PD.executables cp)
+
 -- ========== passing data is done using serialized vim types : ======
+--
 
 data VimType = VList [VimType]
                | VDict (M.Map VimType VimType)
