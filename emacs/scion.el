@@ -2006,8 +2006,9 @@ installed packages (However, not of the current project.)"
   (if (not scion-mode)
       (message "Background typechecking only supported inside scion-mode.")
     (add-hook 'after-change-functions 'scion-flycheck-after-change-function nil t)
-    (add-hook 'after-save-hook 'scion-after-save-hook nil t)
     (add-hook 'kill-buffer-hook 'scion-kill-buffer-hook nil t)
+
+    (scion-flycheck-on-save 1)
 
     ;; TODO: update modeline
 
@@ -2016,14 +2017,43 @@ installed packages (However, not of the current project.)"
 
 (defun scion-turn-off-flycheck ()
   (interactive)
+
   (remove-hook 'after-change-functions 'scion-flycheck-after-change-function t)
-  (remove-hook 'after-save-hook 'scion-after-save-hook t)
   (remove-hook 'kill-buffer-hook 'scion-kill-buffer-hook t)
+
+  (scion-flycheck-on-save -1)
   ;; TODO: delete overlays?
   (when scion-flycheck-timer
     (cancel-timer scion-flycheck-timer)
     (setq scion-flycheck-timer nil))
   (setq scion-flycheck-is-running nil))
+
+(make-variable-buffer-local
+ (defvar scion-flycheck-on-save-state nil
+   "Non-nil iff type checking should be performed when the file is saved."))
+
+(defun scion-flycheck-on-save (&optional arg)
+  "Toggle type checking the current file when it is saved.
+
+A positive argument forces type checking to be on, a negative
+forces it to be off.  NIL toggles the current state."
+  (interactive "P")
+  (if (not scion-mode)
+      (message "Background typechecking only supported inside scion-mode.")
+    (let ((new-state 
+	   (cond
+	    ((null arg) (not scion-flycheck-on-save-state))
+	    ((consp arg) nil)
+	    ((numberp arg) (>= arg 0)))))
+      (when (not (eq (not new-state)
+		     (not scion-flycheck-on-save-state)))
+	(if new-state
+	    (add-hook 'after-save-hook 'scion-after-save-hook nil t)
+	  (remove-hook 'after-save-hook 'scion-after-save-hook t))
+      
+	(setq scion-flycheck-on-save-state new-state)
+	(message (format "Typecheck-on-save has been turned %s"
+			 (if new-state "ON" "OFF")))))))
 
 (defun scion-flycheck-after-change-function (start stop len)
   ;; TODO: be more smarter about which parts need updating.
