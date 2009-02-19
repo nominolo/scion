@@ -1808,9 +1808,9 @@ This does not load the project but merely loads the metadata.
 ROOT-DIR is the project root directory \(the directory
 which contains the .cabal file\).
 
-REL-EXTRA-DIR is the directory name relative to the project root.
-Unless the Cabal project does something special this is always
-\"dist\"
+REL-DIST-DIR is the directory name relative to the project root.
+By default Scion uses \".scion-dist\" to avoid interfering with
+command line tools.
 
 EXTRA-ARGS is a string of command line flags."
   (interactive ;"DProject dir: \nsDist-dir"
@@ -1819,7 +1819,7 @@ EXTRA-ARGS is a string of command line flags."
                         'read-directory-name
                       'read-file-name)
 		    "Directory: " root root)
-	   (read-from-minibuffer "Dist directory: " "dist")
+	   (read-from-minibuffer "Dist directory: " ".dist-scion")
 	   (read-from-minibuffer "Configure Flags: " ""))))
   (lexical-let ((root-dir root-dir))
     (scion-eval-async `(open-cabal-project ,(expand-file-name root-dir)
