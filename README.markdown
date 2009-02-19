@@ -86,8 +86,14 @@ convenient to start the server from within Emacs:
 
     M-x scion
 
-You might encounter problems with $PATH inheritance, though.  This is
-a bug--we're working on it.
+The scion server process inherits the environment variables from the
+Emacs process.  Depending on your system this may be different than
+what you'd get if you started the server from the shell.  To adjust
+the `PATH` environment variable from within Emacs, add something like
+the following to your `.emacs`:
+
+    ;; add ~/usr/bin to the PATH
+    (setenv "PATH" "$HOME/usr/bin:$PATH" t)
 
 Once you have a running and connected Scion server, you can use the
 commands provided by scion-mode:
