@@ -119,7 +119,8 @@ setWorkingDir home = do
 -- | Try to open a Cabal project.  The project must already be configured
 -- using the same version of Cabal that Scion was build against.
 --
--- TODO: Allow configuration of the project from inside Scion.
+-- Use 'configureCabalProject' to automatically configure a project (if it
+-- hasn't been already.)
 --
 -- TODO: Allow other working directories?  Would require translating all the
 -- search paths from relative to absolute paths.  Furthermore, what should the

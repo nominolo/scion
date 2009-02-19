@@ -25,7 +25,29 @@ import Control.Monad
 
 ------------------------------------------------------------------------------
 
-configureCabalProject :: FilePath -> FilePath -> [String] -> ScionM ()
+-- | Open or configure a Cabal project using the Cabal library.
+--
+-- Tries to open an existing Cabal project or configures it if opening
+-- failed.
+--
+-- This is roughly equivalent to calling "./Setup configure" on the command
+-- line.  The difference is that this makes sure to use the same version of
+-- Cabal and the GHC API that Scion was built against.  This is important to
+-- avoid compatibility problems.
+--
+-- If configuration succeeded, sets it as the current project.
+--
+-- TODO: Figure out a way to report more helpful error messages.
+--
+-- Throws:
+--
+--  * 'CannotOpenCabalProject' if configuration failed.
+--
+configureCabalProject :: 
+     FilePath -- ^ The project root.  (Where the .cabal file resides)
+  -> FilePath -- ^ dist dir, i.e., directory where to put generated files.
+  -> [String] -- ^ command line arguments to "configure".
+  -> ScionM ()
 configureCabalProject root_dir dist_dir extra_args =
    openCabalProject root_dir dist_dir
   `gcatch` (\(_ :: CannotOpenCabalProject) -> do
@@ -52,10 +74,21 @@ configureCabalProject root_dir dist_dir extra_args =
         [] -> liftIO $ throwIO $ CannotOpenCabalProject "no .cabal file"
         _ -> liftIO $ throwIO $ CannotOpenCabalProject "Too many .cabal files"
 
+-- | Something went wrong during "cabal configure".
+--
+-- TODO: Add more detail.
 data ConfigException = ConfigException deriving (Show, Typeable)
 instance Exception ConfigException
 
-cabalSetupWithArgs :: FilePath -> [String] -> ScionM Bool
+-- | Do the equivalent of "runghc Setup.hs <args>" using the GHC API.
+--
+-- Instead of "runghc", this function uses the GHC API so that the correct
+-- version of GHC and package database is used.  
+cabalSetupWithArgs ::
+     FilePath -- ^ Path to .cabal file.  TODO: ATM, we only need the
+              -- directory
+  -> [String] -- ^ Command line arguments.
+  -> ScionM Bool
 cabalSetupWithArgs cabal_file args =
    ghandle (\(_ :: ConfigException) -> return False) $ do
     ensureCabalFileExists
