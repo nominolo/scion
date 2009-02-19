@@ -52,18 +52,17 @@ configureCabalProject root_dir dist_dir extra_args =
    openCabalProject root_dir dist_dir
   `gcatch` (\(_ :: CannotOpenCabalProject) -> do
      cabal_file <- find_cabal_file
-     let dist_dir' = "dist-scion"
      let args = [ "configure"
                 , "-v3"
                 , "--user"
-                , "--builddir=" ++ dist_dir'
+                , "--builddir=" ++ dist_dir
                 , "--with-compiler=" ++ ghc
                 , "--with-hc-pkg=" ++ ghc_pkg
                 ] ++ extra_args
      liftIO $ print args
      setWorkingDir root_dir
      ok <- cabalSetupWithArgs cabal_file args
-     if ok then openCabalProject root_dir dist_dir'
+     if ok then openCabalProject root_dir dist_dir
            else liftIO $ throwIO $ 
                   CannotOpenCabalProject "Failed to configure")
  where
