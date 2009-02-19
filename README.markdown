@@ -46,29 +46,70 @@ The Emacs frontend is implemented as a Haskell server
 Emacs
 -----
 
+Install Scion with Emacs support, either via
 
+    $ cabal install scion -femacs
+
+or, if you have a locally copy of Scion
 
     $ cd <scion>
     $ cabal install -femacs
+
+You'll end up with a binary called "emacs-server".
+
     $ ./.cabal/bin/emacs_server
 
-Emacs:
+Add the following to your emacs configuration (typically "~/.emacs"):
 
     (add-to-list 'load-path "<scion>/emacs")
     (require 'scion)
-    
-    (add-hook 'haskell-mode-hook 'my-scion-hook)
-    (defun my-scion-hook ()
-      (scion-mode 1))
-    
+
+    ;; if ./cabal/bin is not in your $PATH
+    (setq scion-program "~/.cabal/bin/emacs_server")
+
+    (defun my-haskell-hook ()
+      ;; Whenever we open a file in Haskell mode, also activate Scion
+      (scion-mode 1)
+      ;; Whenever a file is saved, immediately type check it and
+      ;; highlight errors/warnings in the source.
+      (scion-flycheck-on-save 1))
+
+    (add-hook 'haskell-mode-hook 'my-haskell-hook)
+
+Scion mode needs to communicate with the external server.  You can
+start the server manually on the command line and then use
+
     M-x scion-connect
-    M-x scion-open-cabal-project
-    M-x scion-load-library
+
+to connect to that server.  However, most of the time it will be more
+convenient to start the server from within Emacs:  
+
+    M-x scion
+
+You might encounter problems with $PATH inheritance, though.  This is
+a bug--we're working on it.
+
+Once you have a running and connected Scion server, you can use the
+commands provided by scion-mode:
+ 
+  * `M-x scion-open-cabal-project` (`C-c C-o`) configures a .cabal
+    project and loads the meta-data from a .cabal file.  Note that
+    this doesn't type check or load anything.  If you change the
+    .cabal file of a project, call this function to update the session
+    with the new settings.
+
+  * `M-x scion-load-library` (`C-c C-l`) type checks all the files in
+    the library.
+
+There are a few more utilities:
 
     C-c i l  -- insert language pragma
     C-c i p  -- insert pragma
     C-c i m  -- insert (external) module name
 
+Some experimental features:
+
+    C-c C-t  -- show type of identifier at point
 
 Bug Reports
 ===========
