@@ -12,7 +12,7 @@
 -- Utilities to manipulate the session state.
 --
 module Scion.Session where
-
+-- * Imports
 import Prelude hiding ( mod )
 import GHC hiding ( flags, load )
 import HscTypes ( srcErrorMessages, SourceError, isBootSummary )
@@ -53,7 +53,7 @@ import qualified Distribution.PackageDescription.Configuration as PD
 
 ------------------------------------------------------------------------------
 
--- ** Exception Types
+-- * Exception Types
 
 data CannotOpenCabalProject = CannotOpenCabalProject String
      deriving (Show, Typeable)
@@ -73,7 +73,7 @@ instance Exception ComponentDoesNotExist where
   fromException = scionFromException
 
 
--- ** Setting Session Parameters
+-- * Setting Session Parameters
 
 
 initialScionDynFlags :: DynFlags -> DynFlags
@@ -98,7 +98,7 @@ initialScionDynFlags dflags =
 -- Due to some bugs in GHC this isn't completely possible.  For example, GHC
 -- retains instance declarations which can lead to problems when you load a
 -- new module which defines a different instance.  (You'll get a conflicting
--- instance error, which can only resolved by re-starting GHC.)
+-- instance error, which can only be resolved by re-starting GHC.)
 resetSessionState :: ScionM ()
 resetSessionState = do
    unload
@@ -108,8 +108,6 @@ resetSessionState = do
    setSessionDynFlags (initialScionDynFlags dflags0)
    return ()
 
--- ** Other Stuff
-
 -- | Sets the current working directory and notifies GHC about the change.
 --
 -- TODO: do we want to adjust certain flags automatically?
@@ -117,6 +115,8 @@ setWorkingDir :: FilePath -> ScionM ()
 setWorkingDir home = do
   liftIO $ setCurrentDirectory home
   workingDirectoryChanged
+
+-- * Cabal Projects
 
 -- | Try to open a Cabal project.  The project must already be configured
 -- using the same version of Cabal that Scion was build against.
@@ -267,10 +267,7 @@ setTargetsFromCabal (Executable _) = do
 --
 loadComponent :: CabalComponent
               -> ScionM CompilationResult
-                 -- ^ @Left (warnings, errors)@ if an error occured.  If
-                 -- errors is empty, compilation/loading failed due to @-Werror@.
-                 --
-                 -- @Right warnings@ if compilation/loading succeeded.
+                 -- ^ The compilation result.
 loadComponent comp = do
    -- TODO: group warnings by file
    setActiveComponent comp
@@ -299,6 +296,8 @@ setActiveComponent comp = do
   where
    needs_unloading (Just c) | c /= comp = True
    needs_unloading _ = False
+
+-- * Compilation
 
 -- | Wrapper for 'GHC.load'.
 load :: LoadHowMuch -> ScionM CompilationResult
@@ -404,7 +403,7 @@ setGHCVerbosity lvl = do
 
 ------------------------------------------------------------------------------
 
--- ** Background Typechecking
+-- * Background Typechecking
 
 -- | Takes an absolute path to a file and attempts to typecheck it.
 --
@@ -488,7 +487,7 @@ backgroundTypecheckFile fname = do
 
        
 -- | Return whether the filepath refers to a file inside the current project
---   root.
+--   root.  Return 'False' if there is no current project.
 isRelativeToProjectRoot :: FilePath -> ScionM Bool
 isRelativeToProjectRoot fname = do
    root_dir <- projectRootDir
@@ -576,3 +575,8 @@ removeMessagesForFile fname0 res = do
     return $ 
         res { compilationWarnings = warnings'
             , compilationErrors = errors' }
+
+-- Local Variables:
+-- outline-regexp: "-- *+"
+-- End:
+-- indent-tabs-mode: nil
