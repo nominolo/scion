@@ -149,6 +149,18 @@ openCabalProject root_dir dist_rel_dir = do
         -- XXX: do something with old lbi before updating?
         modifySessionState $ \st -> st { localBuildInfo = Just lbi }
 
+-- | Return the (configured) package description of the current Cabal project.
+--
+-- Throws:
+--
+--  * 'NoCurrentCabalProject' if there is no current Cabal project.
+--
+currentCabalPackage :: ScionM PD.PackageDescription
+currentCabalPackage = do
+  lbi <- getLocalBuildInfo
+  return (localPkgDescr lbi)
+
+
 cabalProjectComponents :: FilePath -- ^ The .cabal file
                        -> ScionM [CabalComponent]
 cabalProjectComponents cabal_file = do
@@ -241,10 +253,10 @@ setDynFlagsFromCabal component = do
 --
 setTargetsFromCabal :: CabalComponent -> ScionM ()
 setTargetsFromCabal Library = do
-  lbi <- getLocalBuildInfo
-  unless (isJust (PD.library (localPkgDescr lbi)))
+  pd <- currentCabalPackage
+  unless (isJust (PD.library pd))
     noLibError
-  let modnames = PD.libModules (localPkgDescr lbi)
+  let modnames = PD.libModules pd
   let cabal_mod_to_string m =
         intercalate "." (components m)
   let modname_to_target name =
@@ -365,17 +377,6 @@ addCmdLineFlags flags = do
       liftIO $ mapM_ putStrLn $ map unLoc warnings
       setSessionDynFlags dflags'
 
--- | Return the (configured) package description of the current Cabal project.
---
--- Throws:
---
---  * 'NoCurrentCabalProject' if there is no current Cabal project.
---
-currentCabalPackage :: ScionM PD.PackageDescription
-currentCabalPackage = do
-  lbi <- getLocalBuildInfo
-  return (localPkgDescr lbi)
-
 -- | List all components in the current cabal project.
 --
 -- This can be used to present the user a list of possible items to load.
@@ -386,8 +387,7 @@ currentCabalPackage = do
 --
 availableComponents :: ScionM [CabalComponent]
 availableComponents = do
-  lbi <- getLocalBuildInfo
-  let pd = localPkgDescr lbi
+  pd <- currentCabalPackage
   return $ (case PD.library pd of
               Just _ -> [Library]
               _ -> []) ++
