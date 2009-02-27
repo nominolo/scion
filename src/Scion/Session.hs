@@ -43,6 +43,8 @@ import Distribution.Simple.Build ( initialBuildSteps )
 import Distribution.Simple.PreProcess ( knownSuffixHandlers )
 import qualified Distribution.Verbosity as V
 import qualified Distribution.PackageDescription as PD
+import qualified Distribution.PackageDescription.Parse as PD
+import qualified Distribution.PackageDescription.Configuration as PD
 
 ------------------------------------------------------------------------------
 
@@ -146,6 +148,15 @@ openCabalProject root_dir dist_rel_dir = do
         resetSessionState
         -- XXX: do something with old lbi before updating?
         modifySessionState $ \st -> st { localBuildInfo = Just lbi }
+
+cabalProjectComponents :: FilePath -- ^ The .cabal file
+                       -> ScionM [CabalComponent]
+cabalProjectComponents cabal_file = do
+   gpd <- liftIO $ PD.readPackageDescription V.silent cabal_file 
+   let pd = PD.flattenPackageDescription gpd
+   return $
+     (if isJust (PD.library pd) then [Library] else []) ++
+     [ Executable (PD.exeName e) | e <- PD.executables pd ]
 
 -- | Run the steps that Cabal would call before building.
 preprocessPackage :: FilePath

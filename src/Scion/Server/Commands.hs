@@ -57,6 +57,7 @@ allCommands =
     , cmdOpenCabalProject
     , cmdConfigureCabalProject
     , cmdLoadComponent
+    , cmdListCabalComponents
     , cmdListSupportedLanguages
     , cmdListSupportedPragmas
     , cmdListSupportedFlags
@@ -192,6 +193,16 @@ cmdListRdrNamesInScope =
       return $ do
         rdr_names <- getNamesInScope
         return (toString (Lst (map (showSDoc . ppr) rdr_names)))
+
+
+cmdListCabalComponents :: Command
+cmdListCabalComponents =
+   Command $ do
+     string "list-cabal-components" >> sp
+     cabal_file <- getString
+     return $ do
+       cs <- cabalProjectComponents cabal_file
+       return (toString (Lst cs))
 
 allExposedModules :: ScionM [ModuleName]
 #ifdef HAVE_PACKAGE_DB_MODULES

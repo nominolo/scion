@@ -76,6 +76,11 @@ instance (Sexp a, Sexp b) => Sexp (M.Map a b) where
     where go ((k,v):r) = toSexp k <+> toSexp v <+> go r
           go [] = id
 
+instance Sexp CabalComponent where
+  toSexp Library = showString "library"
+  toSexp (Executable n) = 
+     parens (showString "executable" <+> showString (show n))
+
 data Diagnostic
   = DiagWarning WarnMsg
   | DiagError   ErrMsg
