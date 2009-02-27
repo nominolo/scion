@@ -30,6 +30,22 @@ import Control.Monad
 -- Tries to open an existing Cabal project or configures it if opening
 -- failed.
 --
+-- Throws:
+--
+--  * 'CannotOpenCabalProject' if configuration failed.
+--
+openOrConfigureCabalProject :: 
+     FilePath -- ^ The project root.  (Where the .cabal file resides)
+  -> FilePath -- ^ dist dir, i.e., directory where to put generated files.
+  -> [String] -- ^ command line arguments to "configure".
+  -> ScionM ()
+openOrConfigureCabalProject root_dir dist_dir extra_args =
+   openCabalProject root_dir dist_dir
+  `gcatch` (\(_ :: CannotOpenCabalProject) -> 
+                configureCabalProject root_dir dist_dir extra_args)
+
+-- | Configure a Cabal project using the Cabal library.
+--
 -- This is roughly equivalent to calling "./Setup configure" on the command
 -- line.  The difference is that this makes sure to use the same version of
 -- Cabal and the GHC API that Scion was built against.  This is important to
@@ -48,23 +64,21 @@ configureCabalProject ::
   -> FilePath -- ^ dist dir, i.e., directory where to put generated files.
   -> [String] -- ^ command line arguments to "configure".
   -> ScionM ()
-configureCabalProject root_dir dist_dir extra_args =
-   openCabalProject root_dir dist_dir
-  `gcatch` (\(_ :: CannotOpenCabalProject) -> do
-     cabal_file <- find_cabal_file
-     let args = [ "configure"
-                , "-v3"
-                , "--user"
-                , "--builddir=" ++ dist_dir
-                , "--with-compiler=" ++ ghc
-                , "--with-hc-pkg=" ++ ghc_pkg
-                ] ++ extra_args
-     liftIO $ print args
-     setWorkingDir root_dir
-     ok <- cabalSetupWithArgs cabal_file args
-     if ok then openCabalProject root_dir dist_dir
-           else liftIO $ throwIO $ 
-                  CannotOpenCabalProject "Failed to configure")
+configureCabalProject root_dir dist_dir extra_args = do
+   cabal_file <- find_cabal_file
+   let args = [ "configure"
+              , "-v3"
+              , "--user"
+              , "--builddir=" ++ dist_dir
+              , "--with-compiler=" ++ ghc
+              , "--with-hc-pkg=" ++ ghc_pkg
+              ] ++ extra_args
+   liftIO $ print args
+   setWorkingDir root_dir
+   ok <- cabalSetupWithArgs cabal_file args
+   if ok then openCabalProject root_dir dist_dir
+         else liftIO $ throwIO $ 
+                CannotOpenCabalProject "Failed to configure"
  where
    find_cabal_file = do
       fs <- liftIO $ getDirectoryContents root_dir

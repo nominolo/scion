@@ -1813,14 +1813,7 @@ By default Scion uses \".scion-dist\" to avoid interfering with
 command line tools.
 
 EXTRA-ARGS is a string of command line flags."
-  (interactive ;"DProject dir: \nsDist-dir"
-   (let ((root (scion-cabal-root-dir)))
-     (list (funcall (if (fboundp 'read-directory-name)
-                        'read-directory-name
-                      'read-file-name)
-		    "Directory: " root root)
-	   (read-from-minibuffer "Dist directory: " ".dist-scion")
-	   (read-from-minibuffer "Configure Flags: " ""))))
+  (interactive (scion-interactive-configure-args))
   (lexical-let ((root-dir root-dir))
     (scion-eval-async `(open-cabal-project ,(expand-file-name root-dir)
 					   ,rel-dist-dir
@@ -1829,6 +1822,38 @@ EXTRA-ARGS is a string of command line flags."
 			(setq scion-project-root-dir root-dir)
 			(message (format "Cabal project loaded: %s" x)))))
   (message "Loading Cabal project."))
+
+(defun scion-interactive-configure-args ()
+  (let ((root (scion-cabal-root-dir)))
+     (list (funcall (if (fboundp 'read-directory-name)
+                        'read-directory-name
+                      'read-file-name)
+		    "Directory: " root root)
+	   (read-from-minibuffer "Dist directory: " ".dist-scion")
+	   (read-from-minibuffer "Configure Flags: " ""))))
+
+(defun scion-configure-cabal-project (root-dir rel-dist-dir extra-args)
+  "Configure/Reconfigure a Cabal project.  
+
+This does not load the project but merely loads the metadata and
+pre-processes files.
+
+ROOT-DIR is the project root directory \(the directory
+which contains the .cabal file\).
+
+REL-DIST-DIR is the directory name relative to the project root.
+By default Scion uses \".scion-dist\" to avoid interfering with
+command line tools.
+
+EXTRA-ARGS is a string of command line flags."
+  (interactive (scion-interactive-configure-args))
+  (lexical-let ((root-dir root-dir))
+    (scion-eval-async `(configure-cabal-project ,(expand-file-name root-dir)
+						,rel-dist-dir
+						,extra-args)
+		      (scion-handling-failure (x)
+			(setq scion-project-root-dir root-dir)
+			(message (format "Cabal project loaded: %s" x))))))
 
 (defun scion-load-library ()
   "Load the library of the current cabal project.

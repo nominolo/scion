@@ -55,6 +55,7 @@ allCommands :: [Command]
 allCommands = 
     [ cmdConnectionInfo
     , cmdOpenCabalProject
+    , cmdConfigureCabalProject
     , cmdLoadComponent
     , cmdListSupportedLanguages
     , cmdListSupportedPragmas
@@ -112,6 +113,19 @@ cmdConnectionInfo = Command (string "connection-info" >> return (toString `fmap`
 cmdOpenCabalProject :: Command
 cmdOpenCabalProject =
     Command (do string "open-cabal-project" >> sp
+                root_dir <- getString
+                dist_dir <- sp >> getString
+                extra_args <- sp >> getString
+                return (toString `fmap` cmd root_dir dist_dir (words extra_args)))
+  where
+    cmd path rel_dist extra_args = handleScionException $ do
+        openOrConfigureCabalProject path rel_dist extra_args
+        preprocessPackage rel_dist
+        (display . PD.package) `fmap` currentCabalPackage
+
+cmdConfigureCabalProject :: Command
+cmdConfigureCabalProject =
+    Command (do string "configure-cabal-project" >> sp
                 root_dir <- getString
                 dist_dir <- sp >> getString
                 extra_args <- sp >> getString
