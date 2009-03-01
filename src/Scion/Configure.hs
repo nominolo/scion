@@ -21,7 +21,9 @@ import Outputable
 
 import System.Directory
 import System.FilePath
+import System.IO ( openTempFile, hPutStr, hClose )
 import Control.Monad
+import Control.Exception ( IOException )
 
 ------------------------------------------------------------------------------
 
@@ -96,7 +98,9 @@ instance Exception ConfigException
 -- | Do the equivalent of "runghc Setup.hs <args>" using the GHC API.
 --
 -- Instead of "runghc", this function uses the GHC API so that the correct
--- version of GHC and package database is used.  
+-- version of GHC and package database is used.
+--
+-- TODO: Return exception or error message in failure case.
 cabalSetupWithArgs ::
      FilePath -- ^ Path to .cabal file.  TODO: ATM, we only need the
               -- directory
@@ -106,10 +110,11 @@ cabalSetupWithArgs cabal_file args =
    ghandle (\(_ :: ConfigException) -> return False) $ do
     ensureCabalFileExists
     let dir = dropFileName cabal_file
-    setup <- findSetup dir
+    (setup, delete_when_done) <- findSetup dir
     liftIO $ putStrLn $ "Using setup file: " ++ setup
     _mainfun <- compileMain setup
-    
+    when (delete_when_done) $
+      liftIO (removeFile setup)
     return True
   where
     ensureCabalFileExists = do
@@ -120,8 +125,20 @@ cabalSetupWithArgs cabal_file args =
       let candidates = map ((dir </> "Setup.")++) ["lhs", "hs"]
       existing <- mapM (liftIO . doesFileExist) candidates
       case [ f | (f,ok) <- zip candidates existing, ok ] of
-        [] -> liftIO $ throwIO ConfigException
-        f:_ -> return f
+        f:_ -> return (f, False)
+        [] -> liftIO $ do
+          ghandle (\(_ :: IOException) -> throwIO $ ConfigException) $ do
+            tmp_dir <- getTemporaryDirectory
+            (fp, hdl) <- openTempFile tmp_dir "Setup.hs"
+            hPutStr hdl (unlines default_cabal_setup)
+            hClose hdl
+            return (fp, True)
+                     
+    default_cabal_setup =
+      ["#!/usr/bin/env runhaskell",
+       "import Distribution.Simple",
+       "main :: IO ()",
+       "main = defaultMain"]
 
     compileMain file = do
       resetSessionState
