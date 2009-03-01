@@ -708,7 +708,7 @@ Signal an error if there's no connection."
            (error "Connection closed."))
           (t conn))))
 
-(defvar scion-auto-connect 'never)
+(defvar scion-auto-connect 'always)
 
 (defun scion-auto-connect ()
   (cond ((or (eq scion-auto-connect 'always)
