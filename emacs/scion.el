@@ -1860,6 +1860,7 @@ EXTRA-ARGS is a string of command line flags."
 
 Sets the GHC flags for the library from the current Cabal project and loads it."
   (interactive)
+  (message "Loading library...")
   (scion-eval-async `(load-component library)
     (scion-handling-failure (result)
       (scion-report-compilation-result result))))
