@@ -1069,17 +1069,17 @@ deal with that."
                    tag sexp))
           (throw tag (list #'identity value)))
          ((:abort)
-          (throw tag (list #'error "Synchronous Lisp Evaluation aborted"))))
+          (throw tag (list #'error "Synchronous Remote Evaluation aborted"))))
        (let ((debug-on-quit t)
              (inhibit-quit nil)
              (conn (scion-connection)))
          (while t 
            (unless (eq (process-status conn) 'open)
-             (error "Lisp connection closed unexpectedly"))
+             (error "Server connection closed unexpectedly"))
            (scion-accept-process-output nil 0.01)))))))
 
 (defun scion-eval-async (sexp &optional cont package)
-  "Evaluate EXPR on the superior Lisp and call CONT with the result."
+  "Evaluate EXPR on the server and call CONT with the result."
   (scion-rex (cont (buffer (current-buffer)))
 	(sexp (or package (scion-current-package)))
     ((:ok result)
