@@ -34,6 +34,7 @@ import Data.Time.Clock  ( getCurrentTime, diffUTCTime )
 import System.Directory ( setCurrentDirectory, getCurrentDirectory )
 import System.FilePath  ( (</>), isRelative, makeRelative, normalise, combine )
 import Control.Exception
+import System.Exit ( ExitCode(..) )
 
 import Distribution.ModuleName ( components )
 import Distribution.Simple.Configure
@@ -164,11 +165,13 @@ currentCabalPackage = do
 cabalProjectComponents :: FilePath -- ^ The .cabal file
                        -> ScionM [CabalComponent]
 cabalProjectComponents cabal_file = do
-   gpd <- liftIO $ PD.readPackageDescription V.silent cabal_file 
-   let pd = PD.flattenPackageDescription gpd
-   return $
-     (if isJust (PD.library pd) then [Library] else []) ++
-     [ Executable (PD.exeName e) | e <- PD.executables pd ]
+   ghandle (\(_ :: ExitCode) ->
+                liftIO $ throwIO $ CannotOpenCabalProject cabal_file) $ do
+     gpd <- liftIO $ PD.readPackageDescription V.silent cabal_file 
+     let pd = PD.flattenPackageDescription gpd
+     return $
+       (if isJust (PD.library pd) then [Library] else []) ++
+       [ Executable (PD.exeName e) | e <- PD.executables pd ]
 
 -- | Run the steps that Cabal would call before building.
 preprocessPackage :: FilePath
