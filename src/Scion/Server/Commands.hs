@@ -200,9 +200,9 @@ cmdListCabalComponents =
    Command $ do
      string "list-cabal-components" >> sp
      cabal_file <- getString
-     return $ do
-       cs <- cabalProjectComponents cabal_file
-       return (toString (Lst cs))
+     return $
+       toString `fmap` (handleScionException $
+         Lst `fmap` cabalProjectComponents cabal_file)
 
 allExposedModules :: ScionM [ModuleName]
 #ifdef HAVE_PACKAGE_DB_MODULES
