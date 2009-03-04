@@ -256,8 +256,8 @@ setComponentDynFlags component = do
 --  * 'ComponentDoesNotExist' if the current Cabal project does not contain
 --    the specified component.
 --
-setTargetsFromCabal :: Component -> ScionM ()
-setTargetsFromCabal Library = do
+setComponentTargets :: Component -> ScionM ()
+setComponentTargets Library = do
   pd <- currentCabalPackage
   unless (isJust (PD.library pd))
     noLibError
@@ -270,8 +270,12 @@ setTargetsFromCabal Library = do
                , targetAllowObjCode = True
                , targetContents = Nothing }
   setTargets (map modname_to_target modnames)
-setTargetsFromCabal (Executable _) = do
+setComponentTargets (Executable _) = do
   error "unimplemented"
+setComponentTargets (File f) = do
+  setTargets [ Target (TargetFile f Nothing)
+                      True
+                      Nothing ]
 
 -- | Load the specified component from the current Cabal project.
 --
@@ -288,7 +292,7 @@ loadComponent :: Component
 loadComponent comp = do
    -- TODO: group warnings by file
    setActiveComponent comp
-   setTargetsFromCabal comp
+   setComponentTargets comp
    rslt <- load LoadAllTargets
    modifySessionState $ \s -> s { lastCompResult = rslt }
    return rslt
