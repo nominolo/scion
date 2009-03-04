@@ -67,7 +67,7 @@ instance Exception NoCurrentCabalProject where
   toException  = scionToException
   fromException = scionFromException
 
-data ComponentDoesNotExist = ComponentDoesNotExist CabalComponent
+data ComponentDoesNotExist = ComponentDoesNotExist Component
      deriving (Show, Typeable)
 instance Exception ComponentDoesNotExist where
   toException  = scionToException
@@ -163,7 +163,7 @@ currentCabalPackage = do
 
 
 cabalProjectComponents :: FilePath -- ^ The .cabal file
-                       -> ScionM [CabalComponent]
+                       -> ScionM [Component]
 cabalProjectComponents cabal_file = do
    ghandle (\(_ :: ExitCode) ->
                 liftIO $ throwIO $ CannotOpenCabalProject cabal_file) $ do
@@ -219,7 +219,7 @@ projectRootDir = do
 --    the specified component.
 --
 setDynFlagsFromCabal :: 
-       CabalComponent 
+       Component 
     -> ScionM [PackageId]
        -- ^ List of packages that need to be loaded.  This corresponds to the
        -- build-depends of the loaded component.
@@ -254,7 +254,7 @@ setDynFlagsFromCabal component = do
 --  * 'ComponentDoesNotExist' if the current Cabal project does not contain
 --    the specified component.
 --
-setTargetsFromCabal :: CabalComponent -> ScionM ()
+setTargetsFromCabal :: Component -> ScionM ()
 setTargetsFromCabal Library = do
   pd <- currentCabalPackage
   unless (isJust (PD.library pd))
@@ -280,7 +280,7 @@ setTargetsFromCabal (Executable _) = do
 --  * 'ComponentDoesNotExist' if the current Cabal project does not contain
 --    the specified component.
 --
-loadComponent :: CabalComponent
+loadComponent :: Component
               -> ScionM CompilationResult
                  -- ^ The compilation result.
 loadComponent comp = do
@@ -301,7 +301,7 @@ loadComponent comp = do
 --  * 'ComponentDoesNotExist' if the current Cabal project does not contain
 --    the specified component.
 --
-setActiveComponent :: CabalComponent -> ScionM ()
+setActiveComponent :: Component -> ScionM ()
 setActiveComponent comp = do
    curr_comp <- gets activeComponent
    when (needs_unloading curr_comp)
@@ -388,7 +388,7 @@ addCmdLineFlags flags = do
 --
 --  * 'NoCurrentCabalProject' if there is no current Cabal project.
 --
-availableComponents :: ScionM [CabalComponent]
+availableComponents :: ScionM [Component]
 availableComponents = do
   pd <- currentCabalPackage
   return $ (case PD.library pd of

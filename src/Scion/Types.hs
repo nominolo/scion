@@ -48,7 +48,7 @@ data SessionState
       localBuildInfo :: Maybe LocalBuildInfo,
         -- ^ Build info from current Cabal project.
 
-      activeComponent :: Maybe CabalComponent,
+      activeComponent :: Maybe Component,
         -- ^ The current active Cabal component.  This affects DynFlags and
         -- targets.  ATM, we don't support multiple active components.
 
@@ -212,7 +212,11 @@ dieHard last_wish = do
 ------------------------------------------------------------------------------
 -- * Others \/ Helpers
 
-data CabalComponent = Library | Executable String deriving (Eq, Show, Typeable)
+data Component 
+  = Library
+  | Executable String
+  | File FilePath
+  deriving (Eq, Show, Typeable)
 
 -- | Shorthand for 'undefined'.
 __ :: a
