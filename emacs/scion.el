@@ -1800,6 +1800,17 @@ The overlay has several properties:
 	(unless (or (equal dir next-dir) (null next-dir))
           (scion-cabal-root-dir next-dir))))))
 
+(defun scion-cabal-file (dir)
+  "Return the only Cabal file in the given directory.
+Returns NIL if the directory does not contain such file, and
+signals an error if multiple files are present."
+  (let ((cabal-files (directory-files dir t ".cabal$")))
+    (if (car cabal-files)
+	(if (cadr cabal-files)
+	    (error "Multiple .cabal files in directory: %s" dir)
+	  (car cabal-files))
+      nil)))
+
 (defun scion-open-cabal-project (root-dir rel-dist-dir extra-args)
   "Load project metadata from a Cabal description.  
 
@@ -2154,6 +2165,53 @@ forces it to be off.  NIL toggles the current state."
 (define-key scion-mode-map "\C-c\C-t" 'scion-thing-at-point)
 
 (provide 'scion)
+
+(defun scion-load ()
+  "Load current file or Cabal project.
+
+If the file is within a Cabal project, prompts the user which
+component to load, or whether only the current file should be
+loaded."
+  (interactive)
+  (let ((comp (scion-select-component)))
+    (message "Comp: %s" comp))
+  )
+
+(defun scion-select-component ()
+  (let* ((cabal-dir (scion-cabal-root-dir))
+	 (cabal-file (ignore-errors (scion-cabal-file cabal-dir)))
+	 (cabal-components (ignore-errors
+			     (when cabal-file
+			       (scion-cabal-components cabal-file))))
+	 (options (nconc cabal-components
+			 `((file ,(buffer-file-name))))))
+    (if (null (cdr options))
+	(car options)
+      (flet ((format-component (comp)
+		(cond
+		 ((eq comp 'library)
+		  "Library")
+		 ((eq (car comp) 'executable)
+		  (format "Executable %s" (cadr comp)))
+		 ((eq (car comp) 'file)
+		  (format "File %s" (cadr comp)))
+		 (t
+		  (format "%s" comp)))))
+	(ido-completing-read "Load Component: "
+			     (mapcar #'format-component options)
+			     nil t)))))
+
+(defun scion-cabal-components (cabal-file)
+  "Return list of components in CABAL-FILE.
+The result is a list where each element is either the symbol
+LIBRARY or (EXECUTABLE <name>)."
+  (let ((comps (scion-eval `(list-cabal-components ,cabal-file))))
+    (destructure-case comps
+      ((:ok cs)
+       cs)
+      ((:error _)
+       (error "Could not process .cabal file")))))
+
 
 ;; Local Variables: 
 ;; outline-regexp: ";;;;+"
