@@ -218,21 +218,23 @@ projectRootDir = do
 --  * 'ComponentDoesNotExist' if the current Cabal project does not contain
 --    the specified component.
 --
-setDynFlagsFromCabal :: 
+setComponentDynFlags :: 
        Component 
     -> ScionM [PackageId]
        -- ^ List of packages that need to be loaded.  This corresponds to the
        -- build-depends of the loaded component.
        --
        -- TODO: do something with this depending on Scion mode?
-setDynFlagsFromCabal component = do
+setComponentDynFlags (File _) = 
+   -- The DynFlags within the file are set automatically.
+   return []
+setComponentDynFlags component = do
    lbi <- getLocalBuildInfo
    bi <- component_build_info component (localPkgDescr lbi)
    let odir = buildDir lbi
    let flags = ghcOptions lbi bi odir
    addCmdLineFlags flags
  where
-
    component_build_info Library pd
        | Just lib <- PD.library pd = return (PD.libBuildInfo lib)
        | otherwise                 = noLibError
@@ -242,7 +244,7 @@ setDynFlagsFromCabal component = do
          [] -> noExeError n
          _ -> error $ "Multiple executables, named \"" ++ n ++ 
                       "\" found.  This is weird..."
-
+   component_build_info _ _ = error "impossible"
 
 -- | Set the targets for a 'GHC.load' command from the meta data of the
 --   current Cabal project.
@@ -306,7 +308,7 @@ setActiveComponent comp = do
    curr_comp <- gets activeComponent
    when (needs_unloading curr_comp)
      unload
-   setDynFlagsFromCabal comp
+   setComponentDynFlags comp
    modifySessionState (\sess -> sess { activeComponent = Just comp })
   where
    needs_unloading (Just c) | c /= comp = True
