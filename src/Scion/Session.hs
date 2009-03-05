@@ -248,7 +248,8 @@ setComponentDynFlags component = do
          [] -> noExeError n
          _ -> error $ "Multiple executables, named \"" ++ n ++ 
                       "\" found.  This is weird..."
-   component_build_info _ _ = error "impossible"
+   component_build_info _ _ =
+       dieHard "component_build_info: impossible case"
 
 -- | Set the targets for a 'GHC.load' command from the meta data of the
 --   current Cabal project.
