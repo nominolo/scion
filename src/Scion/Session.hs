@@ -208,7 +208,7 @@ noExeError = liftIO . throwIO . ComponentDoesNotExist . Executable
 --
 projectRootDir :: ScionM FilePath
 projectRootDir = do
-   _ <- getLocalBuildInfo -- ensure we have a current project
+   -- _ <- getLocalBuildInfo -- ensure we have a current project
    -- TODO: error handling
    liftIO $ getCurrentDirectory
 
