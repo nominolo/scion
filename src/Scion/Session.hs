@@ -32,7 +32,8 @@ import Data.Maybe       ( isJust )
 import Data.Monoid
 import Data.Time.Clock  ( getCurrentTime, diffUTCTime )
 import System.Directory ( setCurrentDirectory, getCurrentDirectory )
-import System.FilePath  ( (</>), isRelative, makeRelative, normalise, combine )
+import System.FilePath  ( (</>), isRelative, makeRelative, normalise, 
+                          combine, dropFileName )
 import Control.Exception
 import System.Exit ( ExitCode(..) )
 
@@ -295,10 +296,22 @@ loadComponent :: Component
 loadComponent comp = do
    -- TODO: group warnings by file
    setActiveComponent comp
+   maybe_set_working_dir comp
    setComponentTargets comp
+   setComponentDynFlags comp
    rslt <- load LoadAllTargets
    modifySessionState $ \s -> s { lastCompResult = rslt }
    return rslt
+  where
+    maybe_set_working_dir (File f) =
+      let dir = dropFileName f in
+      setWorkingDir dir
+    maybe_set_working_dir _ = do
+      lbi <- getLocalBuildInfo
+      let mb_pkg_dir = dropFileName `fmap` pkgDescrFile lbi
+      case mb_pkg_dir of
+        Just dir -> setWorkingDir dir
+        Nothing -> return ()
 
 -- | Make the specified component the active one, i. e., set the DynFlags to
 --  those specified for the given component.
