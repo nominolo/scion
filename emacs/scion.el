@@ -2018,6 +2018,7 @@ installed packages (However, not of the current project.)"
 	    (+ (* (float (ash 1 16)) s0) (float s1) (* 0.0000001 s2)))))))
 
 ;;;---------------------------------------------------------------------------
+;;;; Flycheck (background type checking)
 
 (make-variable-buffer-local 
  (defvar scion-flycheck-timer nil
@@ -2148,6 +2149,9 @@ forces it to be off.  NIL toggles the current state."
   (let ((stats-str (concat " Scion" status)))
     (setq scion-mode-line stats-str)
     (force-mode-line-update)))
+
+;;;---------------------------------------------------------------------------
+;;;; To be sorted
 
 (defun scion-thing-at-point ()
   (interactive)
