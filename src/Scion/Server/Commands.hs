@@ -30,6 +30,7 @@ import Outputable ( ppr, showSDoc, showSDocDump, dcolon, showSDocForUser,
                     showSDocDebug )
 import qualified Outputable as O ( (<+>), ($$) )
 
+import Control.Applicative
 import Control.Monad
 import Data.Foldable as F
 import Data.List ( nub )
@@ -48,6 +49,11 @@ import Packages ( pkgIdMap )
 import Distribution.InstalledPackageInfo
 #endif
 
+------------------------------------------------------------------------
+
+instance Applicative ReadP where
+  pure x = return x
+  x <*> y = x `ap` y
 
 ------------------------------------------------------------------------------
 
@@ -69,6 +75,7 @@ allCommands =
     , cmdAddCmdLineFlag
     , cmdThingAtPoint
     , cmdDumpSources
+    , cmdLoad
     ]
 
 ------------------------------------------------------------------------------
@@ -305,3 +312,18 @@ cmdDumpSources =
               liftIO $ putStrLn $ showData TypeChecker 2 tc
               return ()
             _ -> return ()
+
+parseComponent :: ReadP Component
+parseComponent =
+   choice [ Library <$ string "library"
+          , inParens $ Executable <$> (string "executable" *> sp *> getString)
+          , inParens $ File <$> (string "file" *> sp *> getString) 
+          ]
+
+cmdLoad :: Command
+cmdLoad =
+  Command $ do
+    comp <- string "load" *> sp *> parseComponent
+    return $ toString <$> (do
+      liftIO (putStrLn $ "Loading " ++ show comp)
+      handleScionException (loadComponent comp))

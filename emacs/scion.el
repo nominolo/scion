@@ -1981,7 +1981,7 @@ installed packages (However, not of the current project.)"
 (define-key scion-mode-map "\C-cim" 'haskell-insert-module-name)
 
 (define-key scion-mode-map "\C-c\C-o" 'scion-open-cabal-project)
-(define-key scion-mode-map "\C-c\C-l" 'scion-load-library)
+(define-key scion-mode-map "\C-c\C-l" 'scion-load)
 
 (defun haskell-insert-module-header (module-name &optional
 						 author
@@ -2166,16 +2166,17 @@ forces it to be off.  NIL toggles the current state."
 
 (provide 'scion)
 
-(defun scion-load ()
+(defun scion-load (comp)
   "Load current file or Cabal project.
 
 If the file is within a Cabal project, prompts the user which
 component to load, or whether only the current file should be
 loaded."
-  (interactive)
-  (let ((comp (scion-select-component)))
-    (message "Comp: %s" comp))
-  )
+  (interactive (list (scion-select-component)))
+  (message "Loading %s..." (scion-format-component comp))
+  (scion-eval-async `(load ,comp)
+     (scion-handling-failure (result)
+       (scion-report-compilation-result result))))
 
 (defun scion-select-component ()
   (let* ((cabal-dir (scion-cabal-root-dir))
@@ -2187,19 +2188,28 @@ loaded."
 			 `((file ,(buffer-file-name))))))
     (if (null (cdr options))
 	(car options)
-      (flet ((format-component (comp)
-		(cond
-		 ((eq comp 'library)
-		  "Library")
-		 ((eq (car comp) 'executable)
-		  (format "Executable %s" (cadr comp)))
-		 ((eq (car comp) 'file)
-		  (format "File %s" (cadr comp)))
-		 (t
-		  (format "%s" comp)))))
-	(ido-completing-read "Load Component: "
-			     (mapcar #'format-component options)
-			     nil t)))))
+      ;; TODO: abstract this kludge into `scion-completing-read`
+      (let* ((disp->comp (scion-makehash #'equal))
+	     (opts (loop for c in options 
+			 do (puthash (scion-format-component c) c disp->comp)
+			 collect (scion-format-component c))))
+	(gethash (ido-completing-read "Load Component: "
+				      opts
+				      nil
+				      t)
+		 disp->comp)))))
+
+(defun scion-format-component (comp)
+  (cond
+   ((eq comp 'library)
+    "Library")
+   ((eq (car comp) 'executable)
+    (format "Executable %s" (cadr comp)))
+   ((eq (car comp) 'file)
+    (format "File %s" (cadr comp)))
+   (t
+    (format "%s" comp))))
+
 
 (defun scion-cabal-components (cabal-file)
   "Return list of components in CABAL-FILE.
