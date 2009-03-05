@@ -114,8 +114,11 @@ resetSessionState = do
 -- TODO: do we want to adjust certain flags automatically?
 setWorkingDir :: FilePath -> ScionM ()
 setWorkingDir home = do
+  cwd <- liftIO $ getCurrentDirectory
   liftIO $ setCurrentDirectory home
-  workingDirectoryChanged
+  cwd' <- liftIO $ getCurrentDirectory -- to avoid normalisation issues
+  when (cwd /= cwd') $
+    workingDirectoryChanged
 
 -- * Cabal Projects
 
