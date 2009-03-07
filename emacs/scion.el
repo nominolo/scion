@@ -1669,6 +1669,45 @@ The overlay has several properties:
 		 (puthash fname (cons note old-notes) notes))))
     notes))
 
+(defun scion-next-note-in-buffer ()
+  "Goto next note in current buffer."
+  (interactive)
+  (scion-next-note-in-buffer-aux nil))
+
+(defun scion-previous-note-in-buffer ()
+  "Goto previous note in current buffer if any."
+  (interactive)
+  (scion-next-note-in-buffer-aux t))
+
+(defun scion-next-note-in-buffer-aux (&optional backwards)
+  (flet ((my-next-overlay-change (p) (if backwards 
+					 (previous-overlay-change p)
+				       (next-overlay-change p)))
+	 (my-eobp () (if backwards (bobp) (eobp))))
+    (let ((note0 (scion-note-at-point)))
+      (let ((next-note
+	     (save-excursion
+	       (block found-sth
+		 (while (not (my-eobp))
+		   (dolist (o (overlays-at (point)))
+		     (let ((note (overlay-get o 'scion)))
+		       (when (and note (not (equal note note0)))
+			 (return-from found-sth (cons (point) note)))))
+		   (goto-char (my-next-overlay-change (point))))))))
+	(if next-note
+	    (progn
+	      (goto-char (car next-note))
+	      (message "%s" (scion-note.message (cdr next-note))))
+	  (message "No more notes in this buffer."))))))
+
+(defun scion-note-at-point (&optional pt)
+  (block nil
+    (let ((pt (or pt (point))))
+      (dolist (o (overlays-at pt))
+	(let ((note (overlay-get o 'scion)))
+	  (when note
+	    (return note)))))))
+
 ;;;---------------------------------------------------------------------------
 ;;; The buffer that shows the compiler notes
 
@@ -1987,6 +2026,8 @@ installed packages (However, not of the current project.)"
 
 (define-key scion-mode-map "\C-c\C-o" 'scion-open-cabal-project)
 (define-key scion-mode-map "\C-c\C-l" 'scion-load)
+(define-key scion-mode-map "\C-c\C-n" 'scion-next-note-in-buffer)
+(define-key scion-mode-map "\C-c\C-p" 'scion-previous-note-in-buffer)
 
 (defun haskell-insert-module-header (module-name &optional
 						 author
