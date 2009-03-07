@@ -1497,14 +1497,19 @@ error messages into absolute path names.")
 			   (scion-filter-buffers (lambda () scion-mode)))))
 	  (loop for b in buffers do
 		(with-current-buffer b
-		  (let ((fname (buffer-file-name b)))
-		    (when fname
-		      (save-excursion
-			(save-restriction
-			  (widen)
-			  (loop for note in (gethash fname notes) do
-				(scion-overlay-note note b))))))))))))
+		  (save-excursion
+		    (save-restriction
+		      (widen)
+		      (loop for note in (scion-notes-for-buffer notes b) do
+			    (scion-overlay-note note b))))))))))
   nil)
+
+(defun scion-notes-for-buffer (notes buffer)
+  "Return only the notes that relate to BUFFER."
+  (let ((fname (buffer-file-name buffer)))
+    (if fname
+	(gethash fname notes nil)
+      nil)))
 
 (defun scion-remove-old-overlays (&optional buffer)
   "Delete the existing Scion overlays in the current buffer."
