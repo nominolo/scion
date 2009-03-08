@@ -1763,7 +1763,13 @@ The overlay has several properties:
 (defun scion-goto-source-location (loc)
   (let ((file (scion-note.filename loc)))
     (when file
-      (find-file file)
+      (let ((buff (find-buffer-visiting file)))
+	(if buff
+	    (let ((buff-window (get-buffer-window buff)))
+	      (if buff-window
+		  (select-window buff-window)
+		(display-buffer buff)))
+	  (find-file-other-window file)))
       (goto-line (scion-note.line loc)))))
 
 (defun scion-list-compiler-notes (notes)
