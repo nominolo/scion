@@ -2025,9 +2025,10 @@ installed packages (However, not of the current project.)"
 (define-key scion-mode-map "\C-cim" 'haskell-insert-module-name)
 
 (define-key scion-mode-map "\C-c\C-o" 'scion-open-cabal-project)
-(define-key scion-mode-map "\C-c\C-l" 'scion-load)
-(define-key scion-mode-map "\C-c\C-n" 'scion-next-note-in-buffer)
-(define-key scion-mode-map "\C-c\C-p" 'scion-previous-note-in-buffer)
+(define-key scion-mode-map "\C-c\C-L" 'scion-load)
+(define-key scion-mode-map "\M-n" 'scion-next-note-in-buffer)
+(define-key scion-mode-map "\M-p" 'scion-previous-note-in-buffer)
+(define-key scion-mode-map "\C-c\C-n" 'scion-list-compiler-notes)
 
 (defun haskell-insert-module-header (module-name &optional
 						 author

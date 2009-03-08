@@ -98,14 +98,25 @@ the following to your `.emacs`:
 Once you have a running and connected Scion server, you can use the
 commands provided by scion-mode:
  
-  * `M-x scion-open-cabal-project` (`C-c C-o`) configures a .cabal
-    project and loads the meta-data from a .cabal file.  Note that
-    this doesn't type check or load anything.  If you change the
-    .cabal file of a project, call this function to update the session
-    with the new settings.
+  * `C-c C-o` (`scion-open-cabal-project`) configures a Cabal project
+    and loads the meta-data from a Cabal file.  Note that this
+    does not type check or load anything.  If you change the Cabal
+    file of a project, call this function to update the session with
+    the new settings.
 
-  * `M-x scion-load-library` (`C-c C-l`) type checks all the files in
-    the library.
+  * `C-c C-L` (`scion-load`) load the current file with Scion.  If
+    the file is within a Cabal project this will prompt to use the
+    settings from one of the components in the package description
+    file.  You can still choose to load only the current file using
+    the default settings.
+
+If loading generates any errors or warnings, a buffer will appear and
+list them all.  Pressing `RET` on a note will jump to its source
+location.  Pressing `q` closes the buffer, and `C-c C-n`
+(`scion-list-compiler-notes`) brings it back.  Use `M-n`
+(`scion-next-note-in-buffer`) and `M-p`
+(`scion-previous-note-in-buffer`) to navigate within the notes of one
+buffer.
 
 There are a few more utilities:
 
