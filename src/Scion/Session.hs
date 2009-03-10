@@ -117,9 +117,11 @@ resetSessionState = do
 setWorkingDir :: FilePath -> ScionM ()
 setWorkingDir home = do
   cwd <- liftIO $ getCurrentDirectory
+  message deafening $ "Setting working directory: " ++ home ++ " (old: " ++ cwd ++ ")"
   liftIO $ setCurrentDirectory home
   cwd' <- liftIO $ getCurrentDirectory -- to avoid normalisation issues
-  when (cwd /= cwd') $
+  when (cwd /= cwd') $ do
+    message deafening $ "(Working directory changed.)"
     workingDirectoryChanged
 
 -- * Cabal Projects
@@ -416,6 +418,7 @@ unload = do
 -- no way to find out if there was an error from inside the program.
 addCmdLineFlags :: [String] -> ScionM [PackageId]
 addCmdLineFlags flags = do
+  message deafening $ "Setting Flags: " ++ show flags
   dflags <- getSessionDynFlags
   res <- gtry $ parseDynamicFlags dflags (map noLoc flags)
   case res of
