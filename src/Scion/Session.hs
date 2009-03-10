@@ -309,11 +309,16 @@ loadComponent comp = do
       let dir = dropFileName f in
       setWorkingDir dir
     maybe_set_working_dir _ = do
-      lbi <- getLocalBuildInfo
-      let mb_pkg_dir = dropFileName `fmap` pkgDescrFile lbi
-      case mb_pkg_dir of
-        Just dir -> setWorkingDir dir
-        Nothing -> return ()
+      dir <- cabalProjectRoot
+      setWorkingDir dir
+        
+cabalProjectRoot :: ScionM FilePath
+cabalProjectRoot = do
+  lbi <- getLocalBuildInfo
+  let mb_pkg_dir = dropFileName `fmap` pkgDescrFile lbi
+  case mb_pkg_dir of
+    Just dir -> return dir
+    Nothing -> liftIO $ getCurrentDirectory
 
 -- | Make the specified component the active one, i. e., set the DynFlags to
 --  those specified for the given component.
