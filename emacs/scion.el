@@ -2279,6 +2279,15 @@ LIBRARY or (EXECUTABLE <name>)."
       ((:error _)
        (error "Could not process .cabal file")))))
 
+(defun scion-get-verbosity ()
+  "Return the verbosity of the Scion server."
+  (interactive)
+  (scion-eval '(get-verbosity)))
+
+(defun scion-set-verbosity (v)
+  (interactive "nVerbosity[0-3]: ")
+  (scion-eval `(set-verbosity ,v)))
+
 
 ;; Local Variables: 
 ;; outline-regexp: ";;;;+"

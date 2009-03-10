@@ -76,6 +76,8 @@ allCommands =
     , cmdThingAtPoint
     , cmdDumpSources
     , cmdLoad
+    , cmdSetVerbosity
+    , cmdGetVerbosity
     ]
 
 ------------------------------------------------------------------------------
@@ -327,3 +329,15 @@ cmdLoad =
     return $ toString <$> (do
       liftIO (putStrLn $ "Loading " ++ show comp)
       handleScionException (loadComponent comp))
+
+cmdSetVerbosity :: Command
+cmdSetVerbosity =
+  Command $ do
+    v <- string "set-verbosity" *> sp *> getInt
+    return $ toString <$> setVerbosity (intToVerbosity v)
+
+cmdGetVerbosity :: Command
+cmdGetVerbosity =
+  Command $ do
+    string "get-verbosity"
+    return $ toString <$> verbosityToInt <$> getVerbosity

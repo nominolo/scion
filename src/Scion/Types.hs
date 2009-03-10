@@ -129,6 +129,15 @@ data Verbosity
   | Deafening
   deriving (Eq, Ord, Show, Enum, Bounded)
 
+intToVerbosity :: Int -> Verbosity
+intToVerbosity n
+  | n < 0                                = minBound
+  | n > fromEnum (maxBound :: Verbosity) = maxBound
+  | otherwise                            = toEnum n
+
+verbosityToInt :: Verbosity -> Int
+verbosityToInt = fromEnum
+
 silent :: Verbosity
 silent = Silent
 
@@ -141,10 +150,19 @@ verbose = Verbose
 deafening :: Verbosity
 deafening = Deafening
 
+getVerbosity :: ScionM Verbosity
+getVerbosity = gets scionVerbosity
+
+setVerbosity :: Verbosity -> ScionM ()
+setVerbosity v = modifySessionState $ \s -> s { scionVerbosity = v }
+
 message :: Verbosity -> String -> ScionM ()
 message v s = do
-  v0 <- gets scionVerbosity
+  v0 <- getVerbosity
   when (v0 >= v) $ liftIO $ putStrLn s
+
+------------------------------------------------------------------------
+-- * Reflection into IO
 
 -- | Reflect a computation in the 'ScionM' monad into the 'IO' monad.
 reflectScionM :: ScionM a -> (IORef SessionState, Session) -> IO a
