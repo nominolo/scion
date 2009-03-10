@@ -31,13 +31,14 @@ import Data.List        ( intercalate )
 import Data.Maybe       ( isJust )
 import Data.Monoid
 import Data.Time.Clock  ( getCurrentTime, diffUTCTime )
-import System.Directory ( setCurrentDirectory, getCurrentDirectory )
+import System.Directory ( setCurrentDirectory, getCurrentDirectory,
+                          doesFileExist )
 import System.FilePath  ( (</>), isRelative, makeRelative, normalise, 
                           combine, dropFileName )
 import Control.Exception
 import System.Exit ( ExitCode(..) )
 
-import Distribution.ModuleName ( components )
+import qualified Distribution.ModuleName as PD ( ModuleName, components )
 import Distribution.Simple.Configure
 import Distribution.Simple.GHC ( ghcOptions )
 import Distribution.Simple.LocalBuildInfo hiding ( libdir )
@@ -267,20 +268,37 @@ setComponentTargets Library = do
   unless (isJust (PD.library pd))
     noLibError
   let modnames = PD.libModules pd
-  let cabal_mod_to_string m =
-        intercalate "." (components m)
-  let modname_to_target name =
-        Target { targetId = TargetModule (mkModuleName
-                                          (cabal_mod_to_string name))
-               , targetAllowObjCode = True
-               , targetContents = Nothing }
-  setTargets (map modname_to_target modnames)
-setComponentTargets (Executable _) = do
-  error "unimplemented"
+  setTargets (map cabalModuleNameToTarget modnames)
+setComponentTargets (Executable n) = do
+  pd <- currentCabalPackage
+  let ex0 = filter ((n==) . PD.exeName) (PD.executables pd)
+  case ex0 of
+    [] -> noExeError n
+    (_:_:_) -> error $ "Multiple executables with name: " ++ n
+    [exe] -> do
+      proj_root <- cabalProjectRoot
+      let others = PD.otherModules (PD.buildInfo exe)
+      let main_mods = [ proj_root </> search_path </> PD.modulePath exe 
+                          | search_path <- PD.hsSourceDirs (PD.buildInfo exe)]
+      (main_mod:_) <- filterM (liftIO . doesFileExist) main_mods
+      let targets = Target (TargetFile main_mod Nothing) True Nothing :
+                    map cabalModuleNameToTarget others
+      setTargets targets
+      return ()
 setComponentTargets (File f) = do
   setTargets [ Target (TargetFile f Nothing)
                       True
                       Nothing ]
+    
+cabalModuleNameToTarget :: PD.ModuleName -> Target
+cabalModuleNameToTarget name =
+   Target { targetId = TargetModule (mkModuleName
+                                     (cabal_mod_to_string name))
+          , targetAllowObjCode = True
+          , targetContents = Nothing }
+  where
+    cabal_mod_to_string m =
+        intercalate "." (PD.components m)
 
 -- | Load the specified component from the current Cabal project.
 --
@@ -299,8 +317,10 @@ loadComponent comp = do
    resetSessionState
    setActiveComponent comp
    maybe_set_working_dir comp
-   setComponentTargets comp
+   -- Need to set DynFlags first, so that the search paths are set up
+   -- correctly before looking for the targets.
    setComponentDynFlags comp
+   setComponentTargets comp
    rslt <- load LoadAllTargets
    modifySessionState $ \s -> s { lastCompResult = rslt }
    return rslt
