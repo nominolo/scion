@@ -296,6 +296,7 @@ loadComponent :: Component
                  -- ^ The compilation result.
 loadComponent comp = do
    -- TODO: group warnings by file
+   resetSessionState
    setActiveComponent comp
    maybe_set_working_dir comp
    setComponentTargets comp
