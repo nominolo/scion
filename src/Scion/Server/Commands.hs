@@ -57,12 +57,15 @@ instance Applicative ReadP where
 
 ------------------------------------------------------------------------------
 
+-- | All Commands supported by this Server.
 allCommands :: [Command]
 allCommands = 
     [ cmdConnectionInfo
     , cmdOpenCabalProject
     , cmdConfigureCabalProject
     , cmdLoadComponent
+    , cmdCurrentComponent
+    , cmdCurrentCabalFile
     , cmdListCabalComponents
     , cmdListSupportedLanguages
     , cmdListSupportedPragmas
@@ -341,3 +344,19 @@ cmdGetVerbosity =
   Command $ do
     string "get-verbosity"
     return $ toString <$> verbosityToInt <$> getVerbosity
+
+cmdCurrentComponent :: Command
+cmdCurrentComponent =
+  Command $ do
+    string "current-component"
+    return $ toString <$> getActiveComponent
+
+cmdCurrentCabalFile :: Command
+cmdCurrentCabalFile =
+  Command $ do
+    string "current-cabal-file"
+    return $ toString <$> (do
+      r <- gtry currentCabalFile
+      case r of
+        Right f -> return (Just f)
+        Left (_::SomeScionException) -> return Nothing)

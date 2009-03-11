@@ -168,6 +168,23 @@ currentCabalPackage = do
   lbi <- getLocalBuildInfo
   return (localPkgDescr lbi)
 
+-- | Return path to the .cabal file of the current Cabal package.
+--
+-- This is useful to identify the project when communicating with Scion from
+-- foreign code, because this does not require serialising the local build
+-- info.
+--
+-- Throws:
+--
+--  * 'NoCurrentCabalProject' if there is no current Cabal project or the
+--    current project has no .cabal file.
+--
+currentCabalFile :: ScionM FilePath
+currentCabalFile = do
+  lbi <- getLocalBuildInfo
+  case pkgDescrFile lbi of
+    Just f -> return f
+    Nothing -> liftIO $ throwIO $ NoCurrentCabalProject
 
 cabalProjectComponents :: FilePath -- ^ The .cabal file
                        -> ScionM [Component]
@@ -362,6 +379,10 @@ setActiveComponent comp = do
   where
    needs_unloading (Just c) | c /= comp = True
    needs_unloading _ = False
+
+-- | Return the currently active component.
+getActiveComponent :: ScionM (Maybe Component)
+getActiveComponent = gets activeComponent
 
 -- * Compilation
 

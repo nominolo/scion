@@ -2230,10 +2230,53 @@ If the file is within a Cabal project, prompts the user which
 component to load, or whether only the current file should be
 loaded."
   (interactive (list (scion-select-component)))
+  (cond 
+   ((null comp)
+    (error "Invalid component"))
+
+   ((scion-cabal-component-p comp)
+    (let* ((curr-cabal-file (scion-eval '(current-cabal-file)))
+	   ;; (current-component (scion-eval '(current-component))
+	   (root-dir (scion-cabal-root-dir))
+	   (new-cabal-file (ignore-errors (scion-cabal-file root-dir))))
+      ;; if we have a component
+      (assert (not (null new-cabal-file)))
+      (if (equal curr-cabal-file new-cabal-file)
+	  ;; Same Cabal project, just load the component
+	  (scion-load-component% comp)
+
+	;; Different Cabal project, we must configure it first.
+	(let ((rel-dist-dir (read-from-minibuffer "Dist directory: " ".dist-scion"))
+	      (extra-args (read-from-minibuffer "Configure Flags: " "")))
+	  (lexical-let ((root-dir root-dir)
+			(comp comp))
+	    (scion-eval-async `(open-cabal-project ,(expand-file-name root-dir)
+						   ,rel-dist-dir
+						   ,extra-args)
+	      (scion-handling-failure (x)
+		(setq scion-project-root-dir root-dir)
+		(message (format "Cabal project loaded: %s" x))
+		(scion-load-component% comp))))))))
+
+   ((eq (car comp) :file)
+    (scion-load-component% comp))))
+
+(defun scion-load-component% (comp)
   (message "Loading %s..." (scion-format-component comp))
   (scion-eval-async `(load ,comp)
-     (scion-handling-failure (result)
-       (scion-report-compilation-result result))))
+    (scion-handling-failure (result)
+      (scion-report-compilation-result result))))
+
+(defun scion-cabal-component-p (comp)
+  (cond
+   ((eq comp :library)
+    t)
+   ((and (consp comp)
+	 (eq (car comp)
+	     :executable))
+    t)
+   (t
+    nil)))
 
 (defun scion-select-component ()
   (let* ((cabal-dir (scion-cabal-root-dir))
