@@ -77,11 +77,11 @@ instance (Sexp a, Sexp b) => Sexp (M.Map a b) where
           go [] = id
 
 instance Sexp Component where
-  toSexp Library = showString "library"
+  toSexp Library = showString ":library"
   toSexp (Executable n) = 
-     parens (showString "executable" <+> showString (show n))
+     parens (showString ":executable" <+> showString (show n))
   toSexp (File f) =
-     parens (showString "file" <+> showString (show f))
+     parens (showString ":file" <+> showString (show f))
 
 data Diagnostic
   = DiagWarning WarnMsg

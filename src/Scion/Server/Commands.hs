@@ -317,9 +317,9 @@ cmdDumpSources =
 
 parseComponent :: ReadP Component
 parseComponent =
-   choice [ Library <$ string "library"
-          , inParens $ Executable <$> (string "executable" *> sp *> getString)
-          , inParens $ File <$> (string "file" *> sp *> getString) 
+   choice [ Library <$ string ":library"
+          , inParens $ Executable <$> (string ":executable" *> sp *> getString)
+          , inParens $ File <$> (string ":file" *> sp *> getString) 
           ]
 
 cmdLoad :: Command

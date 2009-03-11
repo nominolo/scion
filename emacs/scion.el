@@ -1922,7 +1922,7 @@ EXTRA-ARGS is a string of command line flags."
 Sets the GHC flags for the library from the current Cabal project and loads it."
   (interactive)
   (message "Loading library...")
-  (scion-eval-async `(load-component library)
+  (scion-eval-async `(load-component :library)
     (scion-handling-failure (result)
       (scion-report-compilation-result result))))
 
@@ -2242,7 +2242,7 @@ loaded."
 			     (when cabal-file
 			       (scion-cabal-components cabal-file))))
 	 (options (nconc cabal-components
-			 `((file ,(buffer-file-name))))))
+			 `((:file ,(buffer-file-name))))))
     (if (null (cdr options))
 	(car options)
       ;; TODO: abstract this kludge into `scion-completing-read`
@@ -2258,11 +2258,11 @@ loaded."
 
 (defun scion-format-component (comp)
   (cond
-   ((eq comp 'library)
+   ((eq comp :library)
     "Library")
-   ((eq (car comp) 'executable)
+   ((eq (car comp) :executable)
     (format "Executable %s" (cadr comp)))
-   ((eq (car comp) 'file)
+   ((eq (car comp) :file)
     (format "File %s" (cadr comp)))
    (t
     (format "%s" comp))))
