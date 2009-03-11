@@ -1053,7 +1053,7 @@ deal with that."
 
 
 (defun scion-eval (sexp &optional package)
-  "Evaluate EXPR on the superior Lisp and return the result."
+  "Evaluate EXPR on the Scion server and return the result."
   (when (null package) (setq package (scion-current-package)))
   (let* ((tag (gensym (format "scion-result-%d-" 
                               (1+ (scion-continuation-counter)))))
@@ -1089,7 +1089,7 @@ deal with that."
     ((:abort)
      (message "Evaluation aborted."))))
 
-
+(put 'scion-eval-async 'lisp-indent-function 1)
 
 ;;;;; Protocol event handler (the guts)
 ;;;
