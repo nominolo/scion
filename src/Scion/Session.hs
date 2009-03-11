@@ -12,7 +12,7 @@
 -- Utilities to manipulate the session state.
 --
 module Scion.Session where
--- * Imports
+-- Imports
 import Prelude hiding ( mod )
 import GHC hiding ( flags, load )
 import HscTypes ( srcErrorMessages, SourceError, isBootSummary )
@@ -653,6 +653,5 @@ removeMessagesForFile fname0 res = do
             , compilationErrors = errors' }
 
 -- Local Variables:
--- outline-regexp: "-- *+"
--- End:
 -- indent-tabs-mode: nil
+-- End:
