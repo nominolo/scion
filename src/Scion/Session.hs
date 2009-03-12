@@ -17,13 +17,12 @@ import Prelude hiding ( mod )
 import GHC hiding ( flags, load )
 import HscTypes ( srcErrorMessages, SourceError, isBootSummary )
 import Exception
-import Bag ( filterBag )
-import FastString ( unpackFS )
-import ErrUtils ( errMsgSpans )
 
 import Scion.Types
+import Scion.Types.Notes
 import Scion.Utils()
 
+import qualified Data.MultiSet as MS
 import Control.Monad
 import Data.Data
 import Data.IORef
@@ -34,7 +33,7 @@ import Data.Time.Clock  ( getCurrentTime, diffUTCTime )
 import System.Directory ( setCurrentDirectory, getCurrentDirectory,
                           doesFileExist )
 import System.FilePath  ( (</>), isRelative, makeRelative, normalise, 
-                          combine, dropFileName )
+                          dropFileName )
 import Control.Exception
 import System.Exit ( ExitCode(..) )
 
@@ -396,9 +395,11 @@ load how_much = do
    end_time <- liftIO $ getCurrentTime
    let time_diff = diffUTCTime end_time start_time
    (warns, errs) <- liftIO $ readIORef ref
+   base_dir <- projectRootDir
+   let notes = ghcMessagesToNotes base_dir (warns, errs)
    let comp_rslt = case res of
-                     Succeeded -> CompilationResult True warns mempty time_diff
-                     Failed -> CompilationResult False warns errs time_diff
+                     Succeeded -> CompilationResult True notes time_diff
+                     Failed -> CompilationResult False notes time_diff
    -- TODO: We need to somehow find out which modules were recompiled so we
    -- only update the part that we have new information for.
    modifySessionState $ \s -> s { lastCompResult = comp_rslt }
@@ -529,14 +530,16 @@ backgroundTypecheckFile fname = do
       modsum <- preprocessModule
 
       let finish_up tc_res errs = do
+              base_dir <- projectRootDir
               warns <- getWarnings
               clearWarnings
+              let notes = ghcMessagesToNotes base_dir (warns, errs)
               end_time <- liftIO $ getCurrentTime
               let ok = isJust tc_res
-              let res = CompilationResult ok warns errs
+              let res = CompilationResult ok notes
                                           (diffUTCTime end_time start_time)
-
-              full_comp_rslt <- removeMessagesForFile fname =<< gets lastCompResult
+              let abs_fname = mkAbsFilePath base_dir fname
+              full_comp_rslt <- removeMessagesForFile abs_fname =<< gets lastCompResult
               let comp_rslt' =  full_comp_rslt `mappend` comp_rslt `mappend` res
 
               modifySessionState (\s -> s { bgTcCache = tc_res
@@ -615,7 +618,9 @@ setContextForBGTC modsum = do
        end_time <- liftIO $ getCurrentTime
        warns <- getWarnings
        clearWarnings
-       return (CompilationResult False warns (srcErrorMessages err)
+       base_dir <- projectRootDir
+       let notes = ghcMessagesToNotes base_dir (warns, srcErrorMessages err)
+       return (CompilationResult False notes
                                  (diffUTCTime end_time start_time))
   
 -- | Return the 'ModSummary' that refers to the source file.
@@ -633,24 +638,16 @@ modSummaryForFile fname mod_graph =
                           ++ fname
 
 
-removeMessagesForFile :: FilePath -> CompilationResult -> ScionM CompilationResult
-removeMessagesForFile fname0 res = do
-    root <- projectRootDir
-    let 
-      norm = normalise . combine root 
-      fname = norm fname0
-      warnings' = stripFileMsgs (compilationWarnings res)
-      errors' = stripFileMsgs (compilationErrors res)
-      stripFileMsgs = filterBag filterIt
-      filterIt msg =
-          case errMsgSpans msg of
-            s:_ | isGoodSrcSpan s,
-                  norm (unpackFS (srcSpanFile s)) == fname -> False
-            _ -> True
-
-    return $ 
-        res { compilationWarnings = warnings'
-            , compilationErrors = errors' }
+removeMessagesForFile :: AbsFilePath -> CompilationResult -> ScionM CompilationResult
+removeMessagesForFile fname res = return res'
+  where
+    notes = compilationNotes res
+    res' = res { compilationNotes = notes' }
+    notes' = MS.filter f notes
+    f note 
+      | isValidLoc l, FileSrc fn <- locSource l = fname == fn
+      | otherwise = False
+      where l = noteLoc note
 
 -- Local Variables:
 -- indent-tabs-mode: nil

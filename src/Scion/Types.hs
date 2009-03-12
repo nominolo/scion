@@ -16,14 +16,15 @@ module Scion.Types
   , liftIO, MonadIO
   ) where
 
+import Scion.Types.Notes
 import Scion.Types.ExtraInstances()
 
 import GHC
-import ErrUtils ( WarningMessages, ErrorMessages )
 import HscTypes
 import MonadUtils ( liftIO, MonadIO )
 import Exception
 
+import qualified Data.MultiSet as MS
 import Distribution.Simple.LocalBuildInfo
 import Control.Monad ( when )
 import Data.IORef
@@ -181,21 +182,18 @@ data BgTcCache
 
 data CompilationResult = CompilationResult { 
       compilationSucceeded :: Bool,
-      compilationWarnings  :: WarningMessages,
-      compilationErrors    :: ErrorMessages,
+      compilationNotes     :: MS.MultiSet Note,
       compilationTime      :: NominalDiffTime
     }
 
 instance Monoid CompilationResult where
-  mempty = CompilationResult True mempty mempty 0
+  mempty = CompilationResult True mempty 0
   mappend r1 r2 =
       CompilationResult 
         { compilationSucceeded = 
               compilationSucceeded r1 && compilationSucceeded r2
-        , compilationWarnings = 
-            compilationWarnings r1 `mappend` compilationWarnings r2
-        , compilationErrors =
-            compilationErrors r1 `mappend` compilationErrors r2
+        , compilationNotes =
+            compilationNotes r1 `MS.union` compilationNotes r2
         , compilationTime = compilationTime r1 + compilationTime r2
         }
 

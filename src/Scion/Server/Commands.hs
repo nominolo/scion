@@ -32,7 +32,6 @@ import qualified Outputable as O ( (<+>), ($$) )
 
 import Control.Applicative
 import Control.Monad
-import Data.Foldable as F
 import Data.List ( nub )
 import Text.ParserCombinators.ReadP
 import qualified Data.Map as M
@@ -163,12 +162,11 @@ cmdLoadComponent =
       loadComponent comp
         
 instance Sexp CompilationResult where
-  toSexp (CompilationResult success warns errs time) = toSexp $
+  toSexp (CompilationResult success notes time) = toSexp $
       ExactSexp $ parens $ 
         showString "compilation-result" <+>
         toSexp success <+>
-        toSexp (Lst (map DiagWarning (toList warns))) <+>
-        toSexp (Lst (map DiagError (toList errs))) <+>
+        toSexp notes <+>
         toSexp (ExactSexp (showString (show 
                   (fromRational (toRational time) :: Float))))
 

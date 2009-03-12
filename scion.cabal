@@ -36,7 +36,8 @@ library
                    Cabal        >= 1.5 && < 1.8,
                    uniplate     == 1.2.*,
                    time         == 1.1.*,
-                   filepath     == 1.1.*
+                   filepath     == 1.1.*,
+                   multiset     == 0.1.*
   hs-source-dirs:  src
   extensions:      CPP, PatternGuards
   exposed-modules:

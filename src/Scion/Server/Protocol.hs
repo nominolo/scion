@@ -18,17 +18,13 @@ module Scion.Server.Protocol where
 import Prelude hiding ( span )
 
 import Scion.Types
-
-import ErrUtils ( WarnMsg, ErrMsg(..) )
-import Outputable ( showSDoc, showSDocForUser, ppr )
-import SrcLoc   ( SrcSpan, isGoodSrcSpan, srcSpanFile, noSrcSpan,
-                  srcSpanStartLine, srcSpanStartCol,
-                  srcSpanEndLine, srcSpanEndCol )
+import Scion.Types.Notes
 
 import Data.Char ( isDigit, isSpace )
 import Numeric   ( showInt )
 import Text.ParserCombinators.ReadP
 import qualified Data.Map as M
+import qualified Data.MultiSet as MS
 
 ------------------------------------------------------------------------------
 
@@ -83,35 +79,37 @@ instance Sexp Component where
   toSexp (File f) =
      parens (showString ":file" <+> showString (show f))
 
-data Diagnostic
-  = DiagWarning WarnMsg
-  | DiagError   ErrMsg
+instance Sexp a => Sexp (MS.MultiSet a) where
+  toSexp ms = toSexp (Lst (MS.toList ms))
 
-instance Sexp SrcSpan where
-  toSexp span
-    | isGoodSrcSpan span = 
-        parens (showString ":loc" <+> showString (show (srcSpanFile span))
-                   <+> showInt (srcSpanStartLine span)
-                   <+> showInt (srcSpanStartCol span)
-                   <+> showInt (srcSpanEndLine span)
-                   <+> showInt (srcSpanEndCol span))
+instance Sexp NoteKind where
+  toSexp k = showString $ case k of
+               ErrorNote -> ":error"
+               WarningNote -> ":warning"
+               InfoNote -> ":info"
+               OtherNote -> ":other"
+
+instance Sexp Note where
+  toSexp n =
+      parens (toSexp (noteKind n) <+>
+              toSexp (noteLoc n) <+>
+              putString (noteMessage n) <+>
+              putString "")
+
+instance Sexp Location where
+  toSexp loc
+    | isValidLoc loc,
+      (f, sl, sc, el, ec) <- viewLoc loc =
+         parens (showString ":loc" <+> toSexp f <+>
+                 showInt sl <+> showInt sc <+>
+                 showInt el <+> showInt ec)
     | otherwise =
-        parens (showString ":no-loc" <+> showString (showSDoc (ppr span)))
+        parens (showString ":no-loc" <+> showString (show (noLocText loc)))
 
-instance Sexp Diagnostic where
-  toSexp (DiagWarning msg) = toSexp_diag ":warning" msg
-  toSexp (DiagError msg)   = toSexp_diag ":error" msg
+instance Sexp LocSource where
+  toSexp (FileSrc f) = showString (show f)
+  toSexp (OtherSrc s) = showString s
 
-toSexp_diag :: String -> ErrMsg -> ShowS
-toSexp_diag diag_type msg =
-    parens $ showString diag_type <+> toSexp span 
-               <+> putString (show_msg (errMsgShortDoc msg))
-               <+> putString (show_msg (errMsgExtraInfo msg))
-  where
-    span | (s:_) <- errMsgSpans msg = s
-         | otherwise                = noSrcSpan
-    unqual = errMsgContext msg
-    show_msg = showSDocForUser unqual
 
 ------------------------------------------------------------------------------
 

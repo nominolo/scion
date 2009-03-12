@@ -1657,11 +1657,11 @@ The overlay has several properties:
     (:error         'scion-error-face)
     (:warning       'scion-warning-face)))
 
-(defun scion-make-notes (warnings errors &optional keep-existing-notes)
+(defun scion-make-notes (notes0 &optional keep-existing-notes)
   (let ((notes (if keep-existing-notes
 		   (scion-compiler-notes)
 		 (scion-makehash #'equal))))
-    (loop for note in (nconc errors warnings)
+    (loop for note in notes0
 	  do (progn
 	       (scion-canonicalise-note-location note)
 	       (let* ((fname (scion-note.filename note))
@@ -1926,21 +1926,30 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
     (scion-handling-failure (result)
       (scion-report-compilation-result result))))
 
+(defun scion-count-notes (notes)
+  (let ((warns 0)
+	(errs 0))
+    (loop for n in notes 
+	  when (eq (scion-note.severity n) :warning) do (incf warns)
+	  when (eq (scion-note.severity n) :error) do (incf errs))
+    (list warns errs)))
+
+
 (defun scion-report-compilation-result (result &optional buf)
-  (destructuring-bind (tag successp warns errs duration) result
+  (destructuring-bind (tag successp notes0 duration) result
     (assert (eq tag 'compilation-result))
-    (let ((nerrors (length errs))
-	  (nwarnings (length warns))
-	  (notes (scion-make-notes errs warns)))
-      (setq scion-last-compilation-result
-	    (list tag successp notes duration))
-      (scion-highlight-notes notes buf)
-      (when (not buf)
-	(scion-show-note-counts successp nwarnings nerrors duration)
-	(when (< 0 (+ nwarnings nerrors))
-	  (scion-list-compiler-notes notes)))
-      (scion-report-status (format ":%d/%d" nerrors nwarnings))
-      nil)))
+    (multiple-value-bind (nwarnings nerrors)
+	(scion-count-notes notes0)
+      (let ((notes (scion-make-notes notes0)))
+	(setq scion-last-compilation-result
+	      (list tag successp notes duration))
+	(scion-highlight-notes notes buf)
+	(when (not buf)
+	  (scion-show-note-counts successp nwarnings nerrors duration)
+	  (when (< 0 (+ nwarnings nerrors))
+	    (scion-list-compiler-notes notes)))
+	(scion-report-status (format ":%d/%d" nerrors nwarnings))
+	nil))))
     
 ;;     ((:ok warns)
 ;;      (setq scion-last-compilation-result
