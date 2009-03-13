@@ -526,6 +526,7 @@ backgroundTypecheckFile fname = do
                else return (True, rslt)
   where
    backgroundTypecheckFile' comp_rslt = do
+      message verbose $ "Background type checking: " ++ fname
       clearWarnings
       start_time <- liftIO $ getCurrentTime
       modsum <- preprocessModule
