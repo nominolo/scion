@@ -59,7 +59,7 @@ mkAbsFilePath :: FilePath -- ^ base directory (must be absolute)
               -> FilePath -- ^ absolute or relative 
               -> AbsFilePath
 mkAbsFilePath baseDir dir
-  | isAbsolute baseDir = AFP $ baseDir </> dir
+  | isAbsolute baseDir = AFP $ normalise $ baseDir </> dir
   | otherwise =
       error "mkAbsFilePath: first argument must be an absolute path"
 

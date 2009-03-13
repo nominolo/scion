@@ -343,8 +343,9 @@ loadComponent comp = do
    modifySessionState $ \s -> s { lastCompResult = rslt }
    return rslt
   where
-    maybe_set_working_dir (File f) =
-      let dir = dropFileName f in
+    maybe_set_working_dir (File f) = do
+      wd <- liftIO $ getCurrentDirectory
+      let dir = normalise $ wd </> dropFileName f
       setWorkingDir dir
     maybe_set_working_dir _ = do
       dir <- cabalProjectRoot
