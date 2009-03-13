@@ -644,9 +644,9 @@ removeMessagesForFile fname res = return res'
     notes = compilationNotes res
     res' = res { compilationNotes = notes' }
     notes' = MS.filter f notes
-    f note 
-      | isValidLoc l, FileSrc fn <- locSource l = fname == fn
-      | otherwise = False
+    f note
+      | isValidLoc l, FileSrc fn <- locSource l = fname /= fn
+      | otherwise = True
       where l = noteLoc note
 
 -- Local Variables:
