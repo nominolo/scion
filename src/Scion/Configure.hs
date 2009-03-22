@@ -95,7 +95,7 @@ configureCabalProject root_dir dist_dir extra_args = do
 data ConfigException = ConfigException deriving (Show, Typeable)
 instance Exception ConfigException
 
--- | Do the equivalent of "runghc Setup.hs <args>" using the GHC API.
+-- | Do the equivalent of @runghc Setup.hs <args>@ using the GHC API.
 --
 -- Instead of "runghc", this function uses the GHC API so that the correct
 -- version of GHC and package database is used.

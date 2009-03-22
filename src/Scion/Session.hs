@@ -123,6 +123,7 @@ setWorkingDir home = do
     message deafening $ "(Working directory changed.)"
     workingDirectoryChanged
 
+------------------------------------------------------------------------
 -- * Cabal Projects
 
 -- | Try to open a Cabal project.  The project must already be configured
@@ -185,6 +186,13 @@ currentCabalFile = do
     Just f -> return f
     Nothing -> liftIO $ throwIO $ NoCurrentCabalProject
 
+-- | Return all components of the specified Cabal file.
+--
+-- Throws:
+--
+--  * 'CannotOpenCabalProject' if an error occurs (e.g., .cabal file does
+--    not exist or could not be parsed.).
+--
 cabalProjectComponents :: FilePath -- ^ The .cabal file
                        -> ScionM [Component]
 cabalProjectComponents cabal_file = do
@@ -205,6 +213,15 @@ preprocessPackage dist_dir = do
   liftIO $ initialBuildSteps dist_dir pd lbi V.normal knownSuffixHandlers
   return ()
 
+-- | Return the current 'LocalBuildInfo'.
+--
+-- The 'LocalBuildInfo' is the result of configuring a Cabal project,
+-- therefore requires that we have a current Cabal project.
+--
+-- Throws:
+--
+--  * 'NoCurrentCabalProject' if there is no current Cabal project.
+--
 getLocalBuildInfo :: ScionM LocalBuildInfo
 getLocalBuildInfo =
   gets localBuildInfo >>= \mb_lbi ->
@@ -212,12 +229,6 @@ getLocalBuildInfo =
     Nothing -> liftIO $ throwIO NoCurrentCabalProject
       --error "call openCabalProject before loadCabalProject"
     Just lbi -> return lbi
-
-noLibError :: ScionM a
-noLibError = liftIO $ throwIO $ ComponentDoesNotExist Library
-
-noExeError :: String -> ScionM a
-noExeError = liftIO . throwIO . ComponentDoesNotExist . Executable
 
 -- | Root directory of the current Cabal project.
 --
@@ -359,8 +370,8 @@ cabalProjectRoot = do
     Just dir -> return dir
     Nothing -> liftIO $ getCurrentDirectory
 
--- | Make the specified component the active one, i. e., set the DynFlags to
---  those specified for the given component.
+-- | Make the specified component the active one.  Sets the DynFlags to
+--  those specified for the given component.  Unloads the possible
 --
 -- Throws:
 --
@@ -384,6 +395,14 @@ setActiveComponent comp = do
 getActiveComponent :: ScionM (Maybe Component)
 getActiveComponent = gets activeComponent
 
+-- ** Internal Utilities
+noLibError :: ScionM a
+noLibError = liftIO $ throwIO $ ComponentDoesNotExist Library
+
+noExeError :: String -> ScionM a
+noExeError = liftIO . throwIO . ComponentDoesNotExist . Executable
+
+------------------------------------------------------------------------
 -- * Compilation
 
 -- | Wrapper for 'GHC.load'.
@@ -480,7 +499,6 @@ setGHCVerbosity lvl = do
    return ()
 
 ------------------------------------------------------------------------------
-
 -- * Background Typechecking
 
 -- | Takes an absolute path to a file and attempts to typecheck it.
