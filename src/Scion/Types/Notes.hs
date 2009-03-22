@@ -41,6 +41,7 @@ data Note
          , noteMessage :: String
          } deriving (Eq, Ord, Show)
 
+-- | Classifies the kind (or severity) of a note.
 data NoteKind
   = ErrorNote
   | WarningNote
@@ -52,9 +53,17 @@ type Notes = MS.MultiSet Note
 
 -- * Absolute File Paths
 
+-- | Represents a 'FilePath' which we know is absolute.
+--
+-- Since relative 'FilePath's depend on the a current working directory we
+-- normalise all paths to absolute paths.  Use 'mkAbsFilePath' to create
+-- absolute file paths.
 newtype AbsFilePath = AFP FilePath deriving (Eq, Ord)
 instance Show AbsFilePath where show (AFP s) = show s
 
+-- | Create an absolute file path given a base directory.
+--
+-- Throws an error if the first argument is not an absolute path.
 mkAbsFilePath :: FilePath -- ^ base directory (must be absolute)
               -> FilePath -- ^ absolute or relative 
               -> AbsFilePath
@@ -67,12 +76,21 @@ mkAbsFilePath baseDir dir
 
 -- | Scion's type for source code locations (regions).
 --
--- We use a custom location type, for two reasons:
+-- We use a custom location type for two reasons:
 --
 --  1. We enforce the invariant, that the file path of the location is an
 --     absolute path.
 --
 --  2. Independent evolution from the GHC API.
+--
+-- To save space, the 'Location' type is kept abstract and uses special
+-- cases for notes that span only one line or are only one character wide.
+-- Use 'mkLocation' and 'viewLoc' as well as the respective accessor
+-- functions to construct and destruct nodes.
+--
+-- If no reasonable can be given, use the 'mkNoLoc' function, but be careful
+-- not to call 'viewLoc' or any other accessor function on such a
+-- 'Location'.
 --
 data Location
   = LocOneLine { 
@@ -96,9 +114,13 @@ data Location
   | LocNone { noLocText :: String }
   deriving (Eq, Show)
 
+-- | The \"source\" of a location.
 data LocSource
   = FileSrc AbsFilePath
+  -- ^ The location refers to a position in a file.
   | OtherSrc String
+  -- ^ The location refers to something else, e.g., the command line, or
+  -- stdin.
   deriving (Eq, Ord, Show)
 
 instance Ord Location where compare = cmpLoc
@@ -121,11 +143,13 @@ mkLocation file l0 c0 l1 c1
                   else LocOneLine file l0 c0 c1
   | otherwise = LocMultiLine file l0 l1 c0 c1
 
--- | Construct a source location that does not specify a region.
+-- | Construct a source location that does not specify a region.  The
+-- argument can be used to give some hint as to why there is no location
+-- available.  (E.g., \"File not found\").
 mkNoLoc :: String -> Location
 mkNoLoc msg = LocNone msg
 
--- | Test whether a location 
+-- | Test whether a location is valid, i.e., not constructed with 'mkNoLoc'.
 isValidLoc :: Location -> Bool
 isValidLoc (LocNone _) = False
 isValidLoc _           = True
@@ -158,10 +182,20 @@ locEndLine LocNone{}  = noLocError "locEndLine"
 locEndLine l = locLine l
 
 {-# INLINE viewLoc #-}
-viewLoc :: Location -> (LocSource, Int, Int, Int, Int)
+-- | View on a (valid) location.
+--
+-- It holds the property:
+--
+-- > prop_viewLoc_mkLoc s l0 c0 l1 c1 =
+-- >     viewLoc (mkLocation s l0 c0 l1 c1) == (s, l0, c0, l1, c1)
+--
+viewLoc :: Location
+        -> (LocSource, Int, Int, Int, Int)
+           -- ^ source, start line, start column, end line, end column.
 viewLoc l = (locSource l, locStartLine l, locStartCol l,
              locEndLine l, locEndLine l)
 
+-- | Comparison function for two 'Location's.
 cmpLoc :: Location -> Location -> Ordering
 cmpLoc LocNone{} _ = LT
 cmpLoc _ LocNone{} = GT
@@ -175,10 +209,12 @@ cmpLoc l1 l2 =
    (f1, sl1, sc1, el1, ec1) = viewLoc l1
    (f2, sl2, sc2, el2, ec2) = viewLoc l2
 
-{-# INLINE thenCmp #-}
+-- | Lexicographic composition two orderings.  Compare using the first
+-- ordering, use the second to break ties.
 thenCmp :: Ordering -> Ordering -> Ordering
 thenCmp EQ x = x
 thenCmp x _  = x
+{-# INLINE thenCmp #-}
 
 -- * Converting from GHC types.
 
@@ -222,7 +258,13 @@ ghcMsgToNote note_kind base_dir msg =
     unqual = GHC.errMsgContext msg
     show_msg = GHC.showSDocForUser unqual
 
-ghcMessagesToNotes :: FilePath -> GHC.Messages -> Notes
+-- | Convert 'GHC.Messages' to 'Notes'.
+--
+-- This will mix warnings and errors, but you can split them back up
+-- by filtering the 'Notes' based on the 'noteKind'.
+ghcMessagesToNotes :: FilePath -- ^ Base path for normalising paths.
+                               -- See 'mkAbsFilePath'.
+                   -> GHC.Messages -> Notes
 ghcMessagesToNotes base_dir (warns, errs) =
     MS.union (map_bag2ms (ghcWarnMsgToNote base_dir) warns)
              (map_bag2ms (ghcErrMsgToNote base_dir) errs)
