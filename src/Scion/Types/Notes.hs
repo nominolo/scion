@@ -193,7 +193,7 @@ viewLoc :: Location
         -> (LocSource, Int, Int, Int, Int)
            -- ^ source, start line, start column, end line, end column.
 viewLoc l = (locSource l, locStartLine l, locStartCol l,
-             locEndLine l, locEndLine l)
+             locEndLine l, locEndCol l)
 
 -- | Comparison function for two 'Location's.
 cmpLoc :: Location -> Location -> Ordering
