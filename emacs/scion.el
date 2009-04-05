@@ -1565,6 +1565,11 @@ PREDICATE is executed in the buffer to test."
     ((:loc fn sl sc el ec) sl)
     ((:no-loc r)           nil)))
 
+(defun scion-note.col (note)
+  (destructure-case (cadr note)
+    ((:loc fn sl sc el ec) sc)
+    ((:no-loc r)           nil)))
+
 (defun scion-note.region (note buffer)
   (destructuring-bind (tag loc msg more) note
     (destructure-case loc
@@ -1760,8 +1765,8 @@ The overlay has several properties:
     ;(scion-show-buffer-position (point))
     ))
 
-(defun scion-goto-source-location (loc)
-  (let ((file (scion-note.filename loc)))
+(defun scion-goto-source-location (note)
+  (let ((file (scion-note.filename note)))
     (when file
       (let ((buff (find-buffer-visiting file)))
 	(if buff
@@ -1769,8 +1774,12 @@ The overlay has several properties:
 	      (if buff-window
 		  (select-window buff-window)
 		(display-buffer buff)))
-	  (find-file-other-window file)))
-      (goto-line (scion-note.line loc)))))
+	  (find-file-other-window file))
+	(goto-line (scion-note.line note))
+	(move-to-column (scion-note.col note))
+	(let ((r (scion-note.region note buff)))
+	  (with-current-buffer buff
+	    (scion-flash-region (car r) (cadr r) 0.5)))))))
 
 (defun scion-list-compiler-notes (notes)
   "Show the compiler notes NOTES in tree view."
