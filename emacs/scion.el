@@ -1921,9 +1921,9 @@ EXTRA-ARGS is a string of command line flags."
     (scion-eval-async `(configure-cabal-project ,(expand-file-name root-dir)
 						,rel-dist-dir
 						,extra-args)
-		      (scion-handling-failure (x)
-			(setq scion-project-root-dir root-dir)
-			(message (format "Cabal project loaded: %s" x))))))
+      (scion-handling-failure (x)
+	(setq scion-project-root-dir root-dir)
+	(message (format "Cabal project loaded: %s" x))))))
 
 (defun scion-load-library ()
   "Load the library of the current cabal project.
