@@ -1806,7 +1806,7 @@ The overlay has several properties:
 	       (loop for note in notes
 		     do (case (scion-note.severity note)
 			  (:warning (setq warns (cons note warns)))
-			  (:error (setq errs (cons note warns))))))
+			  (:error (setq errs (cons note errs))))))
 	     notes)
     (let ((alist (list (cons :error errs)
 		       (cons :warning warns))))
