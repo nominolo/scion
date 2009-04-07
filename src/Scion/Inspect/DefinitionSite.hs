@@ -44,12 +44,12 @@ definedNames srcmod hsgroup =
       tys = [ site | ns <- map (tyClDeclNames . unLoc) (hs_tyclds hsgroup)
                    , site <- map (mkSiteOfLName srcmod) ns ]
 
-      fors = concat $ map forBound (hs_fords hsgroup)
-             where forBound lford =
-                       case unLoc lford of
-                         ForeignImport n _ _ -> [mkSiteOfLName srcmod n]
-                         ForeignExport { } -> []
-  in vals ++ tys ++ fors
+      foreigns = concat $ map foreignBound (hs_fords hsgroup)
+                 where foreignBound lfordecl =
+                         case unLoc lfordecl of
+                           ForeignImport n _ _ -> [mkSiteOfLName srcmod n]
+                           ForeignExport { } -> []
+  in vals ++ tys ++ foreigns
 
 definedNamesHsBind :: (ModuleName, FilePath) -> LHsBind Name -> [DefSite]
 definedNamesHsBind srcmod lbind =
