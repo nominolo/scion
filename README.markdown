@@ -75,16 +75,10 @@ Add the following to your emacs configuration (typically "~/.emacs"):
       (scion-flycheck-on-save 1))
 
     (add-hook 'haskell-mode-hook 'my-haskell-hook)
-
-Scion mode needs to communicate with the external server.  You can
-start the server manually on the command line and then use
-
-    M-x scion-connect
-
-to connect to that server.  However, most of the time it will be more
-convenient to start the server from within Emacs:  
-
-    M-x scion
+    
+Scion mode needs to communicate with the external server.  By default
+it will automatically start the server when needed.  See "Manually
+Connecting to Scion" below for how to connect to the server manually. 
 
 The scion server process inherits the environment variables from the
 Emacs process.  Depending on your system this may be different than
@@ -98,17 +92,17 @@ the following to your `.emacs`:
 Once you have a running and connected Scion server, you can use the
 commands provided by scion-mode:
  
+  * `C-c C-x C-l` (`scion-load`) load the current file with Scion.  If
+    the file is within a Cabal project this will prompt to use the
+    settings from one of the components in the package description
+    file.  You can still choose to load only the current file using
+    the default settings.
+
   * `C-c C-o` (`scion-open-cabal-project`) configures a Cabal project
     and loads the meta-data from a Cabal file.  Note that this
     does not type check or load anything.  If you change the Cabal
     file of a project, call this function to update the session with
     the new settings.
-
-  * `C-c C-L` (`scion-load`) load the current file with Scion.  If
-    the file is within a Cabal project this will prompt to use the
-    settings from one of the components in the package description
-    file.  You can still choose to load only the current file using
-    the default settings.
 
 If loading generates any errors or warnings, a buffer will appear and
 list them all.  Pressing `RET` on a note will jump to its source
@@ -123,10 +117,29 @@ There are a few more utilities:
     C-c i l  -- insert language pragma
     C-c i p  -- insert pragma
     C-c i m  -- insert (external) module name
+    C-c i f  -- insert command line flag
 
 Some experimental features:
 
     C-c C-t  -- show type of identifier at point
+                (currently only works on ids, not expressions)
+
+    
+# Manually Connecting to Scion
+
+If you set the variable `scion-auto-connect` to `'ask` (the default is
+`'always`), Scion will ask whether to start the server.  If you set it
+to `nil` you need to manually connect to the server.
+
+You can start the server manually on the command line and then use
+
+    M-x scion-connect
+
+to connect to that server.  However, most of the time it will be more
+convenient to start the server from within Emacs:  
+
+    M-x scion
+
 
 Bug Reports
 ===========
