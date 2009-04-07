@@ -47,6 +47,7 @@ library
                    Scion.Inspect,
                    Scion.Inspect.Find,
                    Scion.Inspect.TypeOf,
+                   Scion.Inspect.DefinitionSite,
                    Scion.Utils,
                    Scion.Session,
                    Scion.Configure,
