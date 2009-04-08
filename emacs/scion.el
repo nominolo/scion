@@ -1810,8 +1810,8 @@ The overlay has several properties:
 	     notes)
     (let ((alist (list (cons :error errs)
 		       (cons :warning warns))))
-      (loop for (severity . notes) in alist
-	    collect (scion-tree-for-severity severity notes nil)))))
+      (loop for (severity . sev-notes) in alist
+	    collect (scion-tree-for-severity severity sev-notes nil)))))
 
 (defun scion-tree-for-severity (severity notes collapsed-p)
   (make-scion-tree :item (format "%s (%d)"
