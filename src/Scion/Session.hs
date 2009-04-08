@@ -20,7 +20,7 @@ import Exception
 
 import Scion.Types
 import Scion.Types.Notes
-import Scion.Utils()
+import Scion.Utils
 
 import qualified Data.MultiSet as MS
 import Control.Monad
@@ -523,16 +523,18 @@ backgroundTypecheckFile ::
        FilePath 
     -> ScionM (Bool, CompilationResult)
        -- ^ First element is @False@ <=> step 1 above failed.
-backgroundTypecheckFile fname = do
-   ok <- isRelativeToProjectRoot fname
-   if not ok then return (False, mempty)
-    else do
-     -- check whether it's cached
+backgroundTypecheckFile fname =
+   ifM (not `fmap` isRelativeToProjectRoot fname)
+     (return (False, mempty))
+     prepareContext
+  where
+   prepareContext = do
+     -- if it's the focused module, we know that the context is right
      mb_focusmod <- gets focusedModule
      case mb_focusmod of
-       Just ms | Just f <- ml_hs_file (ms_location ms)
-               , f == fname -> 
+       Just ms | Just f <- ml_hs_file (ms_location ms), f == fname -> 
           backgroundTypecheckFile' mempty
+
        _otherwise -> do
           mb_modsum <- filePathToProjectModule fname
           case mb_modsum of
@@ -542,7 +544,7 @@ backgroundTypecheckFile fname = do
               if compilationSucceeded rslt
                then backgroundTypecheckFile' rslt
                else return (True, rslt)
-  where
+
    backgroundTypecheckFile' comp_rslt = do
       message verbose $ "Background type checking: " ++ fname
       clearWarnings
@@ -622,6 +624,8 @@ isPartOfProject fname = fmap isJust (filePathToProjectModule fname)
 -- Sets 'focusedModule' if it was successful.
 setContextForBGTC :: ModSummary -> ScionM (Maybe ModuleName, CompilationResult)
 setContextForBGTC modsum = do
+   message deafening $ "Setting context for: " ++
+                       moduleNameString (moduleName (ms_mod modsum))
    let mod_name = ms_mod_name modsum
    start_time <- liftIO $ getCurrentTime
    r <- load (LoadDependenciesOf mod_name) 

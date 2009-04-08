@@ -50,3 +50,8 @@ unqualifiedForModule tcm = do
 
 second :: (a -> b) -> (c, a) -> (c, b)
 second f (x,y) = (x, f y)
+
+ifM :: Monad m => m Bool -> m a -> m a -> m a
+ifM cm tm em = do
+  c <- cm
+  if c then tm else em
