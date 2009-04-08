@@ -2237,6 +2237,10 @@ forces it to be off.  NIL toggles the current state."
   (interactive)
   (scion-eval '(dump-sources)))
 
+(defun scion-dump-defined-names ()
+  (interactive)
+  (scion-eval '(dump-defined-names)))
+
 (define-key scion-mode-map "\C-c\C-t" 'scion-thing-at-point)
 
 (provide 'scion)

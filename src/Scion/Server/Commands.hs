@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, CPP #-}
+{-# LANGUAGE ScopedTypeVariables, CPP, PatternGuards #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -- |
 -- Module      : Scion.Server.Commands
@@ -19,6 +19,7 @@ import Scion.Utils
 import Scion.Session
 import Scion.Server.Protocol
 import Scion.Inspect
+import Scion.Inspect.DefinitionSite
 import Scion.Configure
 
 import FastString
@@ -80,6 +81,7 @@ allCommands =
     , cmdLoad
     , cmdSetVerbosity
     , cmdGetVerbosity
+    , cmdDumpDefinedNames
     ]
 
 ------------------------------------------------------------------------------
@@ -358,3 +360,20 @@ cmdCurrentCabalFile =
       case r of
         Right f -> return (Just f)
         Left (_::SomeScionException) -> return Nothing)
+
+cmdDumpDefinedNames :: Command
+cmdDumpDefinedNames =
+  Command $ do
+    string "dump-defined-names"
+    return $ toString <$> ((do
+      tc_rslt <- gets bgTcCache
+      case tc_rslt of
+        Just (Typechecked r) | Just rn <- renamedSource r -> do
+          let (hsgrp, _imports, _exports, _docs, _haddockinfo) = rn
+          Just modsum <- gets focusedModule
+          let mod_name = moduleName (ms_mod modsum)
+          base_dir <- projectRootDir
+          let sites = definedNames (mod_name, base_dir) hsgrp
+          liftIO $ mapM_ print sites
+        _other -> return ()
+      return ()) `gcatch` (\(_ :: SomeException) -> return ()))

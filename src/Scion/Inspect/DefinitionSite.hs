@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- |
 -- Module      : Scion.Inspect.DefinitionSite
 -- Copyright   : (c) Thomas Schilling 2009
@@ -23,12 +24,15 @@ import Name ( getOccString )
 
 ------------------------------------------------------------------------
 
+instance Show ModuleName where
+  show m = moduleNameString m
+
 data DefSite
   = DefSite ModuleName String Location
     -- ^ The definition of the given identifier.
   | InstanceSite ModuleName String String Location
     -- ^ XXX: An instance of something
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
 
 definedNames :: (ModuleName, FilePath) -> HsGroup Name
              -> [DefSite]
