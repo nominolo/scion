@@ -374,6 +374,7 @@ cmdDumpDefinedNames =
           let mod_name = moduleName (ms_mod modsum)
           base_dir <- projectRootDir
           let sites = definedNames (mod_name, base_dir) hsgrp
+                                   (typecheckedSource r)
           liftIO $ mapM_ print sites
         _other -> return ()
       return ()) `gcatch` (\(_ :: SomeException) -> return ()))
