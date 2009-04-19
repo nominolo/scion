@@ -82,6 +82,8 @@ allCommands =
     , cmdSetVerbosity
     , cmdGetVerbosity
     , cmdDumpDefinedNames
+    , cmdDefinedNames
+    , cmdNameDefinitions
     ]
 
 ------------------------------------------------------------------------------
@@ -366,15 +368,20 @@ cmdDumpDefinedNames =
   Command $ do
     string "dump-defined-names"
     return $ toString <$> ((do
-      tc_rslt <- gets bgTcCache
-      case tc_rslt of
-        Just (Typechecked r) | Just rn <- renamedSource r -> do
-          let (hsgrp, _imports, _exports, _docs, _haddockinfo) = rn
-          Just modsum <- gets focusedModule
-          let mod_name = moduleName (ms_mod modsum)
-          base_dir <- projectRootDir
-          let sites = definedNames (mod_name, base_dir) hsgrp
-                                   (typecheckedSource r)
-          liftIO $ mapM_ print sites
-        _other -> return ()
-      return ()) `gcatch` (\(_ :: SomeException) -> return ()))
+          db <- gets defSiteDB
+          liftIO $ putStrLn $ dumpDefSiteDB db))
+
+cmdDefinedNames :: Command
+cmdDefinedNames =
+  Command $ do
+    string "defined-names"
+    return $ (toString . Lst . definedNames <$> gets defSiteDB)
+
+cmdNameDefinitions :: Command
+cmdNameDefinitions =
+  Command $ do
+    nm <- string "name-definitions" *> sp *> getString
+    return $ toString <$> (do
+      db <- gets defSiteDB
+      let locs = map fst $ lookupDefSite db nm
+      return (Lst locs))
