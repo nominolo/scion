@@ -1731,7 +1731,8 @@ The overlay has several properties:
 (scion-define-keys scion-compiler-notes-mode-map
   ((kbd "RET") 'scion-compiler-notes-default-action-or-show-details)
   ([return] 'scion-compiler-notes-default-action-or-show-details)
-  ([mouse-2] 'scion-compiler-notes-default-action-or-show-details/mouse))
+  ([mouse-2] 'scion-compiler-notes-default-action-or-show-details/mouse)
+  ((kbd "q") 'scion-popup-buffer-quit-function))
 
 (defun scion-compiler-notes-default-action-or-show-details/mouse (event)
   "Invoke the action pointed at by the mouse, or show details."
