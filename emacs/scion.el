@@ -28,6 +28,7 @@
     (require 'easy-mmode)
     (defalias 'define-minor-mode 'easy-mmode-define-minor-mode)))
 (require 'hideshow)
+(require 'thingatpt)
 (eval-when (compile)
   (require 'apropos)
   (require 'outline)
@@ -2053,6 +2054,7 @@ installed packages (However, not of the current project.)"
 (define-key scion-mode-map "\M-n" 'scion-next-note-in-buffer)
 (define-key scion-mode-map "\M-p" 'scion-previous-note-in-buffer)
 (define-key scion-mode-map "\C-c\C-n" 'scion-list-compiler-notes)
+(define-key scion-mode-map [(control ?c) (control ?\.)] 'scion-goto-definition)
 
 (defun haskell-insert-module-header (module-name &optional
 						 author
@@ -2353,6 +2355,29 @@ LIBRARY or (EXECUTABLE <name>)."
   (interactive "nVerbosity[0-3]: ")
   (scion-eval `(set-verbosity ,v)))
 
+(defun scion-defined-names ()
+  (scion-eval '(defined-names)))
+
+(defun scion-ident-at-point ()
+  ;; TODO: recognise proper haskell symbols
+  (let ((s (thing-at-point 'symbol)))
+    (if s 
+	(substring-no-properties s)
+      nil)))
+
+(defun scion-goto-definition (name)
+  (interactive 
+   (let ((names (scion-defined-names))
+	 (dflt (scion-ident-at-point)))
+     (if (find dflt names :test #'string=)
+	 (list dflt)
+       (list (ido-completing-read "Goto Definition: " names nil nil dflt)))))
+  (let ((sites (scion-eval `(name-definitions ,name))))
+    (if (not sites)
+	(message "No definition site known")
+      (let* ((loc (car sites)) ;; XXX: deal with multiple locations
+	     (dummy-note (list :warning loc "definition" "")))
+	(scion-goto-source-location dummy-note)))))
 
 ;; Local Variables: 
 ;; outline-regexp: ";;;;+"
