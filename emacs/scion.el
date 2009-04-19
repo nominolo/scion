@@ -1776,28 +1776,39 @@ The overlay has several properties:
 	      (if buff-window
 		  (select-window buff-window)
 		(display-buffer buff)))
-	  (find-file-other-window file))
+	  (progn
+	    (find-file-other-window file)
+	    (setq buff (find-buffer-visiting file))))
 	(goto-line (scion-note.line note))
 	(move-to-column (scion-note.col note))
 	(let ((r (scion-note.region note buff)))
 	  (with-current-buffer buff
 	    (scion-flash-region (car r) (cadr r) 0.5)))))))
 
-(defun scion-list-compiler-notes (notes)
-  "Show the compiler notes NOTES in tree view."
+(defun scion-list-compiler-notes (notes &optional no-popup)
+  "Show the compiler notes NOTES in tree view.
+
+If NO-POPUP is non-NIL, only show the buffer if it is already visible."
   (interactive (list (scion-compiler-notes)))
-  (with-temp-message "Preparing compiler note tree..."
-    (scion-with-popup-buffer ("*SCION Compiler-Notes*")
-      (erase-buffer)
-      (scion-compiler-notes-mode)
-      (when (null notes)
-        (insert "[no notes]"))
-      (let ((collapsed-p))
-        (dolist (tree (scion-compiler-notes-to-tree notes))
-          (when (scion-tree.collapsed-p tree) (setf collapsed-p t))
-          (scion-tree-insert tree "")
-          (insert "\n"))
-        (goto-char (point-min))))))
+  (labels ((fill-out-buffer ()
+	      (erase-buffer)
+	      (scion-compiler-notes-mode)
+	      (when (null notes)
+		(insert "[no notes]"))
+	      (let ((collapsed-p))
+		(dolist (tree (scion-compiler-notes-to-tree notes))
+		  (when (scion-tree.collapsed-p tree) (setf collapsed-p t))
+		  (scion-tree-insert tree "")
+		  (insert "\n"))
+		(goto-char (point-min)))))
+    (with-temp-message "Preparing compiler note tree..."
+      (if no-popup
+	  (with-current-buffer (get-buffer-create "*SCION Compiler-Notes*")
+	    (setq buffer-read-only nil)
+	    (fill-out-buffer)
+	    (setq buffer-read-only t))
+	(scion-with-popup-buffer ("*SCION Compiler-Notes*")
+	  (fill-out-buffer))))))
 
 (defvar scion-tree-printer 'scion-tree-default-printer)
 
@@ -1955,12 +1966,22 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
 	(setq scion-last-compilation-result
 	      (list tag successp notes duration))
 	(scion-highlight-notes notes buf)
-	(when (not buf)
-	  (scion-show-note-counts successp nwarnings nerrors duration)
-	  (when (< 0 (+ nwarnings nerrors))
-	    (scion-list-compiler-notes notes)))
+	(if (not buf)
+	    (progn
+	      (scion-show-note-counts successp nwarnings nerrors duration)
+	      (when (< 0 (+ nwarnings nerrors))
+		(scion-list-compiler-notes notes)))
+	  (scion-update-compilater-notes-buffer))
 	(scion-report-status (format ":%d/%d" nerrors nwarnings))
 	nil))))
+
+(defun scion-update-compilater-notes-buffer ()
+  "Update the contents of the compilation notes buffer if it is open somewhere."
+  (interactive)
+  ;; XXX: background typechecking currently does not keep notes from
+  ;; other files
+  (when (get-buffer "*SCION Compiler-Notes*")
+    (scion-list-compiler-notes (scion-compiler-notes) t)))
     
 ;;     ((:ok warns)
 ;;      (setq scion-last-compilation-result
