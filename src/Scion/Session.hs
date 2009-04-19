@@ -21,6 +21,7 @@ import Exception
 import Scion.Types
 import Scion.Types.Notes
 import Scion.Utils
+import Scion.Inspect.DefinitionSite
 
 import qualified Data.MultiSet as MS
 import Control.Monad
@@ -351,7 +352,12 @@ loadComponent comp = do
    setComponentDynFlags comp
    setComponentTargets comp
    rslt <- load LoadAllTargets
-   modifySessionState $ \s -> s { lastCompResult = rslt }
+   mg <- getModuleGraph
+   base_dir <- projectRootDir
+   db <- moduleGraphDefSiteDB base_dir mg
+   liftIO $ evaluate db
+   modifySessionState $ \s -> s { lastCompResult = rslt
+                                , defSiteDB = db }
    return rslt
   where
     maybe_set_working_dir (File f) = do
@@ -450,7 +456,8 @@ unload :: ScionM ()
 unload = do
    setTargets []
    load LoadAllTargets
-   modifySessionState $ \st -> st { lastCompResult = mempty }
+   modifySessionState $ \st -> st { lastCompResult = mempty
+                                  , defSiteDB = mempty }
    return ()
 
 -- | Parses the list of 'Strings' as command line arguments and sets the
@@ -574,7 +581,8 @@ backgroundTypecheckFile fname =
           -- TODO: measure time and stop after a phase if it takes too long?
           parsed_mod <- parseModule modsum
           tcd_mod <- typecheckModule parsed_mod
-          _ <- desugarModule tcd_mod
+          ds_mod <- desugarModule tcd_mod
+          loadModule ds_mod -- ensure it's in the HPT
           finish_up (Just (Typechecked tcd_mod)) mempty
 
    preprocessModule = do

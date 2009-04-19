@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, CPP #-}
+{-# LANGUAGE ScopedTypeVariables, CPP, PatternGuards #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -- |
 -- Module      : Scion.Server.Commands
@@ -19,6 +19,7 @@ import Scion.Utils
 import Scion.Session
 import Scion.Server.Protocol
 import Scion.Inspect
+import Scion.Inspect.DefinitionSite
 import Scion.Configure
 
 import FastString
@@ -80,6 +81,9 @@ allCommands =
     , cmdLoad
     , cmdSetVerbosity
     , cmdGetVerbosity
+    , cmdDumpDefinedNames
+    , cmdDefinedNames
+    , cmdNameDefinitions
     ]
 
 ------------------------------------------------------------------------------
@@ -358,3 +362,26 @@ cmdCurrentCabalFile =
       case r of
         Right f -> return (Just f)
         Left (_::SomeScionException) -> return Nothing)
+
+cmdDumpDefinedNames :: Command
+cmdDumpDefinedNames =
+  Command $ do
+    string "dump-defined-names"
+    return $ toString <$> ((do
+          db <- gets defSiteDB
+          liftIO $ putStrLn $ dumpDefSiteDB db))
+
+cmdDefinedNames :: Command
+cmdDefinedNames =
+  Command $ do
+    string "defined-names"
+    return $ (toString . Lst . definedNames <$> gets defSiteDB)
+
+cmdNameDefinitions :: Command
+cmdNameDefinitions =
+  Command $ do
+    nm <- string "name-definitions" *> sp *> getString
+    return $ toString <$> (do
+      db <- gets defSiteDB
+      let locs = map fst $ lookupDefSite db nm
+      return (Lst locs))

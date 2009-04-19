@@ -24,6 +24,7 @@ import HscTypes
 import MonadUtils ( liftIO, MonadIO )
 import Exception
 
+import qualified Data.Map as M
 import qualified Data.MultiSet as MS
 import Distribution.Simple.LocalBuildInfo
 import Control.Monad ( when )
@@ -58,13 +59,16 @@ data SessionState
       focusedModule :: Maybe ModSummary,
         -- ^ The currently focused module for background typechecking.
 
-      bgTcCache :: Maybe BgTcCache
+      bgTcCache :: Maybe BgTcCache,
         -- ^ Cached state of the background typechecker.
+
+      defSiteDB :: DefSiteDB
+        -- ^ Source code locations.
     }
 
 mkSessionState :: DynFlags -> IO (IORef SessionState)
 mkSessionState dflags =
-    newIORef (SessionState normal dflags Nothing Nothing mempty Nothing Nothing)
+    newIORef (SessionState normal dflags Nothing Nothing mempty Nothing Nothing mempty)
 
 
 newtype ScionM a
@@ -237,3 +241,47 @@ data Component
 -- | Shorthand for 'undefined'.
 __ :: a
 __ = undefined
+
+-- * Go To Definition
+
+-- | A definition site database.
+--
+-- This is a map from names to the location of their definition and
+-- information about the defined entity.  Note that a name may refer to
+-- multiple entities.
+--
+-- XXX: Currently we use GHC's 'TyThing' data type. However, this probably
+-- holds on to a lot of stuff we don't need.  It also cannot be serialised
+-- directly.  The reason it's done this way is that wrapping 'TyThing' leads
+-- to a lot of duplicated code.  Using a custom type might be useful to have
+-- fewer dependencies on the GHC API; however it also creates problems
+-- mapping things back into GHC API data structures.  If we do this, we
+-- should at least remember the 'Unique' in order to quickly look up the
+-- original thing.
+newtype DefSiteDB =
+  DefSiteDB (M.Map String [(Location,TyThing)])
+
+instance Monoid DefSiteDB where
+  mempty = emptyDefSiteDB
+  mappend = unionDefSiteDB
+
+-- | The empty 'DefSiteDB'.
+emptyDefSiteDB :: DefSiteDB
+emptyDefSiteDB = DefSiteDB M.empty
+
+-- | Combine two 'DefSiteDB's.   XXX: check for duplicates?
+unionDefSiteDB :: DefSiteDB -> DefSiteDB -> DefSiteDB
+unionDefSiteDB (DefSiteDB m1) (DefSiteDB m2) =
+    DefSiteDB (M.unionWith (++) m1 m2)
+
+-- | Return the list of defined names (the domain) of the 'DefSiteDB'.
+-- The result is, in fact, ordered.
+definedNames :: DefSiteDB -> [String]
+definedNames (DefSiteDB m) = M.keys m
+
+-- | Returns all the entities that the given name may refer to.
+lookupDefSite :: DefSiteDB -> String -> [(Location, TyThing)]
+lookupDefSite (DefSiteDB m) key =
+  case M.lookup key m of
+    Nothing -> []
+    Just xs -> xs

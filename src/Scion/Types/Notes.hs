@@ -219,6 +219,9 @@ thenCmp x _  = x
 -- * Converting from GHC types.
 
 -- | Convert a 'GHC.SrcSpan' to a 'Location'.
+--
+-- The first argument is used to normalise relative source locations to an
+-- absolute file path.
 ghcSpanToLocation :: FilePath -- ^ Base directory
                   -> GHC.SrcSpan
                   -> Location
