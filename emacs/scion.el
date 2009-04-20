@@ -29,10 +29,11 @@
     (defalias 'define-minor-mode 'easy-mmode-define-minor-mode)))
 (require 'hideshow)
 (require 'thingatpt)
+(require 'comint)
+(require 'ido)
 (eval-when (compile)
   (require 'apropos)
   (require 'outline)
-  (require 'ido)
   ;; (require 'etags)
   )
 
