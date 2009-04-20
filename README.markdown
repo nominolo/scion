@@ -112,17 +112,42 @@ location.  Pressing `q` closes the buffer, and `C-c C-n`
 (`scion-previous-note-in-buffer`) to navigate within the notes of one
 buffer.
 
-There are a few more utilities:
+## Completion
 
-    C-c i l  -- insert language pragma
-    C-c i p  -- insert pragma
-    C-c i m  -- insert (external) module name
-    C-c i f  -- insert command line flag
+The following commands offer completion for a few things.
 
-Some experimental features:
+  * `C-c i l` (`haskell-insert-language`) asks for a `LANGUAGE` pragma
+    and adds it to the top of the file.
+  
+  * `C-c i p` (`haskell-insert-pragma`) inserts a pragma at the
+    current cursor position.  (At the moment this doesn't try to make
+    sense of the selected pragma, however.)
+    
+  * `C-c i m` (`haskell-insert-module-name`) inserts the name of an
+    external module (external), i.e., a module _not_ from the current
+    package.
+    
+  * `C-c i f` (`haskell-insert-flag`) insert (GHC) command line flag
+    at point.  (Really only makes sense within an `OPTiONS_GHC` pragma.)
 
-    C-c C-t  -- show type of identifier at point
-                (currently only works on ids, not expressions)
+## Experimental features
+
+The following should work most of the cases.
+
+  * `C-c C-.` (`scion-goto-definition`) jumps to the definition of the
+    identifier at point.  If there is no identifier at point, offers a
+    list to complete on a particular identifier.  This currently only
+    works for identifiers defined within the same project.
+
+  * `C-c C-t` shows type of identifier at point.  This only works if
+    the current file typechecks, but then it also works for local
+    identifiers.  For polymorphic function it will show the type to
+    which they are _instantiated_, e.g.,
+
+        f x = x + (1::Int)
+
+    Calling this command on `+` will print `Int -> Int -> Int` instead
+    of `Num a => a -> a -> a`.
 
     
 # Manually Connecting to Scion
