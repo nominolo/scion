@@ -186,6 +186,19 @@ current state will be saved and later restored."
 
 (put 'slime-define-keys 'lisp-indent-function 1)
 
+(defun aquamacs-p ()
+  (string-match "Aquamacs" (emacs-version)))
+
+(defun scion-completing-read (prompt collection &optional predicate require-match
+				     initial-input hist def inherit-input-method)
+  (cond
+   ;; for some reason ido-completing-read is broken in Aquamacs
+   ((not (aquamacs-p))
+    (ido-completing-read prompt collection predicate 
+			 require-match initial-input hist def))
+   (t
+    (completing-read  prompt collection predicate require-match initial-input
+		      hist def inherit-input-method))))
 
 ;;;---------------------------------------------------------------------------
 ;;;;;; Tree View Widget
@@ -2019,7 +2032,7 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
   ;; TODO: automatically jump to or insert LANGUAGE pragma
   (interactive
    (let ((langs (scion-supported-languages)))
-     (list (ido-completing-read "Language: " langs))))
+     (list (scion-completing-read "Language: " langs))))
   (save-excursion
     (goto-char (point-min))
     (insert "{-# LANGUAGE " lang " #-}\n"))
@@ -2034,7 +2047,7 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
   (interactive (let ((choices (scion-supported-pragmas)))
 		 ;; standard completing-read cannot even deal properly
 		 ;; with upper-case words.
-		 (list (ido-completing-read "Pragma: " choices))))
+		 (list (scion-completing-read "Pragma: " choices))))
   (insert "{-# " (upcase pragma) "  #-}")
   (backward-char 4))
 
@@ -2047,7 +2060,7 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
   ;; TODO: automatically insert/add OPTIONS pragma
   (interactive
    (let ((flags (scion-supported-flags)))
-     (list (ido-completing-read "Flag: " flags))))
+     (list (scion-completing-read "Flag: " flags))))
   (insert flag))
 
 (defun scion-set-command-line-flag (flag)
@@ -2064,7 +2077,7 @@ When called interactively tries to complete to modules of all
 installed packages (However, not of the current project.)"
   (interactive 
    (let ((mods (scion-exposed-modules)))
-     (list (ido-completing-read "Module: " mods))))
+     (list (scion-completing-read "Module: " mods))))
   (insert mod))
 
 (define-key scion-mode-map "\C-cil" 'haskell-insert-language)
@@ -2340,7 +2353,7 @@ loaded."
 	     (opts (loop for c in options 
 			 do (puthash (scion-format-component c) c disp->comp)
 			 collect (scion-format-component c))))
-	(gethash (ido-completing-read "Load Component: "
+	(gethash (scion-completing-read "Load Component: "
 				      opts
 				      nil
 				      t)
@@ -2394,7 +2407,7 @@ LIBRARY or (EXECUTABLE <name>)."
 	 (dflt (scion-ident-at-point)))
      (if (find dflt names :test #'string=)
 	 (list dflt)
-       (list (ido-completing-read "Goto Definition: " names nil nil dflt)))))
+       (list (scion-completing-read "Goto Definition: " names nil nil dflt)))))
   (let ((sites (scion-eval `(name-definitions ,name))))
     (if (not sites)
 	(message "No definition site known")
