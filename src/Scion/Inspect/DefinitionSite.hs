@@ -23,8 +23,9 @@ import GHC
 import Name ( getOccString, getSrcSpan )
 import Outputable ( showSDoc, ppr, Outputable, (<+>) )
 import PprTyThing ( pprTyThingInContext )
-import TyCon ( isCoercionTyCon )
+import TyCon ( isCoercionTyCon, isFamInstTyCon )
 import Var ( globalIdVarDetails )
+import IdInfo ( GlobalIdDetails(..) )
 import HscTypes ( isBootSummary )
 
 import qualified Data.Map as M
@@ -70,11 +71,28 @@ mkSiteDB :: FilePath -> [TyThing] -> DefSiteDB
 mkSiteDB base_dir ty_things = foldl' go emptyDefSiteDB ty_things
   where
     -- TODO: there's probably more stuff to ignore
-    go db (ATyCon tycon) | isCoercionTyCon tycon = db -- ignore
+    go db (ATyCon tycon) | is_boring_tycon tycon = db -- ignore
+    go db (ADataCon datacon) | is_boring_datacon datacon = db
+    go db (AnId nm)
+      | isDictonaryId nm || not (is_interesting_id nm) = db
     go db ty_thing =
        addToDB (getOccString ty_thing)
                (ghcSpanToLocation base_dir (getSrcSpan ty_thing))
                ty_thing db
+
+    is_interesting_id ident =
+        case globalIdVarDetails ident of
+          VanillaGlobal -> True
+          ClassOpId _ -> True
+          RecordSelId {} -> True
+          NotGlobalId -> True -- global but not exported
+          _ -> False
+
+    is_boring_tycon tycon =
+        isClassTyCon tycon || isCoercionTyCon tycon || isFamInstTyCon tycon
+
+    is_boring_datacon datacon =
+        is_boring_tycon (dataConTyCon datacon)
 
 addToDB :: String -> Location -> TyThing -> DefSiteDB -> DefSiteDB
 addToDB nm loc ty_thing (DefSiteDB m) =
@@ -91,5 +109,8 @@ dumpDefSiteDB (DefSiteDB m) = unlines (map pp (M.assocs m))
 
     pp_ty_thing tt@(AnId ident) =
         showSDoc (pprTyThingInContext False tt <+> ppr (globalIdVarDetails ident))
-        
-    pp_ty_thing tt = showSDoc (pprTyThingInContext False tt)
+
+    pp_ty_thing (ADataCon dcon) =
+        showSDoc (ppr dcon <+> ppr (dataConType dcon))
+
+    pp_ty_thing tt = showSDoc (ppr tt)
