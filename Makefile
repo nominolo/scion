@@ -1,49 +1,76 @@
+.PHONY: default clean install-lib install-deps
+
+default: all
 all: build
 
 include config.mk
 
-# If not set in custom config.mk, use the inplace GHC
-HC      ?= $(GHC_PATH)/ghc/stage2-inplace/ghc
-PKG     ?= $(GHC_PATH)/utils/ghc-pkg/install-inplace/bin/ghc-pkg
-HADDOCK ?= $(GHC_PATH)/utils/haddock/install-inplace/bin/haddock
+# If not set in custom config.mk, use the default versions
+HC      ?= ghc
+PKG     ?= ghc-pkg
+HADDOCK ?= haddock
 
-DIST  = dist
+DIST = dist
+DIST_LIB  = $(DIST)/lib
+DIST_SERVER = $(DIST)/server
 SETUP_DIST = setup-dist
-SETUP_CONFIG = $(DIST)/setup-config
 SETUP = $(SETUP_DIST)/Setup
 
 CABAL_INSTALL_OPTS += --ghc --with-compiler=$(HC) --with-hc-pkg=$(PKG)
-CABAL_FLAGS ?= -ftesting -femacs
+CABAL_FLAGS ?= 
+# -ftesting
 
+$(DIST_LIB)/setup-config: $(SETUP) lib/scion.cabal
+	@echo === Configuring scion ===
+	@echo Configure log: $(DIST)/lib-config-log
+	@cd lib && \
+        (../$(SETUP) configure -v --builddir=../$(DIST_LIB) \
+	                      --with-compiler=$(HC) --with-hc-pkg=$(PKG) \
+	                      --user $(CABAL_FLAGS)> ../$(DIST)/lib-config-log)
 
-setup: $(SETUP)
+$(DIST_SERVER)/setup-config: $(SETUP) server/scion-server.cabal $(DIST_LIB)/.installed_tag
+	@echo === Configuring scion-server ===
+	@echo Configure log: $(DIST)/server-config-log
+	@cd server && \
+	(../$(SETUP) configure -v --builddir=../$(DIST_SERVER) \
+	                      --with-compiler=$(HC) --with-hc-pkg=$(PKG) \
+	                      --user $(CABAL_FLAGS) > ../$(DIST)/server-config-log)
+
+$(DIST_LIB)/build/libHSscion-0.1.a: $(SETUP) $(DIST_LIB)/setup-config lib/**/*.hs
+	@echo === Building scion ===
+	@cd lib && \
+        ../$(SETUP) build --builddir=../$(DIST_LIB)
+
+$(DIST_LIB)/.installed_tag: $(DIST_LIB)/build/libHSscion-0.1.a $(SETUP)
+	@echo === Installing scion ===
+	@cd lib && ../$(SETUP) install --user --builddir=../$(DIST_LIB)
+	@touch $@
+
+$(DIST_SERVER)/build/scion_server/scion_server: $(SETUP) $(DIST_SERVER)/setup-config
+	@echo === Building scion-server ===
+	@cd server && \
+        ../$(SETUP) build --builddir=../$(DIST_SERVER)
+
 $(SETUP): Setup.hs
+	@echo === Building Setup ===
 	@mkdir -p $(SETUP_DIST)
-	$(HC) --make -odir $(SETUP_DIST) -hidir $(SETUP_DIST) -o $@ $<
+	@$(HC) --make -odir $(SETUP_DIST) -hidir $(SETUP_DIST) -o $@ $<
 
-configure: $(SETUP_CONFIG)
-$(SETUP_CONFIG): scion.cabal setup
-	$(SETUP) configure -v --with-compiler=$(HC) --with-hc-pkg=$(PKG) --user $(CABAL_FLAGS)
+build: $(DIST_LIB)/build/libHSscion-0.1.a $(DIST_SERVER)/build/scion_server/scion_server
 
-.PHONY: build
-build: configure
-	$(SETUP) build -v
-
-install: build
-	$(SETUP) install
-
-test: build
-	echo main | $(HC) --interactive -package ghc -DDEBUG -isrc -idist/build tests/RunTests.hs
-#	./dist/build/test_get_imports/test_get_imports $(GHC_PATH)/compiler dist-stage2 +RTS -s -RTS
+# test: build
+# 	echo main | $(HC) --interactive -package ghc -DDEBUG -isrc -idist/build tests/RunTests.hs
+# #	./dist/build/test_get_imports/test_get_imports $(GHC_PATH)/compiler dist-stage2 +RTS -s -RTS
 
 clean:
-	$(SETUP) clean || rm -rf $(DIST)
+	@(cd lib && ../$(SETUP) clean --builddir=../$(DIST_LIB)) || rm -rf $(DIST_LIB)
+	@(cd server && ../$(SETUP) clean --builddir=../$(DIST_SERVER)) || rm -rf $(DIST_SERVER)
 
-distclean: clean
-	rm -rf $(SETUP_DIST)
+# distclean: clean
+# 	rm -rf $(SETUP_DIST)
 
-doc: configure
-	$(SETUP) haddock --with-haddock=$(HADDOCK)
+# doc: configure
+# 	$(SETUP) haddock --with-haddock=$(HADDOCK)
 
 printvars:
 	@echo "UseInplaceGhc    = $(UseInplaceGhc)"
@@ -55,12 +82,19 @@ printvars:
 	@echo "        ..._OPTS = $(CABAL_INSTALL_OPTS)"
 	@echo "CABAL_FLAGS      = $(CABAL_FLAGS)"
 	@echo "---------------------------------------------------------------"
-	@echo "DIST         = $(DIST)"
-	@echo "SETUP_CONFIG = $(SETUP_CONFIG)"
+	@echo "DIST_LIB     = $(DIST_LIB)"
 	@echo "SETUP_DIST   = $(SETUP_DIST)"
 
-cabal-install:
-	$(CABAL_INSTALL) install $(CABAL_INSTALL_OPTS) $(CABAL_FLAGS)
+install-deps:
+	cabal install --with-compiler=$(HC) --with-hc-pkg=$(PKG) ghc-paths
+	cabal install --with-compiler=$(HC) --with-hc-pkg=$(PKG) ghc-syb
+	cabal install --with-compiler=$(HC) --with-hc-pkg=$(PKG) multiset
+	cabal install --with-compiler=$(HC) --with-hc-pkg=$(PKG) time
+	cabal install --with-compiler=$(HC) --with-hc-pkg=$(PKG) uniplate
 
-run-emacs: build
-	./$(DIST)/build/scion_emacs/scion_emacs
+
+# cabal-install:
+# 	$(CABAL_INSTALL) install $(CABAL_INSTALL_OPTS) $(CABAL_FLAGS)
+
+# run-emacs: build
+# 	./$(DIST)/build/scion_emacs/scion_emacs

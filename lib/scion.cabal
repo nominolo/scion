@@ -1,7 +1,7 @@
 name:            scion
 version:         0.1
 license:         BSD3
-license-file:    LICENSE
+license-file:    ../LICENSE
 author:          Thomas Schilling <nominolo@googlemail.com>
 maintainer:      Thomas Schilling <nominolo@googlemail.com>
 homepage:        http://github.com/nominolo/scion
@@ -11,19 +11,9 @@ category:        Development
 stability:       provisional
 build-type:      Simple
 cabal-version:   >= 1.4
--- tested-with:     GHC ==6.10.1
-extra-source-files: README.markdown emacs/scion.el
 
 flag testing
   description: Enable Debugging things like QuickCheck properties, etc.
-  default: False
-
-flag emacs
-  description: Build emacs-specific parts
-  default: True
-
-flag examples
-  description: Build examples
   default: False
 
 library
@@ -38,7 +28,7 @@ library
                    time         == 1.1.*,
                    filepath     == 1.1.*,
                    multiset     == 0.1.*
-  hs-source-dirs:  src
+  hs-source-dirs:  .
   extensions:      CPP, PatternGuards
   exposed-modules:
                    Scion.Types,
@@ -66,60 +56,5 @@ library
   if impl(ghc == 6.10.*)
     cpp-options:   -DWPINLINE
 
-  if flag(emacs)
-    build-depends: network >= 2.1 && < 2.3,
-                   network-bytestring == 0.1.*,
-                   bytestring == 0.9.*
-    exposed-modules: Scion.Server.Emacs,
-                     Scion.Server.Commands,
-                     Scion.Server.Protocol
   ghc-options:  -Wall
 
-executable test_get_imports
-  if !flag(examples)
-    buildable: False
-  main-is:       GetImports.hs
-  hs-source-dirs: examples
-                  src
-  other-modules: Scion
-  if flag(testing)
-    build-depends: QuickCheck == 2.*
-    cpp-options:   -DDEBUG
-
-executable test_call_graph
-  if !flag(examples)
-    buildable: False
-  main-is:       CallGraph0.hs
-  hs-source-dirs: examples
-                  src
-  other-modules: Scion
-  if flag(testing)
-    build-depends: QuickCheck == 2.*
-    cpp-options:   -DDEBUG
-
-executable test_thing_at_point
-  if !flag(examples)
-    buildable: False
-  main-is:       ThingAtPoint.hs
-  hs-source-dirs: examples
-                  src
-  other-modules: Scion
-  if flag(testing)
-    build-depends: QuickCheck == 2.*
-    cpp-options:   -DDEBUG
-
-executable scion_emacs
-  main-is: EmacsServer.hs
-  hs-source-dirs: programs src
-  if !flag(emacs)
-    buildable: False
-  other-modules: Scion.Server.Emacs
-  if flag(testing)
-    build-depends: QuickCheck == 2.*
-    cpp-options:   -DDEBUG
-  if impl(ghc > 6.11)
-    cpp-options:   -DHAVE_PACKAGE_DB_MODULES
-
-  -- TODO: drop after 6.10.2 is out
-  if impl(ghc >= 6.11.20081113) || impl(ghc == 6.10.* && >= 6.10.2)
-    cpp-options:   -DRECOMPILE_BUG_FIXED

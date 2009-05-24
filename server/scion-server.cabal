@@ -1,0 +1,32 @@
+name:            scion-server
+version:         0.1
+license:         BSD3
+license-file:    ../LICENSE
+author:          Thomas Schilling <nominolo@googlemail.com>
+maintainer:      Thomas Schilling <nominolo@googlemail.com>
+homepage:        http://github.com/nominolo/scion
+description:     Haskell Source Code Inspection and Interaction library
+synopsis:        Haskell IDE library
+category:        Development
+stability:       provisional
+build-type:      Simple
+cabal-version:   >= 1.4
+extra-source-files: README.markdown emacs/scion.el
+
+executable scion_server
+  main-is: Main.hs
+
+  build-depends: base         == 4.*,
+                 network      >= 2.1 && < 2.3,
+                 network-bytestring == 0.1.*,
+                 containers   == 0.2.*,
+                 bytestring   == 0.9.*,
+                 ghc          >= 6.10 && < 6.12,
+                 ghc-syb      == 0.1.*,
+                 Cabal        >= 1.5 && < 1.8,
+                 scion        == 0.1.*,
+                 multiset     == 0.1.*
+                 
+  other-modules: Scion.Server.Emacs,
+                 Scion.Server.Commands,
+                 Scion.Server.Protocol

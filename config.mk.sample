@@ -11,6 +11,9 @@ UseInplaceGhc = NO
 ifeq "$(UseInplaceGhc)" "YES"
 
 GHC_PATH = /absolute/path/to/ghc
+HC      ?= $(GHC_PATH)/inplace/bin/ghc-stage2
+PKG     ?= $(GHC_PATH)/inplace/bin/ghc-pkg
+HADDOCK ?= $(GHC_PATH)/inplace/bin/haddock
 
 else
 
@@ -22,5 +25,3 @@ endif
 
 # path to 'cabal' program from the 'cabal-install' tool.
 CABAL_INSTALL = cabal
-
-run: run-emacs
