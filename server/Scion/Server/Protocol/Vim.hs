@@ -13,12 +13,12 @@
 -- each request or response is a vimtype (:h string and :h eval). Messages are
 -- separated by a newline character "\n"
 
-module Scion.Server.ProtocolVim where
+module Scion.Server.Protocol.Vim where
 import Scion.Server.Protocol (scionVersion)
 import qualified Scion.Server.ConnectionIO as CIO
 import Scion.Server.Commands (supportedPragmas, allExposedModules)
 import Scion.Server.ConnectionIO (ConnectionIO(..))
-import Scion.Types (ScionM, CabalComponent(..), gets, bgTcCache, BgTcCache(..), CompilationResult(..))
+import Scion.Types (ScionM, Component(..), gets, bgTcCache, BgTcCache(..), CompilationResult(..))
 import Scion.Inspect ( prettyResult )
 import Scion.Inspect.Find ( overlaps, findHsThing, pathToDeepest)
 import Scion.Inspect.TypeOf ( typeOf )
@@ -30,7 +30,7 @@ import FastString (fsLit)
 
 import Control.Monad (forever, liftM)
 import Control.Exception.Base (Exception)
-import Control.Monad.Trans (lift)
+--import Control.Monad.Trans (lift)
 import qualified Control.Exception as E 
 import Prelude hiding (log)
 import qualified System.Log.Logger as HL
@@ -275,8 +275,8 @@ instance ToVimType Bool where
 instance ToVimType CompilationResult where
   toVim cr = toVim [
       ("compilationSucceeded", toVim (compilationSucceeded cr)),
-      ("compilationWarnings", toVim (compilationWarnings cr)),
-      ("compilationErrors", toVim (compilationErrors cr)),
+      ("compilationWarnings", toVim ([] :: [ErrMsg])), --(compilationWarnings cr)),
+      ("compilationErrors", toVim ([] :: [ErrMsg])), --(compilationErrors cr)),
       ("compilationTime", toVim ( "TODO" {- (compilationTime cr-} ))
     ]
 instance (ToVimType a) => ToVimType (Bag a) where

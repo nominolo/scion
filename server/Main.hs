@@ -41,8 +41,8 @@ import Control.Monad ( when, forever )
 import System.Console.GetOpt
 
 import MonadUtils ( liftIO )
-import qualified Scion.Server.ProtocolEmacs as Emacs
-import qualified Scion.Server.ProtocolVim as Vim
+--import qualified Scion.Server.ProtocolEmacs as Emacs
+import qualified Scion.Server.Protocol.Vim as Vim
 import qualified Scion.Server.ConnectionIO as CIO
 import Scion (runScion)
 
@@ -120,7 +120,7 @@ handleClient con = do
         CIO.putLine con (S.pack msg)
         logError msg
       handle "vim" version = runScion $ Vim.handle con version
-      handle "emacs" version = runScion $ Emacs.handle con version
+      --handle "emacs" version = runScion $ Emacs.handle con version
       handle name _ = quit $ "unkown protocol type : " ++ name
         
   if S.isPrefixOf prefix greeting 

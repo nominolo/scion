@@ -25,7 +25,10 @@ executable scion_server
                  ghc-syb      == 0.1.*,
                  Cabal        >= 1.5 && < 1.8,
                  scion        == 0.1.*,
-                 multiset     == 0.1.*
+                 multiset     == 0.1.*,
+                 hslogger     == 1.0.*,
+                 parsec       == 2.1.*,
+                 time         == 1.1.*
                  
   other-modules: Scion.Server.Emacs,
                  Scion.Server.Commands,
