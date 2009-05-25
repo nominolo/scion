@@ -67,7 +67,7 @@ import Text.ParserCombinators.Parsec.Char
 import Text.ParserCombinators.ReadP (skipSpaces)
 import qualified Data.Set as Set
 
-log = HL.logM __FILE__
+log = HL.logM "protocol.vim"
 logInfo = log HL.INFO
 logError = log HL.ERROR
 logDebug = log HL.DEBUG
