@@ -35,7 +35,7 @@ import qualified Control.Exception as E
 import Prelude hiding (log)
 import qualified System.Log.Logger as HL
 
-import qualified Data.ByteString.Char8 as S
+import qualified Data.ByteString.Lazy.Char8 as S
 import qualified Data.Map as M
 import Data.Maybe (isJust, Maybe(..))
 import Data.List (intercalate, nub, isPrefixOf)

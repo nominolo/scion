@@ -140,7 +140,7 @@ def connectscion():
         b.append( "Do so by adding one of the following lines to your .vimrc:")
         b.append( "TCP/IP, socket, stdio")
         b.append( "py scionConnectionSetting = ('socket', \"socket file location\") # socket connection")
-        b.append( "py scionConnectionSetting = ('socket', (127.0.0.1', 4005)) # host, port TCIP/IP connection")
+        b.append( "py scionConnectionSetting = ('socket', ('localhost', 4005)) # host, port TCIP/IP connection")
         b.append( "py scionConnectionSetting = ('scion', \"scion_server location\") # stdio connection ")
         told_user_about_missing_configuration = 1
 

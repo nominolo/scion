@@ -46,7 +46,7 @@ $(DIST_LIB)/.installed_tag: $(DIST_LIB)/build/libHSscion-0.1.a $(SETUP)
 	@cd lib && ../$(SETUP) install --user --builddir=../$(DIST_LIB)
 	@touch $@
 
-$(DIST_SERVER)/build/scion_server/scion_server: $(SETUP) $(DIST_SERVER)/setup-config server/Main.hs server/Scion/Server/**/*.hs
+$(DIST_SERVER)/build/scion_server/scion_server: $(SETUP) $(DIST_SERVER)/setup-config server/Main.hs server/Scion/Server/*.hs server/Scion/Server/**/*.hs
 	@echo === Building scion-server ===
 	@cd server && \
         ../$(SETUP) build --builddir=../$(DIST_SERVER)

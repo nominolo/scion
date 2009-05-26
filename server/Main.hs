@@ -28,7 +28,7 @@ import System.IO (stdin, stdout, hSetBuffering, BufferMode(..))
 import qualified System.Log.Logger as HL
 import qualified System.Log.Handler.Simple as HL
 import qualified System.Log.Handler.Syslog as HL
-import qualified Data.ByteString.Char8 as S
+import qualified Data.ByteString.Lazy.Char8 as S
 import Network ( listenOn, PortID(..) )
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
 import Network.Socket.ByteString
@@ -104,7 +104,8 @@ serve (TCPIP nr) = do
   sock <- liftIO $ listenOn (PortNumber nr)
   forever $ E.handle (\(e::E.IOException) -> logInfo ("caught :" ++ (show e) ++ "\n\nwaiting for next client")) $ do
     (sock', _addr) <- liftIO $ accept sock
-    handleClient sock'
+    sock_conn <- CIO.mkSocketConnection sock'
+    handleClient sock_conn
 serve StdInOut = do
   hSetBuffering stdout LineBuffering
   hSetBuffering stdin LineBuffering
@@ -116,7 +117,8 @@ serve (Socketfile file) = do
     -- no multithreading for now (I don't know yet when it may be used.. the
     -- ghc library is using some IO refs) 
     (sock', _addr) <- liftIO $ accept sock
-    handleClient sock'
+    sock_conn <- CIO.mkSocketConnection sock'
+    handleClient sock_conn
 #endif
 
 
