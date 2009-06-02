@@ -20,9 +20,9 @@ Installation
 
 Scion requires [GHC 6.10.1][ghc] or later.  All other dependencies
 should be on [Hackage][hackage] and can be installed using
-[cabal-install][ci]:
+[cabal-install][ci] in the lib directory:
 
-    $ cd dir/to/scion
+    $ cd dir/to/scion/lib
     $ cabal install
 
 Scion supports various configuration flags which are useful when
@@ -41,23 +41,20 @@ Since Scion is a library, you should consult the haddock documentation
 for how to use it.  However, you may look at the Emacs frontend for
 inspiration.
 
-The Emacs frontend is implemented as a Haskell server 
+The Emacs frontend is implemented as a Haskell server. The server is a
+separate package, scion-server, which depends on the main scion package.
 
 Emacs
 -----
 
-Install Scion with Emacs support, either via
+Install Scion with Emacs support:
 
-    $ cabal install scion -femacs
+    $ cd dir/to/scion/server
+    $ cabal install
 
-or, if you have a locally copy of Scion
+You'll end up with a binary called "scion_server".
 
-    $ cd <scion>
-    $ cabal install -femacs
-
-You'll end up with a binary called "emacs-server".
-
-    $ ./.cabal/bin/emacs_server
+    $ ~/.cabal/bin/scion_server
 
 Add the following to your emacs configuration (typically "~/.emacs"):
 
@@ -65,7 +62,7 @@ Add the following to your emacs configuration (typically "~/.emacs"):
     (require 'scion)
 
     ;; if ./cabal/bin is not in your $PATH
-    (setq scion-program "~/.cabal/bin/emacs_server")
+    (setq scion-program "~/.cabal/bin/scion_server")
 
     (defun my-haskell-hook ()
       ;; Whenever we open a file in Haskell mode, also activate Scion
