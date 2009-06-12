@@ -77,7 +77,7 @@ runServer opts =
 listenOnOneOf :: [PortID] -> IO Socket
 listenOnOneOf (p:ps) = catch
     (listenOn p)
-    (\ex -> if null ps then throwIO ex else listenOnOneOf ps)
+    (\(ex :: IOError) -> if null ps then throwIO ex else listenOnOneOf ps)
 
 eventLoop :: Socket -> ScionM Bool
 eventLoop sock = 
