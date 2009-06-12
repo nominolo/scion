@@ -14,14 +14,14 @@
 module Scion.Server.Emacs where
 
 import Scion.Types
+import Scion.Server.Options
 import Scion.Server.Protocol
 import Scion.Server.Commands
 
-import Exception
+import Exception ( Exception, ghandle, throwIO )
 import MonadUtils
 import GHC
 
-import Control.Exception
 import Control.Monad ( liftM, when )
 import Data.Bits ( shiftL )
 import Data.Char ( isHexDigit, digitToInt )
@@ -41,22 +41,30 @@ import qualified Data.ByteString.Char8 as S
 data SocketClosed = SocketClosed deriving (Show, Typeable)
 instance Exception SocketClosed
 
+instance Bounded PortNumber where
+    minBound = 0
+    maxBound = 0xFFFF
+
 logLevel :: Int
 logLevel = 2
 
-runServer :: ScionM ()
-runServer =
+runServer :: ServerOptions -> ScionM ()
+runServer opts =
     reifyScionM $ \s ->
       withSocketsDo $ do
         liftIO $ do hSetBuffering stdout LineBuffering
                     hSetBuffering stderr LineBuffering
         log 1 "starting up server..."
-        sock <- liftIO $ listenOn (PortNumber 4005)
+        let ports = case optPort opts of
+                         AutoPort -> map PortNumber [4005..maxBound]
+                         FixedPort p -> [PortNumber (fromIntegral p)]
+        sock <- liftIO $ listenOnOneOf ports
         reflectScionM (loop sock) s
   where
     loop sock = do
       log 4 "accepting"
-      liftIO $ putStrLn "=== Listening on port: 4005"
+      portNr <- liftIO $ socketPort sock
+      liftIO $ putStrLn $ "=== Listening on port: " ++ show portNr
       (sock', _addr) <- liftIO $ accept sock
       log 4 "starting to serve"
       more <- eventLoop sock'
@@ -65,6 +73,11 @@ runServer =
       log 4 "socket closed"
       if more then loop sock
               else return ()
+
+listenOnOneOf :: [PortID] -> IO Socket
+listenOnOneOf (p:ps) = catch
+    (listenOn p)
+    (\ex -> if null ps then throwIO ex else listenOnOneOf ps)
 
 eventLoop :: Socket -> ScionM Bool
 eventLoop sock = 

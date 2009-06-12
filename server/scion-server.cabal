@@ -29,4 +29,5 @@ executable scion_server
                  
   other-modules: Scion.Server.Emacs,
                  Scion.Server.Commands,
+                 Scion.Server.Options,
                  Scion.Server.Protocol

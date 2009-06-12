@@ -1,6 +1,9 @@
 module Main where
 
 import Scion
+import Scion.Server.Options
 import Scion.Server.Emacs
 
-main = runScion $ runServer
+main = do
+    opts <- readOptions
+    runScion $ runServer opts
