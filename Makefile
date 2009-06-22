@@ -20,7 +20,10 @@ CABAL_INSTALL_OPTS += --ghc --with-compiler=$(HC) --with-hc-pkg=$(PKG)
 CABAL_FLAGS ?= 
 # -ftesting
 
-$(DIST_LIB)/setup-config: $(SETUP) lib/scion.cabal
+$(DIST):
+	mkdir $(DIST)
+
+$(DIST_LIB)/setup-config: $(SETUP) lib/scion.cabal $(DIST)
 	@echo === Configuring scion ===
 	@echo Configure log: $(DIST)/lib-config-log
 	@cd lib && \
@@ -28,7 +31,7 @@ $(DIST_LIB)/setup-config: $(SETUP) lib/scion.cabal
 	                      --with-compiler=$(HC) --with-hc-pkg=$(PKG) \
 	                      --user $(CABAL_FLAGS)> ../$(DIST)/lib-config-log)
 
-$(DIST_SERVER)/setup-config: $(SETUP) server/scion-server.cabal $(DIST_LIB)/.installed_tag
+$(DIST_SERVER)/setup-config: $(SETUP) server/scion-server.cabal $(DIST) $(DIST_LIB)/.installed_tag
 	@echo === Configuring scion-server ===
 	@echo Configure log: $(DIST)/server-config-log
 	@cd server && \
