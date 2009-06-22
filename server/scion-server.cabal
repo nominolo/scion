@@ -11,7 +11,7 @@ category:        Development
 stability:       provisional
 build-type:      Simple
 cabal-version:   >= 1.4
-extra-source-files: README.markdown emacs/scion.el
+extra-source-files: README.markdown ../emacs/scion.el
 
 executable scion_server
   main-is: Main.hs
@@ -21,15 +21,19 @@ executable scion_server
                  network-bytestring == 0.1.*,
                  containers   == 0.2.*,
                  bytestring   == 0.9.*,
+                 utf8-string  == 0.3.*,
                  ghc          >= 6.10 && < 6.12,
                  ghc-syb      == 0.1.*,
                  Cabal        >= 1.5 && < 1.8,
                  scion        == 0.1.*,
                  multiset     == 0.1.*,
                  hslogger     == 1.0.*,
-                 parsec       == 2.1.*,
-                 time         == 1.1.*
+                 parsec       == 3.0.*,
+                 time         == 1.1.*,
+                 json         == 0.4.*
                  
   other-modules: Scion.Server.Emacs,
                  Scion.Server.Commands,
                  Scion.Server.Protocol
+
+  ghc-options: -Wall

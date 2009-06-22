@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances, ExistentialQuantification, MultiParamTypeClasses #-}
 -- |
 -- Module      : Scion.Server.ConnectionIO
 -- License     : BSD-style
@@ -9,26 +9,24 @@
 --
 -- Abstraction over Socket and Handle IO.
 
-
 module Scion.Server.ConnectionIO (
   ConnectionIO(..), mkSocketConnection
 ) where
 
-import Control.Exception (throw, IOException, Exception)
--- import System.IO.Error (mkIOError, IOErrorType(..) )
 import Prelude hiding (log)
-import System.IO (Handle, hClose, hPutStr, hPutStrLn, hFlush)
-import Control.Monad (when)
-import Network.Socket (Socket, sClose)
+import System.IO (Handle, hFlush)
+import Network.Socket (Socket)
 import Network.Socket.ByteString (recv, send)
 import Data.IORef
 import qualified System.Log.Logger as HL
 import qualified Data.ByteString.Char8 as S
 import qualified Data.ByteString.Lazy.Char8 as L
 
+log :: HL.Priority -> String -> IO ()
 log = HL.logM "io.connection"
+
+logError :: String -> IO ()
 logError = log HL.ERROR
-logWarning = log HL.WARNING
 
 class ConnectionIO con where
   getLine :: con -> IO L.ByteString

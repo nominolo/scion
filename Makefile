@@ -1,4 +1,4 @@
-.PHONY: default clean install-lib install-deps
+.PHONY: default clean install-lib install-deps setup
 
 default: all
 all: build
@@ -55,6 +55,8 @@ $(SETUP): Setup.hs
 	@echo === Building Setup ===
 	@mkdir -p $(SETUP_DIST)
 	@$(HC) --make -odir $(SETUP_DIST) -hidir $(SETUP_DIST) -o $@ $<
+
+setup: $(SETUP)
 
 build: $(DIST_LIB)/build/libHSscion-0.1.a $(DIST_SERVER)/build/scion_server/scion_server
 

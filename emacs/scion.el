@@ -34,8 +34,10 @@
 (eval-when (compile)
   (require 'apropos)
   (require 'outline)
+  (require 'json)
   ;; (require 'etags)
   )
+
 
 ;;;---------------------------------------------------------------------------
 ;;;; Customize groups
@@ -287,7 +289,7 @@ This is used for labels spanning multiple lines."
 
 ;;;---------------------------------------------------------------------------
 
-(defvar scion-program "scion_emacs"
+(defvar scion-program "scion_server"
   "Program name of the Scion server.")
 
 (defvar scion-last-compilation-result nil
@@ -526,8 +528,11 @@ See also `scion-net-valid-coding-systems'.")
   "Send a SEXP to Lisp over the socket PROC.
 This is the lowest level of communication. The sexp will be READ and
 EVAL'd by Lisp."
-  (let* ((msg (concat (scion-prin1-to-string sexp) "\n"))
-         (string (concat (scion-net-encode-length (length msg)) msg))
+  (let* ((json-object-type 'plist)
+	 (json-key-type 'keyword)
+	 (json-array-type 'list)
+	 (string (concat (json-encode sexp) "\n"))
+	 ;; (string (concat (scion-net-encode-length (length msg)) msg))
          (coding-system (cdr (process-coding-system proc))))
     (scion-log-event sexp)
     (cond ((scion-safe-encoding-p coding-system string)
@@ -591,8 +596,9 @@ EVAL'd by Lisp."
 (defun scion-net-have-input-p ()
   "Return true if a complete message is available."
   (goto-char (point-min))
-  (and (>= (buffer-size) 6)
-       (>= (- (buffer-size) 6) (scion-net-decode-length))))
+  (if (= 0 (forward-line 1))
+      t
+    nil))
 
 (defun scion-run-when-idle (function &rest args)
   "Call FUNCTION as soon as Emacs is idle."
@@ -601,24 +607,25 @@ EVAL'd by Lisp."
          nil function args))
 
 (defun scion-net-read-or-lose (process)
-  (condition-case error
+  (condition-case net-read-error
       (scion-net-read)
-    (error
-     (debug)
+    (net-read-error
+     ;; (debug)
      (scion-net-close process t)
-     (error "net-read error: %S" error))))
+     (error "net-read error: %S" net-read-error))))
 
 (defun scion-net-read ()
   "Read a message from the network buffer."
   (goto-char (point-min))
-  (let* ((length (scion-net-decode-length))
-         (start (+ 6 (point)))
-         (end (+ start length)))
-    (assert (plusp length))
-    (prog1 (save-restriction
-             (narrow-to-region start end)
-             (read (current-buffer)))
-      (delete-region (point-min) end))))
+  (let ((json-object-type 'plist)
+	(json-key-type 'keyword)
+	(json-array-type 'list))
+    (let* ((start (point))
+	   (message (json-read))
+	   (end (1+ (point))))
+      ;; TODO: handle errors somehow
+      (delete-region start end)
+      message)))
 
 (defun scion-net-decode-length ()
   "Read a 24-bit hex-encoded integer from buffer."
@@ -874,7 +881,7 @@ Bound in the connection's process-buffer.")
   ;; function may be called from a timer, and if we setup the REPL
   ;; from a timer then it mysteriously uses the wrong keymap for the
   ;; first command.
-  (scion-eval-async '(connection-info)
+  (scion-eval-async '("connection-info")
                     (scion-curry #'scion-set-connection-info proc)))
 
 (defun scion-set-connection-info (connection info)
@@ -1041,7 +1048,7 @@ Remote EXecute SEXP.
 VARs are a list of saved variables visible in the other forms.  Each
 VAR is either a symbol or a list (VAR INIT-VALUE).
 
-SEXP is evaluated and the princed version is sent to Lisp.
+SEXP is evaluated and the printed version is sent to Lisp.
 
 PACKAGE is evaluated and Lisp binds *BUFFER-PACKAGE* to this package.
 The default value is (scion-current-package).
@@ -1054,18 +1061,20 @@ asynchronously.
 
 Note: don't use backquote syntax for SEXP, because Emacs20 cannot
 deal with that."
-  (let ((result (gensym)))
+  (let ((result (gensym))
+	(gsexp (gensym)))
     `(lexical-let ,(loop for var in saved-vars
                          collect (etypecase var
                                    (symbol (list var var))
                                    (cons var)))
-       (scion-dispatch-event 
-        (list :emacs-rex ,sexp ,package ,thread
-              (lambda (,result)
-                (destructure-case ,result
-                  ,@continuations)))))))
-
-
+       (let ((,gsexp ,sexp))
+	 (scion-dispatch-event 
+	  (list :method (car ,gsexp)
+		:params (cdr ,gsexp)
+		:package ,package
+		:continuation (lambda (,result)
+				(destructure-case ,result
+				  ,@continuations))))))))
 
 (defun scion-eval (sexp &optional package)
   "Evaluate EXPR on the Scion server and return the result."
@@ -1083,6 +1092,8 @@ deal with that."
             (error "Reply to canceled synchronous eval request tag=%S sexp=%S"
                    tag sexp))
           (throw tag (list #'identity value)))
+	 ((:error msg)
+	  (throw tag (list #'error (format "Scion Eval Error: %s" msg))))
          ((:abort)
           (throw tag (list #'error "Synchronous Remote Evaluation aborted"))))
        (let ((debug-on-quit t)
@@ -1098,9 +1109,12 @@ deal with that."
   (scion-rex (cont (buffer (current-buffer)))
 	(sexp (or package (scion-current-package)))
     ((:ok result)
+     (print result)
      (when cont
        (set-buffer buffer)
        (funcall cont result)))
+    ((:error msg)
+     (message "Scion Eval Async: %s" msg))
     ((:abort)
      (message "Evaluation aborted."))))
 
@@ -1128,46 +1142,42 @@ deal with that."
 (defun scion-dispatch-event (event &optional process)
   (let ((scion-dispatching-connection (or process (scion-connection))))
     (or (run-hook-with-args-until-success 'scion-event-hooks event)
-        (destructure-case event
-;;           ((:write-string output &optional target)
-;;            (scion-write-string output target))
-          ((:emacs-rex form package thread continuation)
-           (when (and (scion-use-sigint-for-interrupt) (scion-busy-p))
-             (scion-display-oneliner "; pipelined request... %S" form))
-           (let ((id (incf (scion-continuation-counter))))
-             (push (cons id continuation) (scion-rex-continuations))
-             (scion-send `(:emacs-rex ,form 
-				      ;,package ,thread 
-				      ,id))))
-          ((:return value id)
-           (let ((rec (assq id (scion-rex-continuations))))
-             (cond (rec (setf (scion-rex-continuations)
-                              (remove rec (scion-rex-continuations)))
-                        (funcall (cdr rec) value))
-                   (t
-                    (error "Unexpected reply: %S %S" id value)))))
-          ((:emacs-interrupt thread)
-           (scion-send `(:emacs-interrupt ,thread)))
-;;           ((:read-string thread tag)
-;;            (assert thread)
-;;            (scion-repl-read-string thread tag))
-          ((:emacs-return-string thread tag string)
-           (scion-send `(:emacs-return-string ,thread ,tag ,string)))
-          ((:eval-no-wait fun args)
-           (apply (intern fun) args))
-;;           ((:eval thread tag form-string)
-;;            (scion-check-eval-in-emacs-enabled)
-;;            (scion-eval-for-lisp thread tag form-string))
-          ((:emacs-return thread tag value)
-           (scion-send `(:emacs-return ,thread ,tag ,value)))
-          ((:ping thread tag)
-           (scion-send `(:emacs-pong ,thread ,tag)))
-          ((:reader-error packet condition)
-           (scion-with-popup-buffer ("*Scion Error*")
-             (princ (format "Invalid protocol message:\n%s\n\n%S"
-                            condition packet))
-             (goto-char (point-min)))
-           (error "Invalid protocol message"))))))
+	(destructuring-bind (&key method error result params id
+				  continuation package
+				  &allow-other-keys)
+	    event
+	  (cond
+	   ((and method)
+	    ;; we're trying to send a message
+	    (when (and (scion-use-sigint-for-interrupt) (scion-busy-p))
+	      (scion-display-oneliner "; pipelined request... %S" form))
+	    (let ((id (incf (scion-continuation-counter))))
+	      (push (cons id continuation) (scion-rex-continuations))
+	      (scion-send `(:method ,method
+			    :params ,params
+			    :id ,id))))
+	   ((and (or error result) id)
+	    (let ((value nil))
+	      (if error
+		  (destructuring-bind (&key name message) error
+		    (if (string= name "MalformedRequest")
+			(progn
+			  (scion-with-popup-buffer ("*Scion Error*")
+			    (princ (format "Invalid protocol message:\n%s"
+					   event))
+			    (goto-char (point-min)))
+			  (error "Invalid protocol message"))
+		      (setq value (list :error message))))
+		(setq value (list :ok result)))
+	      
+	      ;; we're receiving the result of a remote call
+	      (let ((rec (assq id (scion-rex-continuations))))
+		(print value)
+		(cond (rec (setf (scion-rex-continuations)
+				 (remove rec (scion-rex-continuations)))
+			   (funcall (cdr rec) value))
+		    (t
+		     (error "Unexpected reply: %S %S" id value)))))))))))
 
 (defun scion-send (sexp)
   "Send SEXP directly over the wire on the current connection."
@@ -1176,7 +1186,7 @@ deal with that."
 (defun scion-stop-server ()
   "Stop the server we are currently connected to."
   (interactive)
-  (scion-send '(:quit)))
+  (scion-send '(:method :quit :params nil :id -1)))
 
 
 (defun scion-use-sigint-for-interrupt (&optional connection)
@@ -2323,7 +2333,7 @@ loaded."
 
 (defun scion-load-component% (comp)
   (message "Loading %s..." (scion-format-component comp))
-  (scion-eval-async `(load ,comp)
+  (scion-eval-async `(load :component ,comp)
     (scion-handling-failure (result)
       (scion-report-compilation-result result))))
 

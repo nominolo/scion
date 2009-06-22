@@ -1,4 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables, CPP, PatternGuards #-}
+{-# LANGUAGE ScopedTypeVariables, CPP, PatternGuards, 
+             ExistentialQuantification #-} -- for 'Cmd'
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -- |
 -- Module      : Scion.Server.Commands
@@ -11,13 +12,17 @@
 --
 -- Commands provided by the server.
 --
-module Scion.Server.Commands ( allCommands, 
+-- TODO: Need some way to document the wire protocol.  Autogenerate?
+--
+module Scion.Server.Commands ( 
+  handleRequest, malformedRequest, -- allCommands, allCommands',
   -- these are reused in the vim interface 
-  supportedPragmas, allExposedModules
+  supportedPragmas, allExposedModules,
 ) where
 
 import Prelude as P
 import Scion.Types
+import Scion.Types.Notes
 import Scion.Utils
 import Scion.Session
 import Scion.Server.Protocol
@@ -25,11 +30,11 @@ import Scion.Inspect
 import Scion.Inspect.DefinitionSite
 import Scion.Configure
 
+import DynFlags ( supportedLanguages, allFlags )
+import Exception
 import FastString
 import GHC
 import PprTyThing ( pprTypeForUser )
-import Exception
-import DynFlags ( supportedLanguages, allFlags )
 import Outputable ( ppr, showSDoc, showSDocDump, dcolon, showSDocForUser,
                     showSDocDebug )
 import qualified Outputable as O ( (<+>), ($$) )
@@ -37,12 +42,14 @@ import qualified Outputable as O ( (<+>), ($$) )
 import Control.Applicative
 import Control.Monad
 import Data.List ( nub )
-import Text.ParserCombinators.ReadP
-import qualified Data.Map as M
+import Data.Time.Clock  ( NominalDiffTime )
 import System.Exit ( ExitCode(..) )
+import Text.JSON
+import qualified Data.Map as M
+import qualified Data.MultiSet as MS
 
-import qualified Distribution.PackageDescription as PD
 import Distribution.Text ( display )
+import qualified Distribution.PackageDescription as PD
 import GHC.SYB.Utils
 
 #ifndef HAVE_PACKAGE_DB_MODULES
@@ -54,36 +61,116 @@ import Distribution.InstalledPackageInfo
 
 ------------------------------------------------------------------------
 
-instance Applicative ReadP where
-  pure x = return x
-  x <*> y = x `ap` y
+lookupKey :: JSON a => JSObject JSValue -> String -> Result a
+lookupKey = flip valFromObj
+
+makeObject :: [(String, JSValue)] -> JSValue
+makeObject = makeObj
 
 ------------------------------------------------------------------------------
 
+type KeepGoing = Bool
+
+handleRequest :: JSValue -> ScionM (JSValue, KeepGoing)
+handleRequest (JSObject req) =
+  let request = do JSString method <- lookupKey req "method"
+                   params <- lookupKey req "params"
+                   seq_id <- lookupKey req "id"
+                   return (fromJSString method, params, seq_id)
+  in 
+  case request of
+    Error _ -> return (malformedRequest, True)
+    Ok (method, params, seq_id) 
+     | method == "quit" -> return (makeObject 
+                             [("version", str "0.1")
+                             ,("result", JSNull)
+                             ,("id", seq_id)], False)
+     | otherwise ->
+      case M.lookup method allCmds of
+        Nothing -> return (unknownCommand seq_id, True)
+        Just (Cmd _ arg_parser) ->
+          decode_params params arg_parser seq_id
+ where
+   decode_params JSNull arg_parser seq_id =
+       decode_params (makeObject []) arg_parser seq_id
+   decode_params (JSObject args) arg_parser seq_id =
+     case unPa arg_parser args of
+       Left err -> return (paramParseError seq_id err, True)
+       Right act -> do
+           r <- handleScionException act
+           case r of
+             Error msg -> return (commandExecError seq_id msg, True)
+             Ok a ->
+                 return (makeObject 
+                    [("version", str "0.1")
+                    ,("id", seq_id)
+                    ,("result", showJSON a)], True)
+   decode_params _ _ seq_id =
+     return (paramParseError seq_id "Params not an object", True)
+  
+handleRequest _ = do
+  return (malformedRequest, True)
+                               
+malformedRequest :: JSValue
+malformedRequest = makeObject 
+ [("version", str "0.1")
+ ,("error", makeObject 
+    [("name", str "MalformedRequest")
+    ,("message", str "Request was not a proper request object.")])]
+
+unknownCommand :: JSValue -> JSValue
+unknownCommand seq_id = makeObject 
+ [("version", str "0.1")
+ ,("id", seq_id)
+ ,("error", makeObject 
+    [("name", str "UnknownCommand")
+    ,("message", str "The requested method is not supported.")])]
+
+paramParseError :: JSValue -> String -> JSValue
+paramParseError seq_id msg = makeObject
+ [("version", str "0.1")
+ ,("id", seq_id)
+ ,("error", makeObject 
+    [("name", str "ParamParseError")
+    ,("message", str msg)])]
+
+commandExecError :: JSValue -> String -> JSValue
+commandExecError seq_id msg = makeObject
+ [("version", str "0.1")
+ ,("id", seq_id)
+ ,("error", makeObject 
+    [("name", str "CommandFailed")
+    ,("message", str msg)])]
+
+allCmds :: M.Map String Cmd
+allCmds = M.fromList [ (cmdName c, c) | c <- allCommands ]
+
+------------------------------------------------------------------------
+
 -- | All Commands supported by this Server.
-allCommands :: [Command]
+allCommands :: [Cmd]
 allCommands = 
     [ cmdConnectionInfo
     , cmdOpenCabalProject
     , cmdConfigureCabalProject
     , cmdLoadComponent
-    , cmdCurrentComponent
-    , cmdCurrentCabalFile
-    , cmdListCabalComponents
     , cmdListSupportedLanguages
     , cmdListSupportedPragmas
     , cmdListSupportedFlags
+    , cmdListCabalComponents
     , cmdListRdrNamesInScope
     , cmdListExposedModules
-    , cmdSetGHCVerbosity
-    , cmdBackgroundTypecheckFile
-    , cmdForceUnload
-    , cmdAddCmdLineFlag
-    , cmdThingAtPoint
-    , cmdDumpSources
-    , cmdLoad
+    , cmdCurrentComponent
+    , cmdCurrentCabalFile
     , cmdSetVerbosity
     , cmdGetVerbosity
+    , cmdLoad
+    , cmdDumpSources
+    , cmdThingAtPoint
+    , cmdSetGHCVerbosity
+    , cmdBackgroundTypecheckFile
+    , cmdAddCmdLineFlag
+    , cmdForceUnload
     , cmdDumpDefinedNames
     , cmdDefinedNames
     , cmdNameDefinitions
@@ -91,17 +178,11 @@ allCommands =
 
 ------------------------------------------------------------------------------
 
-toString :: Sexp s => s -> String
-toString s = toSexp s ""
-
-data OkErr a = Ok a | Error String
-instance Sexp a => Sexp (OkErr a) where
-  toSexp (Ok a) = parens (showString ":ok " . toSexp a)
-  toSexp (Error e) = parens (showString ":error " . toSexp e)
+type OkErr a = Result a
 
 -- encode expected errors as proper return values
 handleScionException :: ScionM a -> ScionM (OkErr a)
-handleScionException m = (((do
+handleScionException m = ((((do
    r <- m
    return (Ok r)
   `gcatch` \(e :: SomeScionException) -> return (Error (show e)))
@@ -114,58 +195,190 @@ handleScionException m = (((do
   `gcatch` \(e :: ExitCode) -> 
                 -- client code may not exit the server!
                 return (Error (show e)))
+  `gcatch` \(e :: IOError) ->
+                return (Error (show e)))
 --   `gcatch` \(e :: SomeException) ->
 --                 liftIO (print e) >> liftIO (throwIO e)
 
 ------------------------------------------------------------------------------
 
+newtype Pa a = Pa { unPa :: JSObject JSValue -> Either String a }
+instance Monad Pa where
+  return x = Pa $ \_ -> Right x
+  m >>= k = Pa $ \req -> 
+            case unPa m req of
+              Left err -> Left err
+              Right a -> unPa (k a) req
+  fail msg = Pa $ \_ -> Left msg
+
+withReq :: (JSObject JSValue -> Pa a) -> Pa a
+withReq f = Pa $ \req -> unPa (f req) req
+
+reqArg' :: JSON a => String -> (a -> b) -> (b -> r) -> Pa r
+reqArg' name trans f = withReq $ \req ->
+    case lookupKey req name of
+      Error _ -> fail $ "required arg missing: " ++ name
+      Ok x ->
+          case readJSON x of
+            Error m -> fail $ "could not decode: " ++ name ++ " - " ++ m
+            Ok a -> return (f (trans a))
+
+optArg' :: JSON a => String -> b -> (a -> b) -> (b -> r) -> Pa r
+optArg' name dflt trans f = withReq $ \req ->
+    case lookupKey req name of
+      Error _ -> return (f dflt)
+      Ok x -> 
+          case readJSON x of
+            Error n -> fail $ "could not decode: " ++ name ++ " - " ++ n
+            Ok a -> return (f (trans a))
+
+reqArg :: JSON a => String -> (a -> r) -> Pa r
+reqArg name f = reqArg' name id f
+
+optArg :: JSON a => String -> a -> (a -> r) -> Pa r
+optArg name dflt f = optArg' name dflt id f
+
+noArgs :: r -> Pa r
+noArgs = return
+
+infixr 1 <&>
+
+-- | Combine two arguments.
+--
+-- TODO: explain type
+(<&>) :: (a -> Pa b)
+      -> (b -> Pa c)
+      -> a -> Pa c
+a1 <&> a2 = \f -> do f' <- a1 f; a2 f'
+
+data Cmd = forall a. JSON a => Cmd String (Pa (ScionM a))
+
+cmdName :: Cmd -> String
+cmdName (Cmd n _) = n
+
+------------------------------------------------------------------------
+
 -- | Used by the client to initialise the connection.
-cmdConnectionInfo :: Command
-cmdConnectionInfo = Command (string "connection-info" >> return (toString `fmap` c))
+cmdConnectionInfo :: Cmd
+cmdConnectionInfo = Cmd "connection-info" $ noArgs worker
   where
-    c = do let pid = 0
-           return $ M.fromList 
-              [ (K "version", scionVersion)
-              , (K "pid",     pid)
-              ]
+    worker = let pid = 0 :: Int in
+             return $ makeObject
+               [("version", showJSON scionVersion)
+               ,("pid",     showJSON pid)]
 
-cmdOpenCabalProject :: Command
+cmdOpenCabalProject :: Cmd
 cmdOpenCabalProject =
-    Command (do string "open-cabal-project" >> sp
-                root_dir <- getString
-                dist_dir <- sp >> getString
-                extra_args <- sp >> getString
-                return (toString `fmap` cmd root_dir dist_dir (words extra_args)))
-  where
-    cmd path rel_dist extra_args = handleScionException $ do
-        openOrConfigureCabalProject path rel_dist extra_args
-        preprocessPackage rel_dist
-        (display . PD.package) `fmap` currentCabalPackage
+  Cmd "open-cabal-project" $
+    reqArg' "root-dir" fromJSString <&>
+    optArg' "dist-dir" ".dist-scion" fromJSString <&>
+    optArg' "extra-args" "" fromJSString $ worker
+ where
+   worker root_dir dist_dir extra_args = do
+        openOrConfigureCabalProject root_dir dist_dir (words extra_args)
+        preprocessPackage dist_dir
+        (toJSString . display . PD.package) `fmap` currentCabalPackage
 
-cmdConfigureCabalProject :: Command
+cmdConfigureCabalProject :: Cmd
 cmdConfigureCabalProject =
-    Command (do string "configure-cabal-project" >> sp
-                root_dir <- getString
-                dist_dir <- sp >> getString
-                extra_args <- sp >> getString
-                return (toString `fmap` cmd root_dir dist_dir (words extra_args)))
+  Cmd "configure-cabal-project" $
+    reqArg' "root-dir" fromJSString <&>
+    optArg' "dist-dir" ".dist-scion" fromJSString <&>
+    optArg' "extra-args" "" fromJSString $ cmd
   where
-    cmd path rel_dist extra_args = handleScionException $ do
-        configureCabalProject path rel_dist extra_args
+    cmd path rel_dist extra_args = do
+        configureCabalProject path rel_dist (words extra_args)
         preprocessPackage rel_dist
-        (display . PD.package) `fmap` currentCabalPackage
+        (toJSString . display . PD.package) `fmap` currentCabalPackage
 
-cmdLoadComponent :: Command
+instance JSON Component where
+  readJSON (JSObject obj)
+    | Ok JSNull <- lookupKey obj "library" = return Library
+    | Ok s <- lookupKey obj "executable" =
+        return $ Executable (fromJSString s)
+    | Ok s <- lookupKey obj "file" =
+        return $ File (fromJSString s)
+  readJSON _ = fail "component"
+
+  showJSON Library = makeObject [("library", JSNull)]
+  showJSON (Executable n) =
+      makeObject [("executable", JSString (toJSString n))]
+  showJSON (File n) =
+      makeObject [("file", JSString (toJSString n))]
+
+instance JSON CompilationResult where
+  showJSON (CompilationResult suc notes time) =
+      makeObject [("succeeded", JSBool suc)
+                 ,("notes", showJSON notes)
+                 ,("duration", showJSON time)]
+  readJSON (JSObject obj) = do
+      JSBool suc <- lookupKey obj "succeeded"
+      notes <- readJSON =<< lookupKey obj "notes"
+      dur <- readJSON =<< lookupKey obj "duration"
+      return (CompilationResult suc notes dur)
+  readJSON _ = fail "compilation-result"
+
+instance (Ord a, JSON a) => JSON (MS.MultiSet a) where
+  showJSON ms = showJSON (MS.toList ms)
+  readJSON o = MS.fromList <$> readJSON o
+
+instance JSON Note where
+  showJSON (Note note_kind loc msg) =
+    makeObject [("kind", showJSON note_kind)
+               ,("location", showJSON loc)
+               ,("message", JSString (toJSString msg))]
+  readJSON (JSObject obj) = do
+    note_kind <- readJSON =<< lookupKey obj "kind"
+    loc <- readJSON =<< lookupKey obj "location"
+    JSString s <- lookupKey obj "message"
+    return (Note note_kind loc (fromJSString s))
+  readJSON _ = fail "note"
+
+str :: String -> JSValue
+str = JSString . toJSString
+
+instance JSON NoteKind where
+  showJSON ErrorNote   = JSString (toJSString "error")
+  showJSON WarningNote = JSString (toJSString "warning")
+  showJSON InfoNote    = JSString (toJSString "info")
+  showJSON OtherNote   = JSString (toJSString "other")
+  readJSON (JSString s) =
+      case lookup (fromJSString s) 
+               [("error", ErrorNote), ("warning", WarningNote)
+               ,("info", InfoNote), ("other", OtherNote)]
+      of Just x -> return x
+         Nothing -> fail "note-kind"
+  readJSON _ = fail "note-kind"
+
+instance JSON Location where
+  showJSON loc | (src, l0, c0, l1, c1) <- viewLoc loc =
+    makeObject [case src of
+                  FileSrc f -> ("file", str (show f))
+                  OtherSrc s -> ("other", str s)
+               ,("region", JSArray (map showJSON [l0,c0,l1,c1]))]
+  readJSON (JSObject obj) = do
+    src <- (do JSString f <- lookupKey obj "file"
+               return (FileSrc (mkAbsFilePath "/" (fromJSString f))))
+           <|>
+           (do JSString s <- lookupKey obj "other"
+               return (OtherSrc (fromJSString s)))
+    JSArray ls <- lookupKey obj "region"
+    case mapM readJSON ls of
+      Ok [l0,c0,l1,c1] -> return (mkLocation src l0 c0 l1 c1)
+      _ -> fail "region"
+  readJSON _ = fail "location"
+                      
+instance JSON NominalDiffTime where
+  showJSON t = JSRational True (fromRational (toRational t))
+  readJSON (JSRational _ n) = return $ fromRational (toRational n)
+  readJSON _ = fail "diff-time"
+
+cmdLoadComponent :: Cmd
 cmdLoadComponent =
-    Command $ do
-      string "load-component" >> sp
-      comp <- choice 
-                [ string "library" >> return Library
-                , inParens $ 
-                    string "executable" >> liftM Executable (getString)]
-      return (toString `fmap` cmd comp)
+  Cmd "load-component" $
+    reqArg "component" $ cmd
   where
-    cmd comp = handleScionException $ do
+    cmd comp = do
       loadComponent comp
         
 instance Sexp CompilationResult where
@@ -177,17 +390,13 @@ instance Sexp CompilationResult where
         toSexp (ExactSexp (showString (show 
                   (fromRational (toRational time) :: Float))))
 
-cmdListSupportedLanguages :: Command
-cmdListSupportedLanguages =
-    Command $ do
-      string "list-supported-languages"
-      return (return (toString (Lst supportedLanguages)))
+cmdListSupportedLanguages :: Cmd
+cmdListSupportedLanguages = Cmd "list-supported-languages" $ noArgs cmd
+  where cmd = return (map toJSString supportedLanguages)
 
-cmdListSupportedPragmas :: Command
-cmdListSupportedPragmas =
-    Command $ do
-      string "list-supported-pragmas"
-      return (return (toString (Lst supportedPragmas)))
+cmdListSupportedPragmas :: Cmd
+cmdListSupportedPragmas = 
+    Cmd "list-supported-pragmas" $ noArgs $ return supportedPragmas
 
 supportedPragmas :: [String]
 supportedPragmas =
@@ -197,29 +406,21 @@ supportedPragmas =
     , "LINE" -- XXX: only used by code generators, still include?
     ]
 
-cmdListSupportedFlags :: Command
+cmdListSupportedFlags :: Cmd
 cmdListSupportedFlags =
-    Command $ do
-      string "list-supported-flags"
-      return (return (toString (Lst (nub allFlags))))
+  Cmd "list-supported-flags" $ noArgs $ return (nub allFlags)
 
-cmdListRdrNamesInScope :: Command
+cmdListRdrNamesInScope :: Cmd
 cmdListRdrNamesInScope =
-    Command $ do
-      string "list-rdr-names-in-scope"
-      return $ do
-        rdr_names <- getNamesInScope
-        return (toString (Lst (map (showSDoc . ppr) rdr_names)))
+    Cmd "list-rdr-names-in-scope" $ noArgs $ cmd
+  where cmd = do
+          rdr_names <- getNamesInScope
+          return (map (showSDoc . ppr) rdr_names)
 
-
-cmdListCabalComponents :: Command
+cmdListCabalComponents :: Cmd
 cmdListCabalComponents =
-   Command $ do
-     string "list-cabal-components" >> sp
-     cabal_file <- getString
-     return $
-       toString `fmap` (handleScionException $
-         Lst `fmap` cabalProjectComponents cabal_file)
+    Cmd "list-cabal-components" $ reqArg' "cabal-file" fromJSString $ cmd
+  where cmd cabal_file = cabalProjectComponents cabal_file
 
 allExposedModules :: ScionM [ModuleName]
 #ifdef HAVE_PACKAGE_DB_MODULES
@@ -232,60 +433,39 @@ allExposedModules = do
    return $ P.concat (map exposedModules (filter exposed (eltsUFM pkg_db)))
 #endif
 
-cmdListExposedModules :: Command
-cmdListExposedModules =
-    Command $ do
-      string "list-exposed-modules"
-      return $ do
-        mod_names <- allExposedModules
-        return $ toString $ Lst $
-          map (showSDoc . ppr) mod_names
+cmdListExposedModules :: Cmd
+cmdListExposedModules = Cmd "list-exposed-modules" $ noArgs $ cmd
+  where cmd = do
+          mod_names <- allExposedModules
+          return $ map (showSDoc . ppr) mod_names
 
-cmdSetGHCVerbosity :: Command
+cmdSetGHCVerbosity :: Cmd
 cmdSetGHCVerbosity =
-    Command $ do
-      string "set-ghc-verbosity" >> sp
-      lvl <- getInt
-      return $ do
-        toString `fmap` setGHCVerbosity lvl
+    Cmd "set-ghc-verbosity" $ reqArg "level" $ setGHCVerbosity
 
-cmdBackgroundTypecheckFile :: Command
-cmdBackgroundTypecheckFile =
-    Command $ do
-      string "background-typecheck-file" >> sp
-      fname <- getString
-      return $ do
-        toString `fmap` (handleScionException $ backgroundTypecheckFile fname)
+cmdBackgroundTypecheckFile :: Cmd
+cmdBackgroundTypecheckFile = 
+    Cmd "background-typecheck-file" $ reqArg' "file" fromJSString $ cmd
+  where cmd fname = backgroundTypecheckFile fname
 
-cmdForceUnload :: Command
-cmdForceUnload =
-    Command $ do
-      string "force-unload"
-      return $
-        toString `fmap` (handleScionException $ unload)
+cmdForceUnload :: Cmd
+cmdForceUnload = Cmd "force-unload" $ noArgs $ unload
 
-cmdAddCmdLineFlag :: Command
-cmdAddCmdLineFlag =
-    Command $ do
-      string "add-command-line-flag" >> sp
-      str <- getString
-      return $
-        toString `fmap` (handleScionException $ addCmdLineFlags [str] >> return ())
+cmdAddCmdLineFlag :: Cmd
+cmdAddCmdLineFlag = 
+    Cmd "add-command-line-flag" $ reqArg' "flag" fromJSString $ cmd
+  where cmd flag = addCmdLineFlags [flag] >> return JSNull
 
-cmdThingAtPoint :: Command
+cmdThingAtPoint :: Cmd
 cmdThingAtPoint =
-    Command $ do
-      string "thing-at-point" >> sp
-      fname <- getString
-      sp
-      line <- getInt
-      sp
-      col <- getInt
-      return $ toString `fmap` cmd fname line col
+    Cmd "thing-at-point" $
+      reqArg "file" <&> reqArg "line" <&> reqArg "column" $ cmd
   where
-    cmd fname line col = handleScionException $ do
+    cmd fname line col = do
       let loc = srcLocSpan $ mkSrcLoc (fsLit fname) line col
       tc_res <- gets bgTcCache
+      -- TODO: don't return something of type @Maybe X@.  The default
+      -- serialisation sucks.
       case tc_res of
         Just (Typechecked tcm) -> do
             --let Just (src, _, _, _, _) = renamedSource tcm
@@ -307,84 +487,60 @@ cmdThingAtPoint =
                   _ -> return (Just (showSDocDebug (ppr x O.$$ ppr xs )))
         _ -> return Nothing
 
-cmdDumpSources :: Command
-cmdDumpSources =
-    Command $ do
-      string "dump-sources"
-      return $ toString `fmap` cmd
-  where cmd = handleScionException $ do
-          tc_res <- gets bgTcCache
-          case tc_res of
-            Just (Typechecked tcm) -> do
-              let Just (rn, _, _, _, _) = renamedSource tcm
-              let tc = typecheckedSource tcm
-              liftIO $ putStrLn $ showSDocDump $ ppr rn
-              liftIO $ putStrLn $ showData TypeChecker 2 tc
-              return ()
-            _ -> return ()
+cmdDumpSources :: Cmd
+cmdDumpSources = Cmd "dump-sources" $ noArgs $ cmd
+  where 
+    cmd = do
+      tc_res <- gets bgTcCache
+      case tc_res of
+        Just (Typechecked tcm) -> do
+          let Just (rn, _, _, _, _) = renamedSource tcm
+          let tc = typecheckedSource tcm
+          liftIO $ putStrLn $ showSDocDump $ ppr rn
+          liftIO $ putStrLn $ showData TypeChecker 2 tc
+          return ()
+        _ -> return ()
 
-parseComponent :: ReadP Component
-parseComponent =
-   choice [ Library <$ string ":library"
-          , inParens $ Executable <$> (string ":executable" *> sp *> getString)
-          , inParens $ File <$> (string ":file" *> sp *> getString) 
-          ]
-
-cmdLoad :: Command
-cmdLoad =
-  Command $ do
-    comp <- string "load" *> sp *> parseComponent
-    return $ toString <$> (do
+cmdLoad :: Cmd
+cmdLoad = Cmd "load" $ reqArg "component" $ cmd
+  where
+    cmd comp = do
       liftIO (putStrLn $ "Loading " ++ show comp)
-      handleScionException (loadComponent comp))
+      loadComponent comp
 
-cmdSetVerbosity :: Command
-cmdSetVerbosity =
-  Command $ do
-    v <- string "set-verbosity" *> sp *> getInt
-    return $ toString <$> setVerbosity (intToVerbosity v)
+cmdSetVerbosity :: Cmd
+cmdSetVerbosity = 
+    Cmd "set-verbosity" $ reqArg "level" $ cmd
+  where cmd v = setVerbosity (intToVerbosity v)
 
-cmdGetVerbosity :: Command
-cmdGetVerbosity =
-  Command $ do
-    string "get-verbosity"
-    return $ toString <$> verbosityToInt <$> getVerbosity
+cmdGetVerbosity :: Cmd
+cmdGetVerbosity = Cmd "get-verbosity" $ noArgs $ verbosityToInt <$> getVerbosity
 
-cmdCurrentComponent :: Command
-cmdCurrentComponent =
-  Command $ do
-    string "current-component"
-    return $ toString <$> getActiveComponent
+cmdCurrentComponent :: Cmd
+cmdCurrentComponent = Cmd "current-component" $ noArgs $ getActiveComponent
 
-cmdCurrentCabalFile :: Command
-cmdCurrentCabalFile =
-  Command $ do
-    string "current-cabal-file"
-    return $ toString <$> (do
-      r <- gtry currentCabalFile
-      case r of
-        Right f -> return (Just f)
-        Left (_::SomeScionException) -> return Nothing)
+cmdCurrentCabalFile :: Cmd
+cmdCurrentCabalFile = Cmd "current-cabal-file" $ noArgs $ cmd
+  where cmd = do
+          r <- gtry currentCabalFile
+          case r of
+            Right f -> return (showJSON f)
+            Left (_::SomeScionException) -> return JSNull
 
-cmdDumpDefinedNames :: Command
-cmdDumpDefinedNames =
-  Command $ do
-    string "dump-defined-names"
-    return $ toString <$> ((do
-          db <- gets defSiteDB
-          liftIO $ putStrLn $ dumpDefSiteDB db))
+cmdDumpDefinedNames :: Cmd
+cmdDumpDefinedNames = Cmd "dump-defined-names" $ noArgs $ cmd
+  where
+    cmd = do db <- gets defSiteDB
+             liftIO $ putStrLn $ dumpDefSiteDB db
 
-cmdDefinedNames :: Command
-cmdDefinedNames =
-  Command $ do
-    string "defined-names"
-    return $ (toString . Lst . definedNames <$> gets defSiteDB)
+cmdDefinedNames :: Cmd
+cmdDefinedNames = Cmd "defined-names" $ noArgs $ cmd
+  where cmd = definedNames <$> gets defSiteDB
 
-cmdNameDefinitions :: Command
+cmdNameDefinitions :: Cmd
 cmdNameDefinitions =
-  Command $ do
-    nm <- string "name-definitions" *> sp *> getString
-    return $ toString <$> (do
-      db <- gets defSiteDB
-      let locs = map fst $ lookupDefSite db nm
-      return (Lst locs))
+    Cmd "name-definitions" $ reqArg' "name" fromJSString $ cmd
+  where cmd nm = do
+          db <- gets defSiteDB
+          let locs = map fst $ lookupDefSite db nm
+          return locs
