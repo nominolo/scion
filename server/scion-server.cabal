@@ -28,7 +28,7 @@ executable scion_server
                  scion        == 0.1.*,
                  multiset     == 0.1.*,
                  hslogger     == 1.0.*,
-                 parsec       == 3.0.*,
+                 parsec       >= 2 && < 4,
                  time         == 1.1.*,
                  json         == 0.4.*
                  
