@@ -32,8 +32,4 @@ executable scion_server
                  time         == 1.1.*,
                  json         == 0.4.*
                  
-  other-modules: Scion.Server.Emacs,
-                 Scion.Server.Commands,
-                 Scion.Server.Protocol
-
   ghc-options: -Wall
