@@ -34,7 +34,7 @@ import Scion (runScion)
 import Prelude hiding ( log )
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitSuccess)
-import System.IO (stdin, stdout, hSetBuffering, BufferMode(..))
+import System.IO (stdin, stdout, hSetBuffering, hFlush, BufferMode(..))
 import qualified System.Log.Logger as HL
 import qualified System.Log.Handler.Simple as HL
 import qualified System.Log.Handler.Syslog as HL
@@ -125,6 +125,7 @@ serve (TCPIP auto nr) = do
                    else listenOn (PortNumber nr)
   realNr <- liftIO $ socketPort sock
   putStrLn $ "=== Listening on port: " ++ show realNr
+  hFlush stdout
   forever $ E.handle (\(e::E.IOException) -> logInfo ("caught :" ++ (show e) ++ "\n\nwaiting for next client")) $ do
     (sock', _addr) <- liftIO $ accept sock
     sock_conn <- CIO.mkSocketConnection sock'
