@@ -1,6 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables, CPP #-}
 {-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, TypeSynonymInstances,
     FlexibleInstances, OverlappingInstances #-}
+{-# OPTIONS -Wnot #-}
 -- |
 -- Module      : Scion.Server.ProtocolVim
 -- License     : BSD-style
