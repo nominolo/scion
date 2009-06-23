@@ -39,7 +39,7 @@ $(DIST_SERVER)/setup-config: $(SETUP) server/scion-server.cabal $(DIST) $(DIST_L
 	                      --with-compiler=$(HC) --with-hc-pkg=$(PKG) \
 	                      --user $(CABAL_FLAGS) > ../$(DIST)/server-config-log)
 
-$(DIST_LIB)/build/libHSscion-0.1.a: $(SETUP) $(DIST_LIB)/setup-config lib/**/*.hs
+$(DIST_LIB)/build/libHSscion-0.1.a: $(SETUP) $(DIST_LIB)/setup-config lib/**/*.hs lib/**/**/*.hs
 	@echo === Building scion ===
 	@cd lib && \
         ../$(SETUP) build --builddir=../$(DIST_LIB)
