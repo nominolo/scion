@@ -474,7 +474,7 @@ line of the file."
   '((iso-latin-1-unix nil "iso-latin-1-unix")
     (iso-8859-1-unix  nil "iso-latin-1-unix")
     (binary           nil "iso-latin-1-unix")
-    ;; (utf-8-unix       t   "utf-8-unix")
+    (utf-8-unix       t   "utf-8-unix")
 ;;     (emacs-mule-unix  t   "emacs-mule-unix")
 ;;     (euc-jp-unix      t   "euc-jp-unix")
     )
@@ -574,10 +574,15 @@ EVAL'd by Lisp."
 
 (defun scion-net-filter (process string)
   "Accept output from the socket and process all complete messages."
-  (with-current-buffer (process-buffer process)
-    (goto-char (point-max))
-    (insert string))
-  (scion-process-available-input process))
+  (condition-case ex
+      (progn
+	(with-current-buffer (process-buffer process)
+	  (goto-char (point-max))
+	  (insert string))
+	(scion-process-available-input process))
+    ('error 
+     (message "Error in process filter: %s" ex)
+     nil)))
 
 (defun scion-process-available-input (process)
   "Process all complete messages that have arrived from Lisp."
@@ -622,7 +627,7 @@ EVAL'd by Lisp."
 	(json-array-type 'list))
     (let* ((start (point))
 	   (message (json-read))
-	   (end (1+ (point))))
+	   (end (min (1+ (point)) (point-max))))
       ;; TODO: handle errors somehow
       (delete-region start end)
       message)))
@@ -1109,7 +1114,6 @@ deal with that."
   (scion-rex (cont (buffer (current-buffer)))
 	(sexp (or package (scion-current-package)))
     ((:ok result)
-     (print result)
      (when cont
        (set-buffer buffer)
        (funcall cont result)))
@@ -1142,7 +1146,7 @@ deal with that."
 (defun scion-dispatch-event (event &optional process)
   (let ((scion-dispatching-connection (or process (scion-connection))))
     (or (run-hook-with-args-until-success 'scion-event-hooks event)
-	(destructuring-bind (&key method error result params id
+	(destructuring-bind (&key method error (result nil result-p) params id
 				  continuation package
 				  &allow-other-keys)
 	    event
@@ -1156,7 +1160,7 @@ deal with that."
 	      (scion-send `(:method ,method
 			    :params ,params
 			    :id ,id))))
-	   ((and (or error result) id)
+	   ((and (or error result-p) id)
 	    (let ((value nil))
 	      (if error
 		  (destructuring-bind (&key name message) error
@@ -1172,7 +1176,6 @@ deal with that."
 	      
 	      ;; we're receiving the result of a remote call
 	      (let ((rec (assq id (scion-rex-continuations))))
-		(print value)
 		(cond (rec (setf (scion-rex-continuations)
 				 (remove rec (scion-rex-continuations)))
 			   (funcall (cdr rec) value))
@@ -1186,8 +1189,8 @@ deal with that."
 (defun scion-stop-server ()
   "Stop the server we are currently connected to."
   (interactive)
-  (scion-send '(:method :quit :params nil :id -1)))
-
+  (scion-eval '(quit))
+  (scion-disconnect))
 
 (defun scion-use-sigint-for-interrupt (&optional connection)
   nil)
@@ -1565,55 +1568,43 @@ PREDICATE is executed in the buffer to test."
     (overlay-put overlay 'face 'secondary-selection)
     (run-with-timer (or timeout 0.2) nil 'delete-overlay overlay)))
 
-;;; the node representation
+;;; The node representation
 ;;;
-;;; (:warning <loc> message-string more-info-string)
-;;; (:error   <loc> message-string more-info-string)
-;;; 
-;;; <loc> ::= (:loc filename start-line start-col end-line end-col)
-;;;        |  (:no-loc text)
+;;; See Scion server JSON instances for details.
 
 (defun scion-note.message (note)
-  (destructure-case note
-     ((:warning loc msg info)
-      msg)
-     ((:error loc msg info)
-      msg)))
+  (plist-get note :message))
 
 (defun scion-note.filename (note)
-  (destructure-case (cadr note)
-    ((:loc fn sl sc el ec) fn)
-    ((:no-loc _)           nil)))
+  (let ((loc (scion-note.location note)))
+    (plist-get loc :file)))
 
 (defun scion-note.line (note)
-  (destructure-case (cadr note)
-    ((:loc fn sl sc el ec) sl)
-    ((:no-loc r)           nil)))
+  (when-let (region (plist-get (scion-note.location note) :region))
+    (destructuring-bind (sl sc el ec) region
+      sl)))
 
 (defun scion-note.col (note)
-  (destructure-case (cadr note)
-    ((:loc fn sl sc el ec) sc)
-    ((:no-loc r)           nil)))
+  (when-let (region (plist-get (scion-note.location note) :region))
+    (destructuring-bind (sl sc el ec) region
+      sc)))
 
 (defun scion-note.region (note buffer)
-  (destructuring-bind (tag loc msg more) note
-    (destructure-case loc
-      ((:loc filename sl sc el ec)
-       (if (equal (buffer-file-name buffer) filename)
-	   (scion-location-to-region sl sc el ec buffer)
-	 nil))
-      ((:no-loc _)
-       nil))))
+  (when-let (region (plist-get (scion-note.location note) :region))
+    (let ((filename (scion-note.filename note)))
+      (when (equal (buffer-file-name buffer) filename)
+	(destructuring-bind (sl sc el ec) region
+	  (scion-location-to-region sl sc el ec buffer))))))
 
 (defun scion-note.severity (note)
-  (car note))
+  (let ((k (plist-get note :kind)))
+    (cond 
+     ((string= k "warning") :warning)
+     ((string= k "error") :error)
+     (t :other))))
 
 (defun scion-note.location (note)
-  (destructure-case note
-    ((:warning loc msg info)
-     loc)
-    ((:error loc msg info)
-     loc)))
+  (plist-get note :location))
 
 (defun scion-location-to-region (start-line start-col end-line end-col
 				 &optional buffer)
@@ -1645,10 +1636,7 @@ TODO: Fix up locations if buffer has been modified in between."
 (defun scion-canonicalise-note-location (note)
   "Translate the note's location into absolute path names.
 Modifies input note."
-  (destructure-case (cadr note)
-    ((:loc fname _ _ _ _)
-     (setf (cadadr note)
-	   (expand-file-name fname scion-project-root-dir))))
+  ;; This should be done on the server now.
   note)
 
 ;;;;; Adding a single compiler note
@@ -1922,9 +1910,9 @@ command line tools.
 EXTRA-ARGS is a string of command line flags."
   (interactive (scion-interactive-configure-args))
   (lexical-let ((root-dir root-dir))
-    (scion-eval-async `(open-cabal-project ,(expand-file-name root-dir)
-					   ,rel-dist-dir
-					   ,extra-args)
+    (scion-eval-async `(open-cabal-project :root-dir ,(expand-file-name root-dir)
+					   :dist-dir ,rel-dist-dir
+					   :extra-args ,extra-args)
 		      (scion-handling-failure (x)
 			(setq scion-project-root-dir root-dir)
 			(message (format "Cabal project loaded: %s" x)))))
@@ -1955,9 +1943,9 @@ command line tools.
 EXTRA-ARGS is a string of command line flags."
   (interactive (scion-interactive-configure-args))
   (lexical-let ((root-dir root-dir))
-    (scion-eval-async `(configure-cabal-project ,(expand-file-name root-dir)
-						,rel-dist-dir
-						,extra-args)
+    (scion-eval-async `(configure-cabal-project :root-dir ,(expand-file-name root-dir)
+						:dist-dir ,rel-dist-dir
+						:extra-args ,extra-args)
       (scion-handling-failure (x)
 	(setq scion-project-root-dir root-dir)
 	(message (format "Cabal project loaded: %s" x))))))
@@ -1968,7 +1956,7 @@ EXTRA-ARGS is a string of command line flags."
 Sets the GHC flags for the library from the current Cabal project and loads it."
   (interactive)
   (message "Loading library...")
-  (scion-eval-async `(load-component :library)
+  (scion-eval-async `(load-component :component (:library nil))
     (scion-handling-failure (result)
       (scion-report-compilation-result result))))
 
@@ -1982,22 +1970,23 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
 
 
 (defun scion-report-compilation-result (result &optional buf)
-  (destructuring-bind (tag successp notes0 duration) result
-    (assert (eq tag 'compilation-result))
-    (multiple-value-bind (nwarnings nerrors)
-	(scion-count-notes notes0)
-      (let ((notes (scion-make-notes notes0)))
-	(setq scion-last-compilation-result
-	      (list tag successp notes duration))
-	(scion-highlight-notes notes buf)
-	(if (not buf)
-	    (progn
-	      (scion-show-note-counts successp nwarnings nerrors duration)
-	      (when (< 0 (+ nwarnings nerrors))
-		(scion-list-compiler-notes notes)))
-	  (scion-update-compilater-notes-buffer))
-	(scion-report-status (format ":%d/%d" nerrors nwarnings))
-	nil))))
+  (destructuring-bind (&key succeeded notes duration) result
+    (let ((tag 'compilation-result)
+	  (successp (if (eq succeeded json-false) nil t)))
+      (multiple-value-bind (nwarnings nerrors)
+	  (scion-count-notes notes)
+	(let ((notes (scion-make-notes notes)))
+	  (setq scion-last-compilation-result
+		(list tag successp notes duration))
+	  (scion-highlight-notes notes buf)
+	  (if (not buf)
+	      (progn
+		(scion-show-note-counts successp nwarnings nerrors duration)
+		(when (< 0 (+ nwarnings nerrors))
+		  (scion-list-compiler-notes notes)))
+	    (scion-update-compilater-notes-buffer))
+	  (scion-report-status (format ":%d/%d" nerrors nwarnings))
+	  nil)))))
 
 (defun scion-update-compilater-notes-buffer ()
   "Update the contents of the compilation notes buffer if it is open somewhere."
@@ -2075,7 +2064,7 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
 
 (defun scion-set-command-line-flag (flag)
   (interactive "sCommand Line Flag: ")
-  (scion-eval `(add-command-line-flag ,flag)))
+  (scion-eval `(add-command-line-flag :flag ,flag)))
 
 (defun scion-exposed-modules ()
   (scion-eval '(list-exposed-modules)))
@@ -2118,7 +2107,7 @@ installed packages (However, not of the current project.)"
 
 (defun scion-set-ghc-verbosity (n)
   (interactive "nLevel [0-5]: ")
-  (scion-eval `(set-ghc-verbosity ,n)))
+  (scion-eval `(set-ghc-verbosity :level ,n)))
 
 ;;;---------------------------------------------------------------------------
 
@@ -2249,16 +2238,14 @@ forces it to be off.  NIL toggles the current state."
     (let ((filename (buffer-file-name)))
       (setq scion-flycheck-is-running t)
       (scion-report-status ":-/-")
-      (scion-eval-async `(background-typecheck-file ,filename)
-	 (lambda (res)
+      (scion-eval-async `(background-typecheck-file :file ,filename)
+	 (lambda (result)
 	   (setq scion-flycheck-is-running nil)
-	   (funcall (scion-handling-failure (result)
-		      (destructuring-bind (ok comp-rslt) result
-			(if ok
-			    (scion-report-compilation-result comp-rslt 
-							     (current-buffer))
-			  (scion-report-status "[?]"))))
-		    res)
+	   (destructuring-bind (ok comp-rslt) result
+	     (if (not (eq ok :json-false))
+		 (scion-report-compilation-result comp-rslt 
+						  (current-buffer))
+	       (scion-report-status "[?]")))
 	   nil)))))
 
 (make-variable-buffer-local
@@ -2278,8 +2265,10 @@ forces it to be off.  NIL toggles the current state."
 	(line (line-number-at-pos))
 	(col (current-column)))
     (message 
-     (let ((rslt (scion-eval `(thing-at-point ,filename ,line ,col))))
-       (funcall (scion-handling-failure (r) r) rslt)))))
+     (let ((rslt (scion-eval `(thing-at-point :file ,filename 
+					      :line ,line 
+					      :column ,col))))
+       (funcall (lambda (r) (format "%s" (cadr r))) rslt)))))
 
 (defun scion-dump-sources ()
   (interactive)
@@ -2320,10 +2309,10 @@ loaded."
 	      (extra-args (read-from-minibuffer "Configure Flags: " "")))
 	  (lexical-let ((root-dir root-dir)
 			(comp comp))
-	    (scion-eval-async `(open-cabal-project ,(expand-file-name root-dir)
-						   ,rel-dist-dir
-						   ,extra-args)
-	      (scion-handling-failure (x)
+	    (scion-eval-async `(open-cabal-project :root-dir ,(expand-file-name root-dir)
+						   :dist-dir ,rel-dist-dir
+						   :extra-args ,extra-args)
+	      (lambda (x)
 		(setq scion-project-root-dir root-dir)
 		(message (format "Cabal project loaded: %s" x))
 		(scion-load-component% comp))))))))
@@ -2334,12 +2323,12 @@ loaded."
 (defun scion-load-component% (comp)
   (message "Loading %s..." (scion-format-component comp))
   (scion-eval-async `(load :component ,comp)
-    (scion-handling-failure (result)
+    (lambda (result)
       (scion-report-compilation-result result))))
 
 (defun scion-cabal-component-p (comp)
   (cond
-   ((eq comp :library)
+   ((eq (car comp) :library)
     t)
    ((and (consp comp)
 	 (eq (car comp)
@@ -2351,9 +2340,7 @@ loaded."
 (defun scion-select-component ()
   (let* ((cabal-dir (scion-cabal-root-dir))
 	 (cabal-file (ignore-errors (scion-cabal-file cabal-dir)))
-	 (cabal-components (ignore-errors
-			     (when cabal-file
-			       (scion-cabal-components cabal-file))))
+	 (cabal-components (ignore-errors (scion-cabal-components cabal-file)))
 	 (options (nconc cabal-components
 			 `((:file ,(buffer-file-name))))))
     (if (null (cdr options))
@@ -2364,14 +2351,14 @@ loaded."
 			 do (puthash (scion-format-component c) c disp->comp)
 			 collect (scion-format-component c))))
 	(gethash (scion-completing-read "Load Component: "
-				      opts
-				      nil
-				      t)
+					opts
+					nil
+					t)
 		 disp->comp)))))
 
 (defun scion-format-component (comp)
   (cond
-   ((eq comp :library)
+   ((eq (car comp) :library)
     "Library")
    ((eq (car comp) :executable)
     (format "Executable %s" (cadr comp)))
@@ -2385,12 +2372,8 @@ loaded."
   "Return list of components in CABAL-FILE.
 The result is a list where each element is either the symbol
 LIBRARY or (EXECUTABLE <name>)."
-  (let ((comps (scion-eval `(list-cabal-components ,cabal-file))))
-    (destructure-case comps
-      ((:ok cs)
-       cs)
-      ((:error _)
-       (error "Could not process .cabal file")))))
+  (let ((comps (scion-eval `(list-cabal-components :cabal-file ,cabal-file))))
+    comps))
 
 (defun scion-get-verbosity ()
   "Return the verbosity of the Scion server."
@@ -2399,7 +2382,7 @@ LIBRARY or (EXECUTABLE <name>)."
 
 (defun scion-set-verbosity (v)
   (interactive "nVerbosity[0-3]: ")
-  (scion-eval `(set-verbosity ,v)))
+  (scion-eval `(set-verbosity :level ,v)))
 
 (defun scion-defined-names ()
   (scion-eval '(defined-names)))
@@ -2418,11 +2401,11 @@ LIBRARY or (EXECUTABLE <name>)."
      (if (find dflt names :test #'string=)
 	 (list dflt)
        (list (scion-completing-read "Goto Definition: " names nil nil dflt)))))
-  (let ((sites (scion-eval `(name-definitions ,name))))
+  (let ((sites (scion-eval `(name-definitions :name ,name))))
     (if (not sites)
 	(message "No definition site known")
       (let* ((loc (car sites)) ;; XXX: deal with multiple locations
-	     (dummy-note (list :warning loc "definition" "")))
+	     (dummy-note (list :kind "warning" :location loc :message "definition")))
 	(scion-goto-source-location dummy-note)))))
 
 ;; Local Variables: 
