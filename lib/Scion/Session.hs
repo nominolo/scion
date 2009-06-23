@@ -536,6 +536,7 @@ backgroundTypecheckFile fname =
      prepareContext
   where
    prepareContext = do
+     message verbose $ "Preparing context for " ++ fname
      -- if it's the focused module, we know that the context is right
      mb_focusmod <- gets focusedModule
      case mb_focusmod of
@@ -545,7 +546,9 @@ backgroundTypecheckFile fname =
        _otherwise -> do
           mb_modsum <- filePathToProjectModule fname
           case mb_modsum of
-            Nothing -> return (False, mempty)
+            Nothing -> do
+              message verbose "Could not find file in module graph."
+              return (False, mempty)
             Just modsum -> do
               (_, rslt) <- setContextForBGTC modsum
               if compilationSucceeded rslt
@@ -618,9 +621,10 @@ filePathToProjectModule fname = do
    case [ m | m <- mod_graph
             , not (isBootSummary m)
             , Just src <- [ml_hs_file (ms_location m)]
-            , src == fname || src == rel_fname ]
-    of [ m ] -> return (Just m)
-       _     -> return Nothing  -- ambiguous or not present
+            , src == fname || src == rel_fname || src == "." </> rel_fname ]
+    of [ m ] -> do return (Just m)
+       _     -> do message verbose $ "No module found for " ++ fname
+                   return Nothing  -- ambiguous or not present
   `gcatch` \(_ :: NoCurrentCabalProject) -> return Nothing
 
 isPartOfProject :: FilePath -> ScionM Bool
