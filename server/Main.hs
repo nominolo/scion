@@ -45,7 +45,7 @@ import Network.Socket.ByteString
 import Data.List (isPrefixOf, break)
 import Data.Foldable (foldrM)
 import qualified Control.Exception as E
-import Control.Monad ( when, forever )
+import Control.Monad ( when, forever, liftM )
 import System.Console.GetOpt
 
 
@@ -58,7 +58,7 @@ logError = log HL.ERROR
 -- if you're paranoid about your code Socketfile or StdInOut
 -- will be the most secure choice.. (Everyone can connect via TCP/IP at the
 -- moment)
-data ConnectionMode = TCPIP PortNumber
+data ConnectionMode = TCPIP Bool PortNumber -- the Bool indicates whether to scan
                   | StdInOut
 #ifndef mingw32_HOST_OS
                   | Socketfile FilePath
@@ -67,15 +67,19 @@ data ConnectionMode = TCPIP PortNumber
 
 data StartupConfig = StartupConfig {
      connectionMode :: ConnectionMode,
+     autoPort :: Bool,
      showHelp :: Bool
   } deriving Show
-defaultStartupConfig = StartupConfig ( TCPIP (fromInteger 4005)) False
+defaultStartupConfig = StartupConfig (TCPIP False (fromInteger 4005)) False False
 
 -- options :: [OptDescr (Options -> Options)]
 options =
      [ Option ['p']     ["port"]
-       (ReqArg (\o opts -> return $ opts { connectionMode = (TCPIP . fromInteger) (read o) }) "8010")
+       (ReqArg (\o opts -> return $ opts { connectionMode = (TCPIP False . fromInteger) (read o) }) "8010")
        "listen on this TCP port"
+     , Option ['a'] ["autoport"]
+       (NoArg (\opts -> return $ opts { autoPort = True }))
+       "scan until a free TCP port is found"
      , Option ['i'] ["stdinout"]
        (NoArg (\opts -> return $ opts { connectionMode = StdInOut}))
        "client must connect to stdin and stdout"
@@ -103,10 +107,24 @@ helpText = do
     let header = unlines [ "usage of scion server (executable :"  ++ pN  ++ ")" ]
     return $ usageInfo header options
 
+-- attempts to listen on each port in the list in turn, and returns the first successful
+listenOnOneOf :: [PortID] -> IO Socket
+listenOnOneOf (p:ps) = catch
+    (listenOn p)
+    (\(ex :: IOError) -> if null ps then E.throwIO ex else listenOnOneOf ps)
+
+-- this way, we can iterate until we find a free port number
+instance Bounded PortNumber where
+    minBound = 0
+    maxBound = 0xFFFF
+
 serve :: ConnectionMode -> IO ()
-serve (TCPIP nr) = do
-  sock <- liftIO $ listenOn (PortNumber nr)
-  putStrLn $ "=== Listening on port: " ++ show nr
+serve (TCPIP auto nr) = do
+  sock <- liftIO $ if auto
+                   then listenOnOneOf (map PortNumber [nr..maxBound])
+                   else listenOn (PortNumber nr)
+  realNr <- liftIO $ socketPort sock
+  putStrLn $ "=== Listening on port: " ++ show realNr
   forever $ E.handle (\(e::E.IOException) -> logInfo ("caught :" ++ (show e) ++ "\n\nwaiting for next client")) $ do
     (sock', _addr) <- liftIO $ accept sock
     sock_conn <- CIO.mkSocketConnection sock'
@@ -132,6 +150,11 @@ handleClient :: (CIO.ConnectionIO con) => con -> IO ()
 handleClient con = do
   runScion $ Gen.handle con 0
 
+fixConfig :: StartupConfig -> StartupConfig
+fixConfig conf = case connectionMode conf of
+  TCPIP _ nr -> conf { connectionMode = TCPIP (autoPort conf) nr }
+  otherwise -> conf
+
 main :: IO ()
 main = do
 
@@ -144,7 +167,7 @@ main = do
   when ((not . null) nonOpts) $
     logError $ "no additional arguments expected, got: " ++ (show nonOpts)
 
-  startupConfig <- foldrM ($) defaultStartupConfig opts
+  startupConfig <- return . fixConfig =<< foldrM ($) defaultStartupConfig opts
 
   -- help 
   when (showHelp startupConfig) $ helpText >>= putStrLn >> exitSuccess
@@ -155,6 +178,3 @@ main = do
   do
       log HL.DEBUG $ "opts: " ++ (show startupConfig)
       serve (connectionMode startupConfig)
-
-
-
