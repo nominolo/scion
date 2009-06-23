@@ -14,7 +14,7 @@ module Scion.Types.Notes
   ( Location, LocSource(..), mkLocation, mkNoLoc
   , locSource, isValidLoc, noLocText, viewLoc
   , locStartCol, locEndCol, locStartLine, locEndLine
-  , AbsFilePath, mkAbsFilePath
+  , AbsFilePath(toFilePath), mkAbsFilePath
   , Note(..), NoteKind(..), Notes
   , ghcSpanToLocation, ghcErrMsgToNote, ghcWarnMsgToNote
   , ghcMessagesToNotes
@@ -58,7 +58,7 @@ type Notes = MS.MultiSet Note
 -- Since relative 'FilePath's depend on the a current working directory we
 -- normalise all paths to absolute paths.  Use 'mkAbsFilePath' to create
 -- absolute file paths.
-newtype AbsFilePath = AFP FilePath deriving (Eq, Ord)
+newtype AbsFilePath = AFP { toFilePath :: FilePath } deriving (Eq, Ord)
 instance Show AbsFilePath where show (AFP s) = show s
 
 -- | Create an absolute file path given a base directory.

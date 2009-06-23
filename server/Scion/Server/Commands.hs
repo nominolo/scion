@@ -351,9 +351,11 @@ instance JSON NoteKind where
   readJSON _ = fail "note-kind"
 
 instance JSON Location where
+  showJSON loc | not (isValidLoc loc) =
+    makeObject [("no-location", str (noLocText loc))]
   showJSON loc | (src, l0, c0, l1, c1) <- viewLoc loc =
     makeObject [case src of
-                  FileSrc f -> ("file", str (show f))
+                  FileSrc f -> ("file", str (toFilePath f))
                   OtherSrc s -> ("other", str s)
                ,("region", JSArray (map showJSON [l0,c0,l1,c1]))]
   readJSON (JSObject obj) = do
