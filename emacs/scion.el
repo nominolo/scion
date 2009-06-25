@@ -1913,7 +1913,7 @@ EXTRA-ARGS is a string of command line flags."
     (scion-eval-async `(open-cabal-project :root-dir ,(expand-file-name root-dir)
 					   :dist-dir ,rel-dist-dir
 					   :extra-args ,extra-args)
-		      (scion-handling-failure (x)
+		      (lambda (x)
 			(setq scion-project-root-dir root-dir)
 			(message (format "Cabal project loaded: %s" x)))))
   (message "Loading Cabal project."))
@@ -1946,7 +1946,7 @@ EXTRA-ARGS is a string of command line flags."
     (scion-eval-async `(configure-cabal-project :root-dir ,(expand-file-name root-dir)
 						:dist-dir ,rel-dist-dir
 						:extra-args ,extra-args)
-      (scion-handling-failure (x)
+      (lambda (x)
 	(setq scion-project-root-dir root-dir)
 	(message (format "Cabal project loaded: %s" x))))))
 
@@ -1957,7 +1957,7 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
   (interactive)
   (message "Loading library...")
   (scion-eval-async `(load-component :component (:library nil))
-    (scion-handling-failure (result)
+    (lambda (result)
       (scion-report-compilation-result result))))
 
 (defun scion-count-notes (notes)
