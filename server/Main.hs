@@ -72,7 +72,7 @@ data StartupConfig = StartupConfig {
   } deriving Show
 defaultStartupConfig = StartupConfig (TCPIP False (fromInteger 4005)) False False
 
--- options :: [OptDescr (Options -> Options)]
+options :: [OptDescr (StartupConfig -> IO StartupConfig)]
 options =
      [ Option ['p']     ["port"]
        (ReqArg (\o opts -> return $ opts { connectionMode = (TCPIP False . fromInteger) (read o) }) "8010")
@@ -126,28 +126,38 @@ serve (TCPIP auto nr) = do
   realNr <- liftIO $ socketPort sock
   putStrLn $ "=== Listening on port: " ++ show realNr
   hFlush stdout
-  forever $ E.handle (\(e::E.IOException) -> logInfo ("caught :" ++ (show e) ++ "\n\nwaiting for next client")) $ do
-    (sock', _addr) <- liftIO $ accept sock
-    sock_conn <- CIO.mkSocketConnection sock'
-    handleClient sock_conn
+  let run True = return ()
+      run _ = 
+       E.handle (\(e::E.IOException) -> do
+                    logInfo ("caught :" ++ (show e) ++ "\n\nwaiting for next client")
+                    run False) $ do
+         (sock', _addr) <- liftIO $ accept sock
+         sock_conn <- CIO.mkSocketConnection sock'
+         stop_server <- handleClient sock_conn
+         run stop_server
+  run False
 serve StdInOut = do
   hSetBuffering stdout LineBuffering
   hSetBuffering stdin LineBuffering
-  handleClient (stdin, stdout)
+  _ <- handleClient (stdin, stdout)
+  return ()
 #ifndef mingw32_HOST_OS
 serve (Socketfile file) = do
   sock <- liftIO $ listenOn (UnixSocket file)
-  forever $ do
-    -- no multithreading for now (I don't know yet when it may be used.. the
-    -- ghc library is using some IO refs) 
-    (sock', _addr) <- liftIO $ accept sock
-    sock_conn <- CIO.mkSocketConnection sock'
-    handleClient sock_conn
+  let run True = return ()
+      run _ =
+       E.handle (\(e::E.IOException) -> do
+                    logInfo ("caught :" ++ (show e) ++ "\n\nwaiting for next client")
+                    run False) $ do
+         (sock', _addr) <- liftIO $ accept sock
+         sock_conn <- CIO.mkSocketConnection sock'
+         stop_server <- handleClient sock_conn
+         run stop_server
+  run False
 #endif
 
-
 -- does the handshaking and then runs the protocol implementation 
-handleClient :: (CIO.ConnectionIO con) => con -> IO ()
+handleClient :: (CIO.ConnectionIO con) => con -> IO Bool
 handleClient con = do
   runScion $ Gen.handle con 0
 
@@ -163,7 +173,7 @@ main = do
   initializeLogging
 
   -- cmd opts 
-  (opts, nonOpts, err_msgs) <- fmap (getOpt Permute options) getArgs
+  (opts, nonOpts, _err_msgs) <- fmap (getOpt Permute options) getArgs
 
   when ((not . null) nonOpts) $
     logError $ "no additional arguments expected, got: " ++ (show nonOpts)

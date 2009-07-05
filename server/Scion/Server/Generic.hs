@@ -18,11 +18,12 @@ log = HL.logM "protocol.generic"
 logDebug :: MonadIO m => String -> m ()
 logDebug = liftIO . log HL.DEBUG
 
+type StopServer = Bool
 
 handle :: (ConnectionIO con) =>
           con
        -> Int
-       -> ScionM ()
+       -> ScionM StopServer
 handle con 0 = do
    loop
   where
@@ -41,10 +42,11 @@ handle con 0 = do
      --logDebug $ "sent response"
      if keep_going then loop else do 
        --logDebug "finished serving connection."
-       return ()
+       return True
 
-handle con unknownVersion =
+handle con unknownVersion = do
   -- handshake failure, don't accept this client version 
   liftIO $ CIO.putLine con $ 
     S.pack $ "failure: Don't know how to talk to client version "
       ++ (show unknownVersion)
+  return False
