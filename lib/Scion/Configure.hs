@@ -14,6 +14,7 @@ import Scion.Types
 import Scion.Session
 
 import GHC hiding ( load )
+import DynFlags   ( dopt_set )
 import GHC.Paths  ( ghc, ghc_pkg )
 import Exception
 import Data.Typeable
@@ -144,9 +145,11 @@ cabalSetupWithArgs cabal_file args =
       resetSessionState
 
       dflags <- getSessionDynFlags
-      setSessionDynFlags dflags { hscTarget = HscInterpreted
-                                , ghcLink   = LinkInMemory
-                                }
+      setSessionDynFlags $
+        dopt_set (dflags { hscTarget = HscInterpreted
+                         , ghcLink   = LinkInMemory
+                         })
+                 Opt_ForceRecomp -- to avoid picking up Setup.{hi,o}
 
       t <- guessTarget file Nothing
       liftIO $ putStrLn $ "target: " ++ (showSDoc $ ppr t)
