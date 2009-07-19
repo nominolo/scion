@@ -24,6 +24,7 @@
 
 (eval-and-compile
   (require 'cl)
+  (require 'json)
   (unless (fboundp 'define-minor-mode)
     (require 'easy-mmode)
     (defalias 'define-minor-mode 'easy-mmode-define-minor-mode)))
@@ -34,7 +35,6 @@
 (eval-when (compile)
   (require 'apropos)
   (require 'outline)
-  (require 'json)
   ;; (require 'etags)
   )
 
