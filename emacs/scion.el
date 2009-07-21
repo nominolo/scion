@@ -1912,7 +1912,7 @@ EXTRA-ARGS is a string of command line flags."
   (lexical-let ((root-dir root-dir))
     (scion-eval-async `(open-cabal-project :root-dir ,(expand-file-name root-dir)
 					   :dist-dir ,rel-dist-dir
-					   :extra-args ,extra-args)
+					   :extra-args ,(split-string extra-args))
 		      (lambda (x)
 			(setq scion-project-root-dir root-dir)
 			(message (format "Cabal project loaded: %s" x)))))
@@ -1945,7 +1945,7 @@ EXTRA-ARGS is a string of command line flags."
   (lexical-let ((root-dir root-dir))
     (scion-eval-async `(configure-cabal-project :root-dir ,(expand-file-name root-dir)
 						:dist-dir ,rel-dist-dir
-						:extra-args ,extra-args)
+						:extra-args ,(split-string extra-args))
       (lambda (x)
 	(setq scion-project-root-dir root-dir)
 	(message (format "Cabal project loaded: %s" x))))))

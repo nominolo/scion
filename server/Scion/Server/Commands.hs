@@ -272,10 +272,10 @@ cmdOpenCabalProject =
   Cmd "open-cabal-project" $
     reqArg' "root-dir" fromJSString <&>
     optArg' "dist-dir" ".dist-scion" fromJSString <&>
-    optArg' "extra-args" "" fromJSString $ worker
+    optArg' "extra-args" [] decodeExtraArgs $ worker
  where
    worker root_dir dist_dir extra_args = do
-        openOrConfigureCabalProject root_dir dist_dir (words extra_args)
+        openOrConfigureCabalProject root_dir dist_dir extra_args
         preprocessPackage dist_dir
         (toJSString . display . PD.package) `fmap` currentCabalPackage
 
@@ -284,12 +284,19 @@ cmdConfigureCabalProject =
   Cmd "configure-cabal-project" $
     reqArg' "root-dir" fromJSString <&>
     optArg' "dist-dir" ".dist-scion" fromJSString <&>
-    optArg' "extra-args" "" fromJSString $ cmd
+    optArg' "extra-args" [] decodeExtraArgs $ cmd
   where
     cmd path rel_dist extra_args = do
-        configureCabalProject path rel_dist (words extra_args)
+        configureCabalProject path rel_dist extra_args
         preprocessPackage rel_dist
         (toJSString . display . PD.package) `fmap` currentCabalPackage
+
+decodeExtraArgs :: JSValue -> [String]
+decodeExtraArgs JSNull = []
+decodeExtraArgs (JSString s) =
+    words (fromJSString s) -- TODO: check shell-escaping
+decodeExtraArgs (JSArray arr) =
+    [ fromJSString s | JSString s <- arr ]
 
 instance JSON Component where
   readJSON (JSObject obj)
