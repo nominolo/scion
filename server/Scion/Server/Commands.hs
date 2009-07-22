@@ -158,6 +158,7 @@ allCommands =
     , cmdListSupportedPragmas
     , cmdListSupportedFlags
     , cmdListCabalComponents
+    , cmdListCabalConfigurations
     , cmdListRdrNamesInScope
     , cmdListExposedModules
     , cmdCurrentComponent
@@ -426,10 +427,34 @@ cmdListRdrNamesInScope =
           rdr_names <- getNamesInScope
           return (map (showSDoc . ppr) rdr_names)
 
+-- FIXME: we want the results from a configured cabal file dist/* because
+-- some components may be skipped due to compilation flags (buildable : False) ?
 cmdListCabalComponents :: Cmd
 cmdListCabalComponents =
     Cmd "list-cabal-components" $ reqArg' "cabal-file" fromJSString $ cmd
   where cmd cabal_file = cabalProjectComponents cabal_file
+
+
+instance JSON CabalConfiguration where
+  showJSON (CabalConfiguration dist_dir) =
+    makeObject [("dist-dir", JSString (toJSString dist_dir))]
+  readJSON (JSObject obj) = error "decoding CabalConfiguration TODO"
+
+-- return all cabal configurations.
+-- currently this just globs for */setup-config
+-- in the future you may write a config file describing the most common configuration settings
+cmdListCabalConfigurations :: Cmd
+cmdListCabalConfigurations =
+    Cmd "list-cabal-configurations" $
+      reqArg' "cabal-file" fromJSString <&>
+      optArg' "type" "uniq" fromJSString $ cmd
+  where cmd cabal_file type' = liftM showJSON $ cabalConfigurations cabal_file type'
+
+cmdWriteSampleConfig :: Cmd
+cmdWriteSampleConfig =
+    Cmd "write-sample-config" $
+      reqArg "file" $ cmd
+  where cmd fp = liftIO $ writeSampleConfig fp
 
 allExposedModules :: ScionM [ModuleName]
 #ifdef HAVE_PACKAGE_DB_MODULES

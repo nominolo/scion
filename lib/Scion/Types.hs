@@ -285,3 +285,7 @@ lookupDefSite (DefSiteDB m) key =
   case M.lookup key m of
     Nothing -> []
     Just xs -> xs
+
+
+-- will be extended in the future
+data CabalConfiguration = CabalConfiguration { dist_dir :: FilePath }

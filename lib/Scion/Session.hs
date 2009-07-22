@@ -32,9 +32,9 @@ import Data.Maybe       ( isJust )
 import Data.Monoid
 import Data.Time.Clock  ( getCurrentTime, diffUTCTime )
 import System.Directory ( setCurrentDirectory, getCurrentDirectory,
-                          doesFileExist )
+                          doesFileExist, getDirectoryContents )
 import System.FilePath  ( (</>), isRelative, makeRelative, normalise, 
-                          dropFileName )
+                          dropFileName, takeDirectory )
 import Control.Exception
 import System.Exit ( ExitCode(..) )
 
@@ -205,7 +205,16 @@ cabalProjectComponents cabal_file = do
        (if isJust (PD.library pd) then [Library] else []) ++
        [ Executable (PD.exeName e) | e <- PD.executables pd ]
 
+
+cabalConfigurations :: FilePath -- ^ The .cabal file
+                            -> ScionM [CabalConfiguration]
+cabalConfigurations cabal = liftIO $ do
+  let dir = takeDirectory cabal
+  list <- filterM (doesFileExist . (</> "setup-config")) =<< getDirectoryContents dir
+  return $ map CabalConfiguration list
+
 -- | Run the steps that Cabal would call before building.
+--
 preprocessPackage :: FilePath
                   -> ScionM ()
 preprocessPackage dist_dir = do
