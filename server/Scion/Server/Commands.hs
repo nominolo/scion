@@ -260,7 +260,7 @@ cmdName (Cmd n _) = n
 cmdConnectionInfo :: Cmd
 cmdConnectionInfo = Cmd "connection-info" $ noArgs worker
   where
-    worker = let pid = 0 :: Int in
+    worker = let pid = 0 :: Int in -- TODO for linux: System.Posix.Internals (c_getpid)
              return $ makeObject
                [("version", showJSON scionVersion)
                ,("pid",     showJSON pid)]
@@ -526,6 +526,7 @@ cmdDumpSources = Cmd "dump-sources" $ noArgs $ cmd
           return ()
         _ -> return ()
 
+-- remove this func, obsolete. there is also load-component 
 cmdLoad :: Cmd
 cmdLoad = Cmd "load" $ reqArg "component" $ cmd
   where
@@ -541,6 +542,7 @@ cmdSetVerbosity =
 cmdGetVerbosity :: Cmd
 cmdGetVerbosity = Cmd "get-verbosity" $ noArgs $ verbosityToInt <$> getVerbosity
 
+-- rename to GetCurrentComponent? 
 cmdCurrentComponent :: Cmd
 cmdCurrentComponent = Cmd "current-component" $ noArgs $ getActiveComponent
 
