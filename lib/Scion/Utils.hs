@@ -27,6 +27,14 @@ import Data.Char (isLower, isUpper)
 
 import Text.JSON
 
+import Data.Foldable (foldlM)
+
+import System.FilePath
+
+import System.Directory (doesFileExist)
+
+import System.IO (openFile, hPutStrLn, hClose, IOMode(..))
+
 thingsAroundPoint :: (Int, Int) -> [Located n] -> [Located n]
 thingsAroundPoint pt ls = [ l | l <- ls, spans (getLoc l) pt ]
 
@@ -88,3 +96,54 @@ camelCaseMatch (c:cs) (i:is)
 camelCaseMatch [] [] = True
 camelCaseMatch [] _ = False
 camelCaseMatch _ [] = False
+
+
+instance JSON CabalConfiguration where
+  readJSON (JSObject obj)
+    | Ok "bulid-configuration" <- lookupKey obj "type"
+    , Ok distDir' <- lookupKey obj "type"
+    , Ok args <- lookupKey obj "extra-args"
+    , Ok args2        <- readJSONs args
+    = return $ CabalConfiguration distDir' args2
+  readJSON _ = fail "CabalConfiguration"
+  showJSON _ = error "TODO showJSON CabalConfiguration"
+
+projectConfigFileFromDir :: FilePath -> FilePath
+projectConfigFileFromDir = (</> ".scion-config")
+projectConfigFromDir :: FilePath -> ScionM ScionProjectConfig
+projectConfigFromDir = parseScionProjectConfig . projectConfigFileFromDir
+
+-- If the file exists append. Deleting settings you don't need is faster than looking them up.. 
+-- So let's extend this creating a complete reference?
+-- Maybe we can even add flags from the cabal file automatically ?
+writeSampleConfig :: FilePath -> IO ()
+writeSampleConfig file = do
+  h <- openFile file AppendMode
+  hPutStrLn h $ "\n" ++ unlines [
+             "// this is a demo scion project configuration file has been created for you"
+            ,"// you can use it to write down a set of configurations you'd like to test"
+            ,"{\"type\":\"build-configuration\", \"dist-dir\":\"dist-demo-simple-tools-from-path-default\", \"extra-args\": []}"
+            ,"{\"type\":\"build-configuration\", \"dist-dir\":\"dist-demo-1\", \"extra-args\": [\"--with-hc-pkg=PATH\", \"--with-compiler=path-to-ghc\"]}"
+            ,"{\"type\":\"build-configuration\", \"dist-dir\":\"dist-demo-2\", \"extra-args\": [\"--flags=BuildTestXHTML BuildTestSimple\", \"--disable-library-profiling\"]}"
+          ]
+  hClose h
+
+-- TODO ensure file handle is closed!
+parseScionProjectConfig :: FilePath -> ScionM ScionProjectConfig
+parseScionProjectConfig path = do
+    de <- liftIO $ doesFileExist path
+    if de
+      then do
+        (lines' :: [String] ) <- liftIO $ liftM lines $ readFile path
+        jsonParsed <- mapM parseLine lines'
+        foldlM parseJSON emptyScionProjectConfig jsonParsed
+      else return emptyScionProjectConfig
+  where
+    parseLine :: String -> ScionM JSValue
+    parseLine l = case decodeStrict l of
+      Ok r -> return r
+      Error msg -> fail $  "error parsing configuration line" ++ l ++ " error : " ++ msg
+    parseJSON :: ScionProjectConfig -> JSValue -> ScionM ScionProjectConfig
+    parseJSON pc json = case readJSON json of
+      Ok bc -> return $ pc { buildConfigurations = bc : buildConfigurations pc }
+      Error msg -> fail $ "invalid JSON object " ++ (show json) ++ " error :" ++ msg

@@ -155,6 +155,7 @@ allCommands =
     , cmdListSupportedFlags
     , cmdListCabalComponents
     , cmdListCabalConfigurations
+    , cmdWriteSampleConfig
     , cmdListRdrNamesInScope
     , cmdListExposedModules
     , cmdCurrentComponent
@@ -429,12 +430,6 @@ cmdListCabalComponents :: Cmd
 cmdListCabalComponents =
     Cmd "list-cabal-components" $ reqArg' "cabal-file" fromJSString $ cmd
   where cmd cabal_file = cabalProjectComponents cabal_file
-
-
-instance JSON CabalConfiguration where
-  showJSON (CabalConfiguration dist_dir) =
-    makeObject [("dist-dir", JSString (toJSString dist_dir))]
-  readJSON (JSObject obj) = error "decoding CabalConfiguration TODO"
 
 -- return all cabal configurations.
 -- currently this just globs for */setup-config

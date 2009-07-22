@@ -288,4 +288,19 @@ lookupDefSite (DefSiteDB m) key =
 
 
 -- will be extended in the future
-data CabalConfiguration = CabalConfiguration { dist_dir :: FilePath }
+data CabalConfiguration = CabalConfiguration {
+    distDir :: FilePath,
+    extraArgs :: [String] -- additional args used to configure the project 
+  }
+
+
+-- the ScionProjectConfig is a project specific configuration file 
+-- The syntax must be simple and human readable. One JSON object per line.
+-- Example:
+-- { 'type' : 'build-configuration', 'dist-dir' : 'dist-custom', 'extra-args' : [ ] }
+-- helperf functions see Utils.hs 
+data ScionProjectConfig = ScionProjectConfig {
+  buildConfigurations :: [CabalConfiguration]
+  }
+emptyScionProjectConfig :: ScionProjectConfig
+emptyScionProjectConfig = ScionProjectConfig []
