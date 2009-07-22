@@ -71,6 +71,12 @@ makeObject = makeObj
 
 type KeepGoing = Bool
 
+-- a scion request is JS object with 3 keys:
+-- method: the method to be called
+-- params: arguments to be passed 
+-- id    : this value will be passed back to the client
+--         to identify a reply to a specific request
+--         asynchronous requests will be implemented in the future
 handleRequest :: JSValue -> ScionM (JSValue, KeepGoing)
 handleRequest (JSObject req) =
   let request = do JSString method <- lookupKey req "method"
