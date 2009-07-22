@@ -25,6 +25,8 @@ import Data.Maybe ( fromMaybe )
 
 import Data.Char (isLower, isUpper)
 
+import Text.JSON
+
 thingsAroundPoint :: (Int, Int) -> [Located n] -> [Located n]
 thingsAroundPoint pt ls = [ l | l <- ls, spans (getLoc l) pt ]
 
@@ -57,6 +59,19 @@ ifM :: Monad m => m Bool -> m a -> m a -> m a
 ifM cm tm em = do
   c <- cm
   if c then tm else em
+
+
+------------------------------------------------------------------------
+-- JSON helper functions
+
+lookupKey :: JSON a => JSObject JSValue -> String -> Result a
+lookupKey = flip valFromObj
+
+makeObject :: [(String, JSValue)] -> JSValue
+makeObject = makeObj
+
+------------------------------------------------------------------------------
+
 
 -- an alternative to the broken Fuzzy module
 -- match sH simpleHTTP

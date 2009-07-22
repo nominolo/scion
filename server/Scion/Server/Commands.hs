@@ -59,16 +59,6 @@ import Packages ( pkgIdMap )
 import Distribution.InstalledPackageInfo
 #endif
 
-------------------------------------------------------------------------
-
-lookupKey :: JSON a => JSObject JSValue -> String -> Result a
-lookupKey = flip valFromObj
-
-makeObject :: [(String, JSValue)] -> JSValue
-makeObject = makeObj
-
-------------------------------------------------------------------------------
-
 type KeepGoing = Bool
 
 -- a scion request is JS object with 3 keys:
