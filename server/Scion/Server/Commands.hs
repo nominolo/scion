@@ -424,7 +424,7 @@ cmdListRdrNamesInScope =
           rdr_names <- getNamesInScope
           return (map (showSDoc . ppr) rdr_names)
 
--- FIXME: we want the results from a configured cabal file dist/* because
+-- FIXME: we want the results from a configured cabal file dist/ * because
 -- some components may be skipped due to compilation flags (buildable : False) ?
 cmdListCabalComponents :: Cmd
 cmdListCabalComponents =
@@ -432,7 +432,7 @@ cmdListCabalComponents =
   where cmd cabal_file = cabalProjectComponents cabal_file
 
 -- return all cabal configurations.
--- currently this just globs for */setup-config
+-- currently this just globs for * /setup-config
 -- in the future you may write a config file describing the most common configuration settings
 cmdListCabalConfigurations :: Cmd
 cmdListCabalConfigurations =
