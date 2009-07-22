@@ -70,12 +70,13 @@ data StartupConfig = StartupConfig {
      autoPort :: Bool,
      showHelp :: Bool
   } deriving Show
-defaultStartupConfig = StartupConfig (TCPIP False (fromInteger 4005)) False False
+defaultPort = 4005
+defaultStartupConfig = StartupConfig (TCPIP False (fromInteger defaultPort)) False False
 
 options :: [OptDescr (StartupConfig -> IO StartupConfig)]
 options =
      [ Option ['p']     ["port"]
-       (ReqArg (\o opts -> return $ opts { connectionMode = (TCPIP False . fromInteger) (read o) }) "8010")
+       (ReqArg (\o opts -> return $ opts { connectionMode = (TCPIP False . fromInteger) (read o) }) (show defaultPort))
        "listen on this TCP port"
      , Option ['a'] ["autoport"]
        (NoArg (\opts -> return $ opts { autoPort = True }))
