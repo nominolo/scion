@@ -172,6 +172,7 @@ allCommands =
     , cmdDumpDefinedNames
     , cmdDefinedNames
     , cmdNameDefinitions
+    , cmdIdentify
     ]
 
 ------------------------------------------------------------------------------
@@ -575,3 +576,8 @@ cmdNameDefinitions =
           db <- gets defSiteDB
           let locs = map fst $ lookupDefSite db nm
           return locs
+
+cmdIdentify :: Cmd
+cmdIdentify =
+    Cmd "client-identify" $ reqArg' "name" fromJSString $ cmd
+  where cmd c = modifySessionState $ \s -> s { client = c }

@@ -167,30 +167,45 @@ Vim:
     ensure :echo has('python')
     returns 1
 
-    add to your ~/.vimrc (TODO make this lazy so that python is only loaded when required!):
+    add to your ~/.vimrc:
 
-      py scionConnectionSetting = ('socket', ("localhost",4005))
+
+      " recommended: vim spawns a scion instance itself:
+      let g:scion_connection_setting = [ 'scion', "path to scion_server executable"]
+
+      " use socket or TCP/IP connection instead:
+      "let g:scion_connection_setting = [ 'socket',  ["localhost", 4005] ]
+      "let g:scion_connection_setting = [ 'socket',  "socket file " ]
+
       set runtimepath+=<path to scion repo/vim_runtime_path/>
 
-    :e some_hs_file.hs
-    :OpenCabalProject
+    use one of
 
-    :LoadComponent library
-    or
-    :LoadComponent executable:cabal_executable_name
+      :LoadComponentScion library
+      :LoadComponentScion executable:cabal_executable_name
+      :LoadComponentScion file:cabal_executable_name
+      :LoadComponentScion
+
+    The last one is a shortcut for file:<this buf>
+
+    (you can use completion)
 
     At this point you should already get some compilation errors.
 
     use
-    :BackgroundTypecheckFile
+    :BackgroundTypecheckFileScion
 
     before
-    :ThingAtPoint
+    :ThingAtPointScion
     You should see something like:
       {'Just': 'print :: [Char] -> IO ()'}
     
     Have a look at vim_runtime_path/ftplugin/haskell.vim to see a list of all
     commands which are implemented yet.
+    
+    BackgroundTypecheckFileScion should be called automatically after buf write.
+    If you don't like this set g:dont_check_on_buf_write or overwrite g:haskell_qf_hook
+    to change open/close quickfix and jump to first *error* behaviour.
 
 Bug Reports
 ===========

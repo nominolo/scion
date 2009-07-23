@@ -62,13 +62,16 @@ data SessionState
       bgTcCache :: Maybe BgTcCache,
         -- ^ Cached state of the background typechecker.
 
-      defSiteDB :: DefSiteDB
+      defSiteDB :: DefSiteDB,
         -- ^ Source code locations.
+
+      client :: String
+        -- ^ can be set by the client. Only used by vim to enable special hack
     }
 
 mkSessionState :: DynFlags -> IO (IORef SessionState)
 mkSessionState dflags =
-    newIORef (SessionState normal dflags Nothing Nothing mempty Nothing Nothing mempty)
+    newIORef (SessionState normal dflags Nothing Nothing mempty Nothing Nothing mempty "")
 
 
 newtype ScionM a

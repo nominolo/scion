@@ -5,10 +5,12 @@ module Scion.Server.Generic
 import Prelude hiding ( log )
 
 import Scion
+import Scion.Types (gets, SessionState(..))
 import Scion.Server.ConnectionIO as CIO
 import Scion.Server.Commands
 
 import Text.JSON
+import Text.JSON.Types
 import qualified Data.ByteString.Lazy.Char8 as S
 import qualified Data.ByteString.Lazy.UTF8 as S
 import qualified System.Log.Logger as HL
@@ -36,7 +38,8 @@ handle con 0 = do
          <- case mb_req of
               Error _ -> return (malformedRequest, True)
               Ok req -> handleRequest req
-     let resp_str = encodeStrict resp
+     c <- gets client
+     let resp_str = encodeStrict (if (c == "vim") then vimHack resp else resp)
      logDebug $ show resp_str
      liftIO $ CIO.putLine con (S.fromString resp_str)
      --logDebug $ "sent response"
@@ -50,3 +53,13 @@ handle con unknownVersion = do
     S.pack $ "failure: Don't know how to talk to client version "
       ++ (show unknownVersion)
   return False
+
+-- vim doesn't know about true,false,null thus can't parse it. this functions
+-- mapps those values to 1,0,""
+vimHack :: JSValue -> JSValue
+vimHack JSNull = JSString (toJSString "")
+vimHack (JSBool True) = JSRational False 1
+vimHack (JSBool False) = JSRational False 0
+vimHack (JSArray l) = JSArray $ map vimHack l
+vimHack (JSObject (JSONObject list)) = JSObject $ JSONObject $ map (\(x,y) -> (x, vimHack y)) list
+vimHack e = e  -- JSRational, JSString 
