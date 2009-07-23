@@ -26,7 +26,6 @@ module Main where
 import MonadUtils ( liftIO )
 import Scion.Server.Generic as Gen
 --import qualified Scion.Server.ProtocolEmacs as Emacs
-import qualified Scion.Server.Protocol.Vim as Vim
 import qualified Scion.Server.ConnectionIO as CIO
 import Scion (runScion)
 
