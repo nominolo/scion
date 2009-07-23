@@ -39,7 +39,7 @@ $(DIST_SERVER)/setup-config: $(SETUP) server/scion-server.cabal $(DIST) $(DIST_L
 	                      --with-compiler=$(HC) --with-hc-pkg=$(PKG) \
 	                      --user $(CABAL_FLAGS) > ../$(DIST)/server-config-log)
 
-$(DIST_LIB)/build/libHSscion-0.1.a: $(SETUP) $(DIST_LIB)/setup-config lib/**/*.hs lib/**/**/*.hs
+$(DIST_LIB)/build/libHSscion-0.1.a: $(SETUP) $(DIST_LIB)/setup-config $(lib/**/*.hs wildcard lib/**/**/*.hs)
 	@echo === Building scion ===
 	@cd lib && \
         ../$(SETUP) build --builddir=../$(DIST_LIB)
@@ -49,7 +49,7 @@ $(DIST_LIB)/.installed_tag: $(DIST_LIB)/build/libHSscion-0.1.a $(SETUP)
 	@cd lib && ../$(SETUP) install --user --builddir=../$(DIST_LIB)
 	@touch $@
 
-$(DIST_SERVER)/build/scion_server/scion_server: $(SETUP) $(DIST_SERVER)/setup-config server/Main.hs server/Scion/Server/*.hs server/Scion/Server/**/*.hs
+$(DIST_SERVER)/build/scion_server/scion_server: $(SETUP) $(DIST_SERVER)/setup-config server/Main.hs $(wildcard server/Scion/Server/*.hs server/Scion/Server/**/*.hs)
 	@echo === Building scion-server ===
 	@cd server && \
         ../$(SETUP) build --builddir=../$(DIST_SERVER)
