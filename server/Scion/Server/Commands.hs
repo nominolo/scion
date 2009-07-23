@@ -478,8 +478,12 @@ cmdForceUnload = Cmd "force-unload" $ noArgs $ unload
 
 cmdAddCmdLineFlag :: Cmd
 cmdAddCmdLineFlag = 
-    Cmd "add-command-line-flag" $ reqArg' "flag" fromJSString $ cmd
-  where cmd flag = addCmdLineFlags [flag] >> return JSNull
+    Cmd "add-command-line-flag" $
+      optArg' "flag" "" fromJSString <&>
+      optArg' "flags" [] (map fromJSString) $ cmd
+  where cmd flag flags = do
+          addCmdLineFlags $ (if flag == "" then [] else [flag]) ++ flags
+          return JSNull
 
 cmdThingAtPoint :: Cmd
 cmdThingAtPoint =
