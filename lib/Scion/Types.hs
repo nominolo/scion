@@ -287,6 +287,17 @@ lookupDefSite (DefSiteDB m) key =
     Just xs -> xs
 
 
+-- use this exception for everything else which is not important enough to
+-- create a new Exception (kiss) 
+-- some more Exception types are defined in Session.hs (TODO?)
+data ScionError = ScionError String
+     deriving (Show, Typeable)
+instance Exception ScionError where
+  toException  = scionToException
+  fromException = scionFromException
+scionError :: String -> ScionM a
+scionError = liftIO . throwIO . ScionError
+
 -- will be extended in the future
 data CabalConfiguration = CabalConfiguration {
     distDir :: FilePath,

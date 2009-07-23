@@ -57,6 +57,7 @@ import qualified Distribution.PackageDescription.Configuration as PD
 ------------------------------------------------------------------------------
 
 -- * Exception Types
+-- also see ScionError Exception 
 
 data CannotOpenCabalProject = CannotOpenCabalProject String
      deriving (Show, Typeable)
@@ -207,7 +208,7 @@ cabalProjectComponents cabal_file = do
 
 
 -- returns a list of cabal configurations
--- dist: those who have been configured */setup-config 
+-- dist: those who have been configured * /setup-config 
 -- config: those from the .scion-config project configuration file
 -- all: both
 -- uniq: both, but prefer config items
