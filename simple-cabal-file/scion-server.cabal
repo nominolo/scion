@@ -16,7 +16,7 @@ extra-source-files: README.markdown ../emacs/scion.el
 executable scion_server
   main-is: Main.hs
 
-  -- !! also update ../simple-cabal-file/scion-server.cabal
+  -- !! also update ../server/scion-server.cabal and ../lib/scion.cabal
   build-depends: base         == 4.*,
                  network      >= 2.1 && < 2.3,
                  network-bytestring == 0.1.*,
@@ -26,11 +26,17 @@ executable scion_server
                  ghc          >= 6.10 && < 6.12,
                  ghc-syb      == 0.1.*,
                  Cabal        >= 1.5 && < 1.8,
-                 scion        == 0.1.*,
                  multiset     == 0.1.*,
                  hslogger     == 1.0.*,
                  parsec       >= 2 && < 4,
                  time         == 1.1.*,
-                 json         == 0.4.*
+                 json         == 0.4.*,
+                 ghc          >= 6.10 && < 6.12,
+                 ghc-paths    == 0.1.*,
+                 filepath     == 1.1.*,
+                 directory    == 1.0.*,
+                 uniplate     == 1.2.*
                  
   ghc-options: -Wall
+
+  hs-source-dirs: ../server ../lib

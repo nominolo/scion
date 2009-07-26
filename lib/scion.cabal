@@ -17,6 +17,7 @@ flag testing
   default: False
 
 library
+  -- !! also update ../simple-cabal-file/scion-server.cabal
   build-depends:   ghc          >= 6.10 && < 6.12,
                    ghc-paths    == 0.1.*,
                    ghc-syb      == 0.1.*,

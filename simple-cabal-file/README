@@ -1,0 +1,19 @@
+using all this ../Makefile stuff caused to much headache.
+Why? You have to register the lib first. Something was broken for me.
+
+So how to use this?
+
+optional (for grepping from current dir etc)
+  ln -s ../lib .
+  ln -s ../server .
+
+Then configure as usual:
+
+  ghc --make Setup.hs -o setup
+  ./setup --configure ..
+  ./setup --build
+
+Have fun!
+
+
+# This only bulids the server! (TODO)
