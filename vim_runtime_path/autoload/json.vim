@@ -11,9 +11,9 @@ fun! json#Encode(thing)
     return '"'.escape(a:thing,'"').'"'
   elseif type(a:thing) == type({})
     let pairs = []
-    for [key, value] in items(a:thing)
-      call add(pairs, json#Encode(key).':'.json#Encode(value))
-      unlet key | unlet value
+    for [Key, Value] in items(a:thing)
+      call add(pairs, json#Encode(Key).':'.json#Encode(Value))
+      unlet Key | unlet Value
     endfor
     return "{".join(pairs, ",")."}"
   elseif type(a:thing) == type(0)

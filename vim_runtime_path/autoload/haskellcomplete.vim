@@ -236,7 +236,7 @@ class ScionServerConnectionStdinOut(ScionServerConnection):
     else:
       # throw away non "scion:" line and try again
       global scion_log_stdout, scion_stdout
-      if log_stdout:
+      if scion_log_stdout:
         scion_stdout.append(s)
 
       return self.receive()
