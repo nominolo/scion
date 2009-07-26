@@ -482,8 +482,8 @@ cmdAddCmdLineFlag =
     Cmd "add-command-line-flag" $
       optArg' "flag" "" fromJSString <&>
       optArg' "flags" [] (map fromJSString) $ cmd
-  where cmd flag flags = do
-          addCmdLineFlags $ (if flag == "" then [] else [flag]) ++ flags
+  where cmd flag flags' = do
+          addCmdLineFlags $ (if flag == "" then [] else [flag]) ++ flags'
           return JSNull
 
 cmdThingAtPoint :: Cmd
