@@ -293,6 +293,10 @@ data CabalConfiguration = CabalConfiguration {
     extraArgs :: [String] -- additional args used to configure the project 
   }
 
+type FileComponentConfiguration =
+  ( FilePath, -- rel filepath to config file
+    [String] -- set of flags to be used to compile that file  
+  )
 
 -- the ScionProjectConfig is a project specific configuration file 
 -- The syntax must be simple and human readable. One JSON object per line.
@@ -300,7 +304,8 @@ data CabalConfiguration = CabalConfiguration {
 -- { 'type' : 'build-configuration', 'dist-dir' : 'dist-custom', 'extra-args' : [ ] }
 -- helperf functions see Utils.hs 
 data ScionProjectConfig = ScionProjectConfig {
-  buildConfigurations :: [CabalConfiguration]
+  buildConfigurations :: [CabalConfiguration],
+  fileComponentExtraFlags :: [FileComponentConfiguration]
   }
 emptyScionProjectConfig :: ScionProjectConfig
-emptyScionProjectConfig = ScionProjectConfig []
+emptyScionProjectConfig = ScionProjectConfig [] []

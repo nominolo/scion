@@ -27,14 +27,14 @@ import qualified Data.MultiSet as MS
 import Control.Monad
 import Data.Data
 import Data.IORef
-import Data.List        ( intercalate )
-import Data.Maybe       ( isJust )
+import Data.List        ( intercalate, nubBy )
+import Data.Maybe       ( isJust, fromMaybe )
 import Data.Monoid
 import Data.Time.Clock  ( getCurrentTime, diffUTCTime )
 import System.Directory ( setCurrentDirectory, getCurrentDirectory,
                           doesFileExist, getDirectoryContents )
 import System.FilePath  ( (</>), isRelative, makeRelative, normalise, 
-                          dropFileName, takeDirectory )
+                          dropFileName, takeDirectory, takeFileName )
 import Control.Exception
 import System.Exit ( ExitCode(..) )
 
@@ -206,12 +206,26 @@ cabalProjectComponents cabal_file = do
        [ Executable (PD.exeName e) | e <- PD.executables pd ]
 
 
+-- returns a list of cabal configurations
+-- dist: those who have been configured */setup-config 
+-- config: those from the .scion-config project configuration file
+-- all: both
+-- uniq: both, but prefer config items
 cabalConfigurations :: FilePath -- ^ The .cabal file
-                            -> ScionM [CabalConfiguration]
-cabalConfigurations cabal = liftIO $ do
+                       -> String -- ^ one of "dist" "config" "all"
+                       -> ScionM [CabalConfiguration]
+cabalConfigurations cabal type' = do
+  let allowed = ["dist", "config", "all", "uniq"]
+  when (not $ elem type' allowed) $ scionError $ "invalid value for type, expected: one of " ++ (show allowed)
   let dir = takeDirectory cabal
-  list <- filterM (doesFileExist . (</> "setup-config")) =<< getDirectoryContents dir
-  return $ map CabalConfiguration list
+  existingDists <- liftIO $ filterM (doesFileExist . (\c -> dir </> c </> "setup-config"))
+        =<< liftM (filter (not . (`elem` [".", ".."]))) (getDirectoryContents dir)
+  config <- parseScionProjectConfig $ projectConfigFileFromDir dir
+  let list = (if type' `elem` ["all", "config", "uniq"] then buildConfigurations config else [])
+          -- TODO read flags from setup-config files 
+          ++ (if type' `elem` ["all", "dist",  "uniq"] then map (\ a-> CabalConfiguration a []) existingDists else [])
+  let f = if type' == "uniq" then nubBy (\a b -> distDir a == distDir b) else id
+  return $ f list
 
 -- | Run the steps that Cabal would call before building.
 --
@@ -269,9 +283,10 @@ setComponentDynFlags ::
        -- build-depends of the loaded component.
        --
        -- TODO: do something with this depending on Scion mode?
-setComponentDynFlags (File _) = 
-   -- The DynFlags within the file are set automatically.
-   return []
+setComponentDynFlags (File f) = do
+   cfg <- liftM projectConfigFileFromDir $ liftIO getCurrentDirectory
+   config <- parseScionProjectConfig cfg
+   addCmdLineFlags $ fromMaybe [] $ lookup (takeFileName f) (fileComponentExtraFlags config)
 setComponentDynFlags component = do
    lbi <- getLocalBuildInfo
    bi <- component_build_info component (localPkgDescr lbi)
