@@ -149,11 +149,11 @@ openCabalProject :: FilePath  -- ^ Project root directroy
 openCabalProject root_dir dist_rel_dir = do
   -- XXX: check that working dir contains a .cabal file
   let dist_dir = root_dir </> dist_rel_dir
-  mb_lbi <- liftIO $ maybeGetPersistBuildConfig dist_dir
+  mb_lbi <- liftIO $ tryGetConfigStateFile (localBuildInfoFile dist_dir)
   case mb_lbi of
-    Nothing -> 
-        liftIO $ throwIO $ CannotOpenCabalProject "no reason known" -- XXX
-    Just lbi -> do
+    Left e -> 
+        liftIO $ throwIO $ CannotOpenCabalProject $ "reason :" ++ show e
+    Right lbi -> do
         setWorkingDir root_dir
         resetSessionState
         -- XXX: do something with old lbi before updating?
