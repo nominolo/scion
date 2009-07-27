@@ -99,6 +99,18 @@ fun! s:ListCabalConfigurations(...)
   return haskellcomplete#EvalScion(1,'list-cabal-configurations', params)
 endf
 
+fun! s:LoadComponentScion(...)
+  let result = haskellcomplete#LoadComponent(1,call('haskellcomplete#compToV', a:000))
+  echo ScionResultToErrorList('load component finished: ','setqflist', result)
+
+  " start checking file on buf write
+  if !exists('g:dont_check_on_buf_write')
+    augroup HaskellScion
+      au BufWritePost <buffer> silent! BackgroundTypecheckFile
+    augroup end
+  endif
+endf
+
 " intentionally suffixing commands by "Scion"
 " This way you have less typing. You can still get a list of Scion commands by
 " :*Scion<c-d>
@@ -128,7 +140,7 @@ command! -buffer ListExposedModulesScion
   \ echo haskellcomplete#List('exposed-modules')
 
 command! -nargs=* -complete=file -buffer WriteSampleConfigScion
-  \ echo haskellcomplete#WriteSampleConfig(<f-args>)
+  \ echo haskellcomplete#WriteSampleConfig(<f-args>) | e .scion-config
 
 command! -nargs=* ListCabalConfigurationsScion
   \ echo s:ListCabalConfigurations(<f-args>)
@@ -182,13 +194,7 @@ command! -buffer -nargs=* -complete=file ConfigureCabalProjectScion
 " no args: file:<current file>
 command! -buffer -nargs=? -complete=customlist,s:LoadComponentCompletion
   \ LoadComponentScion
-  \ echo ScionResultToErrorList('load component finished: ','setqflist',haskellcomplete#LoadComponent(1,haskellcomplete#compToV(<f-args>)))
+  \ call s:LoadComponentScion(<f-args>)
 
 command! -buffer ThingAtPointScion
   \ echo haskellcomplete#EvalScion(1,'thing-at-point', {'file' : expand('%:p'), 'line' : 1*line('.'), 'column' : 1*col('.')})
-
-if !exists('g:dont_check_on_buf_write')
-  augroup HaskellScion
-    au BufWritePost <buffer> silent! BackgroundTypecheckFile
-  augroup end
-endif

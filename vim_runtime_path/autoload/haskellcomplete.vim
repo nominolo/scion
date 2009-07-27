@@ -100,7 +100,7 @@ fun! haskellcomplete#compToV(...)
   if m != '' | return {'library' : json#NULL()} | endif
   let m = matchstr(component, '^file:\zs.*')
   if m != '' | return {'file' : m} | endif
-  throw "invalid component".a:component
+  throw "invalid component".component
 endfun
 
 fun! haskellcomplete#WriteSampleConfig(...)
