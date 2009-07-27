@@ -553,13 +553,15 @@ setGHCVerbosity lvl = do
 --
 backgroundTypecheckFile :: 
        FilePath 
-    -> ScionM (Bool, CompilationResult)
+    -> ScionM (Either String CompilationResult)
        -- ^ First element is @False@ <=> step 1 above failed.
-backgroundTypecheckFile fname =
+backgroundTypecheckFile fname = do
+   root_dir <- projectRootDir
    ifM (not `fmap` isRelativeToProjectRoot fname)
-     (return (False, mempty))
+     (return (Left ("file " ++ fname ++ " is not relative to project root " ++ root_dir)))
      prepareContext
   where
+   prepareContext :: ScionM (Either String CompilationResult)
    prepareContext = do
      message verbose $ "Preparing context for " ++ fname
      -- if it's the focused module, we know that the context is right
@@ -572,13 +574,12 @@ backgroundTypecheckFile fname =
           mb_modsum <- filePathToProjectModule fname
           case mb_modsum of
             Nothing -> do
-              message verbose "Could not find file in module graph."
-              return (False, mempty)
+              return $ Left "Could not find file in module graph."
             Just modsum -> do
               (_, rslt) <- setContextForBGTC modsum
               if compilationSucceeded rslt
                then backgroundTypecheckFile' rslt
-               else return (True, rslt)
+               else return $ Right rslt
 
    backgroundTypecheckFile' comp_rslt = do
       message verbose $ "Background type checking: " ++ fname
@@ -602,7 +603,7 @@ backgroundTypecheckFile fname =
               modifySessionState (\s -> s { bgTcCache = tc_res
                                           , lastCompResult = comp_rslt' })
 
-              return (True, comp_rslt')
+              return $ Right comp_rslt'
 
       ghandle (\(e :: SourceError) -> finish_up Nothing (srcErrorMessages e)) $
         do

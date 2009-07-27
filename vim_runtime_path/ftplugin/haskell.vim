@@ -53,10 +53,14 @@ fun! s:BackgroundTypecheckFile(...)
   " no file given defaults to current buffer
   let file = a:0 > 0 ? a:1 : expand('%:p')
   let r = haskellcomplete#EvalScion(1, 'background-typecheck-file', {'file' : file})
-  if r[0]
-    echo ScionResultToErrorList('file check', 'setqflist', r[1])
+  if has_key(r,'Right')
+    echo ScionResultToErrorList('file check', 'setqflist', r['Right'])
   else
-    echo "this file could not be checked: See backgroundTypecheckFile"
+    call setqflist([{'text' : r['Left']}])
+    cope
+    " isn't shown because silent is used below.. and silent is used so that
+    " <cr> need not to be pressed over and over again
+    echo "this file could not be checked, reason: ".r['Left']."(-> backgroundTypecheckFile)"
   endif
 endf
 
