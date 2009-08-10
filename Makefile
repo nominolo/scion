@@ -16,6 +16,8 @@ DIST_SERVER = $(DIST)/server
 SETUP_DIST = setup-dist
 SETUP = $(SETUP_DIST)/Setup
 
+DOTDOTSETUP = cabal
+
 CABAL_INSTALL_OPTS += --ghc --with-compiler=$(HC) --with-hc-pkg=$(PKG)
 CABAL_FLAGS ?= 
 # -ftesting
@@ -27,7 +29,7 @@ $(DIST_LIB)/setup-config: $(SETUP) lib/scion.cabal $(DIST)
 	@echo === Configuring scion ===
 	@echo Configure log: $(DIST)/lib-config-log
 	@cd lib && \
-        (../$(SETUP) configure -v --builddir=../$(DIST_LIB) \
+        ($(DOTDOTSETUP) configure -v --builddir=../$(DIST_LIB) \
 	                      --with-compiler=$(HC) --with-hc-pkg=$(PKG) \
 	                      --user $(CABAL_FLAGS)> ../$(DIST)/lib-config-log)
 
@@ -35,29 +37,35 @@ $(DIST_SERVER)/setup-config: $(SETUP) server/scion-server.cabal $(DIST) $(DIST_L
 	@echo === Configuring scion-server ===
 	@echo Configure log: $(DIST)/server-config-log
 	@cd server && \
-	(../$(SETUP) configure -v --builddir=../$(DIST_SERVER) \
+	($(DOTDOTSETUP) configure -v --builddir=../$(DIST_SERVER) \
 	                      --with-compiler=$(HC) --with-hc-pkg=$(PKG) \
 	                      --user $(CABAL_FLAGS) > ../$(DIST)/server-config-log)
 
-$(DIST_LIB)/build/libHSscion-0.1.a: $(SETUP) $(DIST_LIB)/setup-config $(lib/**/*.hs wildcard lib/**/**/*.hs)
+$(DIST_LIB)/build/libHSscion-0.1.a: $(SETUP) $(DIST_LIB)/setup-config $(wildcard lib/**/*.hs lib/**/**/*.hs)
 	@echo === Building scion ===
 	@cd lib && \
-        ../$(SETUP) build --builddir=../$(DIST_LIB)
+        $(DOTDOTSETUP) build --builddir=../$(DIST_LIB)
 
 $(DIST_LIB)/.installed_tag: $(DIST_LIB)/build/libHSscion-0.1.a $(SETUP)
 	@echo === Installing scion ===
-	@cd lib && ../$(SETUP) install --user --builddir=../$(DIST_LIB)
+	@cd lib && $(DOTDOTSETUP) install --user --builddir=../$(DIST_LIB)
 	@touch $@
 
-$(DIST_SERVER)/build/scion_server/scion_server: $(SETUP) $(DIST_SERVER)/setup-config server/Main.hs $(wildcard server/Scion/Server/*.hs server/Scion/Server/**/*.hs)
-	@echo === Building scion-server ===
-	@cd server && \
-        ../$(SETUP) build --builddir=../$(DIST_SERVER)
+$(DIST_SERVER)/build/scion_server/scion_server: $(DIST_LIB)/.installed_tag server/Main.hs $(wildcard server/Scion/Server/*.hs server/Scion/Server/**/*.hs)
+	@echo === Installing Server ===
+	@cd server && cabal install --user
 
-$(SETUP): Setup.hs
-	@echo === Building Setup ===
-	@mkdir -p $(SETUP_DIST)
-	@$(HC) --make -odir $(SETUP_DIST) -hidir $(SETUP_DIST) -o $@ $<
+# $(DIST_SERVER)/build/scion_server/scion_server: $(SETUP) $(DIST_SERVER)/setup-config server/Main.hs $(wildcard server/Scion/Server/*.hs server/Scion/Server/**/*.hs)
+# 	@echo === Building scion-server ===
+# 	@cd server && \
+#         $(DOTDOTSETUP) build --builddir=../$(DIST_SERVER)
+
+# $(SETUP): Setup.hs
+# 	@echo === Building Setup ===
+# 	@mkdir -p $(SETUP_DIST)
+# 	@$(HC) --make -odir $(SETUP_DIST) -hidir $(SETUP_DIST) -o $@ $<
+
+
 
 setup: $(SETUP)
 
@@ -68,8 +76,8 @@ build: $(DIST_LIB)/build/libHSscion-0.1.a $(DIST_SERVER)/build/scion_server/scio
 # #	./dist/build/test_get_imports/test_get_imports $(GHC_PATH)/compiler dist-stage2 +RTS -s -RTS
 
 clean:
-	@(cd lib && ../$(SETUP) clean --builddir=../$(DIST_LIB)) || rm -rf $(DIST_LIB)
-	@(cd server && ../$(SETUP) clean --builddir=../$(DIST_SERVER)) || rm -rf $(DIST_SERVER)
+	@(cd lib && $(DOTDOTSETUP) clean --builddir=../$(DIST_LIB)) || rm -rf $(DIST_LIB)
+	@(cd server && $(DOTDOTSETUP) clean --builddir=../$(DIST_SERVER)) || rm -rf $(DIST_SERVER)
 
 # distclean: clean
 # 	rm -rf $(SETUP_DIST)
