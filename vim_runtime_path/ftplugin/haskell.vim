@@ -106,7 +106,7 @@ fun! s:LoadComponentScion(...)
   " start checking file on buf write
   if !exists('g:dont_check_on_buf_write')
     augroup HaskellScion
-      au BufWritePost <buffer> silent! BackgroundTypecheckFile
+      au BufWritePost *.hs,*.hsc,*.lhs silent! BackgroundTypecheckFile
     augroup end
   endif
 endf
