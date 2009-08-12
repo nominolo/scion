@@ -136,6 +136,11 @@ writeSampleConfig file = do
   hPutStrLn h $ "\n" ++ unlines [
              "// this is a demo scion project configuration file has been created for you"
             ,"// you can use it to write down a set of configurations you'd like to test"
+            ,"//"
+            ,"// default scion entry:"
+            ,"{\"type\":\"build-configuration\", \"dist-dir\":\"dist-scion\", \"extra-args\": []}"
+            ,"//"
+            ,"// some examples:"
             ,"{\"type\":\"build-configuration\", \"dist-dir\":\"dist-demo-simple-tools-from-path-default\", \"extra-args\": []}"
             ,"{\"type\":\"build-configuration\", \"dist-dir\":\"dist-demo-1\", \"extra-args\": [\"--with-hc-pkg=PATH\", \"--with-compiler=path-to-ghc\"]}"
             ,"{\"type\":\"build-configuration\", \"dist-dir\":\"dist-demo-2\", \"extra-args\": [\"--flags=BuildTestXHTML BuildTestSimple\", \"--disable-library-profiling\"]}"
