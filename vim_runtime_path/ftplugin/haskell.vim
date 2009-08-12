@@ -4,43 +4,6 @@ endif
 
 " r = scion result with error locations
 " func : either setqflist or setloclist
-fun! ScionResultToErrorList(action, func, result)
-  let qflist = []
-  for dict in a:result['notes']
-    let loc = dict['location']
-    if has_key(loc, 'no-location')
-      " using no-location so that we have an item to jump to.
-      " ef we don't use that dummy file SaneHook won't see any errors!
-      call add(qflist, { 'filename' : 'no-location'
-              \ ,'lnum' : 0
-              \ ,'col'  : 0
-              \ ,'text' : loc['no-location']
-              \ ,'type' : dict['kind'] == "error" ? "E" : "W"
-              \ })
-    else
-      call add(qflist, { 'filename' : loc['file']
-              \ ,'lnum' : loc['region'][0]
-              \ ,'col'  : loc['region'][1]
-              \ ,'text' : ''
-              \ ,'type' : dict['kind'] == "error" ? "E" : "W"
-              \ })
-    endif
-    for msgline in split(dict['message'],"\n")
-      call add(qflist, {'text': msgline})
-    endfor
-  endfor
-  
-  call call(a:func, [qflist])
-  if exists('g:haskell_qf_hook')
-    exec g:haskell_qf_hook
-  endif
-  if (len(qflist) == 0)
-    return printf(a:action." success. compilationTime: %s", string(a:result['duration']))
-  else
-    return printf(a:action." There are errors. compilationTime: %s", string(a:result['duration']))
-  endif
-endfun
-
 if !exists('g:haskell_qf_hook')
   let g:haskell_qf_hook = 'call haskellcomplete#SaneHook()'
 endif
@@ -54,7 +17,7 @@ fun! s:BackgroundTypecheckFile(...)
   let file = a:0 > 0 ? a:1 : expand('%:p')
   let r = haskellcomplete#EvalScion(1, 'background-typecheck-file', {'file' : file})
   if has_key(r,'Right')
-    echo ScionResultToErrorList('file check', 'setqflist', r['Right'])
+    echo haskellcomplete#ScionResultToErrorList('file check', 'setqflist', r['Right'])
   else
     call setqflist([{'text' : r['Left']}])
     cope
@@ -73,42 +36,12 @@ fun! s:FlagCompletion(A,L,P)
   return list
 endf
 
-fun! s:LoadComponentCompletion(A,L,P)
-  let beforeC= a:L[:a:P-1]
-  let word = matchstr(beforeC, '\zs\S*$')
-
-  let result = []
-  for item in haskellcomplete#EvalScion(1,'list-cabal-components',{'cabal-file': haskellcomplete#CabalFile()})
-    if has_key(item, 'library')
-      call add(result, 'library') " there can only be one
-    elseif has_key(item, 'executable')
-      call add(result, 'executable:'. item['executable'])
-    else
-      " component type File will never be returned ?
-      throw "unexpected item ".string(item)
-    endif
-  endfor
-  return result
-endf
-
 fun! s:ListCabalConfigurations(...)
   let params = { 'cabal-file' : haskellcomplete#CabalFile()}
   if a:0 > 0
     let params['type'] = a:1
   endif
   return haskellcomplete#EvalScion(1,'list-cabal-configurations', params)
-endf
-
-fun! s:LoadComponentScion(...)
-  let result = haskellcomplete#LoadComponent(1,call('haskellcomplete#compToV', a:000))
-  echo ScionResultToErrorList('load component finished: ','setqflist', result)
-
-  " start checking file on buf write
-  if !exists('g:dont_check_on_buf_write')
-    augroup HaskellScion
-      au BufWritePost *.hs,*.hsc,*.lhs silent! BackgroundTypecheckFile
-    augroup end
-  endif
 endf
 
 " intentionally suffixing commands by "Scion"
@@ -121,7 +54,7 @@ command! -buffer ConnectionInfoScion
 
 " list supported languages
 command! -buffer ListSupportedLanguagesScion
-  \ echo haskellcomplete#List('spported-languages')
+  \ echo haskellcomplete#List('supported-languages')
 
 " list supported pragmas
 command! -buffer ListSupportedPragmasScion
@@ -189,12 +122,6 @@ command! -buffer -nargs=* -complete=file OpenCabalProjectScion
   \ echo haskellcomplete#OpenCabalProject('open-cabal-project',<f-args>)
 command! -buffer -nargs=* -complete=file ConfigureCabalProjectScion
   \ echo haskellcomplete#OpenCabalProject('configure-cabal-project', <f-args>)
-
-" arg either "library", "executable:name" or "file:Setup.hs"
-" no args: file:<current file>
-command! -buffer -nargs=? -complete=customlist,s:LoadComponentCompletion
-  \ LoadComponentScion
-  \ call s:LoadComponentScion(<f-args>)
 
 command! -buffer ThingAtPointScion
   \ echo haskellcomplete#EvalScion(1,'thing-at-point', {'file' : expand('%:p'), 'line' : 1*line('.'), 'column' : 1*col('.')})

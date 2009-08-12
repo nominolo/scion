@@ -47,6 +47,44 @@ fun! haskellcomplete#SetCurrentCabalProject()
               \ )
 endf
 
+fun! haskellcomplete#ScionResultToErrorList(action, func, result)
+  let qflist = []
+  for dict in a:result['notes']
+    let loc = dict['location']
+    if has_key(loc, 'no-location')
+      " using no-location so that we have an item to jump to.
+      " ef we don't use that dummy file SaneHook won't see any errors!
+      call add(qflist, { 'filename' : 'no-location'
+              \ ,'lnum' : 0
+              \ ,'col'  : 0
+              \ ,'text' : loc['no-location']
+              \ ,'type' : dict['kind'] == "error" ? "E" : "W"
+              \ })
+    else
+      call add(qflist, { 'filename' : loc['file']
+              \ ,'lnum' : loc['region'][0]
+              \ ,'col'  : loc['region'][1]
+              \ ,'text' : ''
+              \ ,'type' : dict['kind'] == "error" ? "E" : "W"
+              \ })
+    endif
+    for msgline in split(dict['message'],"\n")
+      call add(qflist, {'text': msgline})
+    endfor
+  endfor
+  
+  call call(a:func, [qflist])
+  if exists('g:haskell_qf_hook')
+    exec g:haskell_qf_hook
+  endif
+  if (len(qflist) == 0)
+    return printf(a:action." success. compilationTime: %s", string(a:result['duration']))
+  else
+    return printf(a:action." There are errors. compilationTime: %s", string(a:result['duration']))
+  endif
+endfun
+
+
 " if there is item take it, if there are more than one ask user which one to
 " use.. -- don't think cabal allows multiple .cabal files.. At least the user
 " is notified that there are more than one .cabal files
