@@ -8,7 +8,7 @@ other features that may be useful for an IDE.
 
 Most of Scion's functionality is based on the GHC API.  Scion tries to
 be front-end agnostic; it provides both a Haskell API and servers for
-non-Haskell clients such as Emacs (no Vim, volunteers required).
+non-Haskell clients such as Emacs and Vim.
 
   [home]: http://code.google.com/p/scion-lib/
 
