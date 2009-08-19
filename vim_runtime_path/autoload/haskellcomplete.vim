@@ -38,7 +38,8 @@ endf
 
 fun! haskellcomplete#SetCurrentCabalProject()
   let configs = haskellcomplete#EvalScion(1,'list-cabal-configurations',
-    \ { 'cabal-file' : haskellcomplete#CabalFile()})
+    \ { 'cabal-file' : haskellcomplete#CabalFile()
+    \ , 'scion-default': json#IntToBool(get(g:scion_config, "use_default_scion_cabal_dist_dir", 1)) })
   let config = haskellcomplete#ChooseFromList(configs, 'select a cabal configuration')
   let result = haskellcomplete#EvalScion(1,'open-cabal-project'
               \  ,{'root-dir' : getcwd()
@@ -256,7 +257,7 @@ class ScionServerConnection:
   def receive(self):
     s = self.scion_o.readline()
     if s == "":
-      raise "EOF"
+      raise "EOF, stderr lines: \n%s"%self.scion_err.read()
     else:
       return s[:-1]
 
@@ -268,6 +269,7 @@ class ScionServerConnectionStdinOut(ScionServerConnection):
             shell = False, bufsize = 1, stdin = PIPE, stdout = PIPE, stderr = PIPE)
     self.scion_o = p.stdout
     self.scion_i = p.stdin
+    self.scion_err = p.stderr
 
   def receive(self):
     global scion_log_stdout, scion_stdout
@@ -281,8 +283,8 @@ class ScionServerConnectionStdinOut(ScionServerConnection):
       if scion_log_stdout:
         scion_stdout.append(s)
         scion_stdout = scion_stdout[-200:]        
-      " should this be printed? It doesn't hurt much but might be useful when
-      " trouble shooting..
+      # should this be printed? It doesn't hurt much but might be useful when
+      # trouble shooting..
       print "ignoring line", s
       s = ScionServerConnection.receive(self)
 

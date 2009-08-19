@@ -1,3 +1,7 @@
+if !exists('g:scion_config')
+  let g:scion_config = {}
+  " let g:scion_config['use_default_scion_cabal_dist_dir'] = 0
+endif
 " probably more commands should be moved from haskell.vim into this file so
 " that the commands can be run even when not editing a haskell file.
 
@@ -37,3 +41,6 @@ endf
 command! -nargs=? -complete=customlist,s:LoadComponentCompletion
   \ LoadComponentScion
   \ call s:LoadComponentScion(<f-args>)
+
+command! -nargs=* -complete=file -buffer WriteSampleConfigScion
+  \ echo haskellcomplete#WriteSampleConfig(<f-args>) | e .scion-config

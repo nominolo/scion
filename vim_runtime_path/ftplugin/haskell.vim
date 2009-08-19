@@ -72,9 +72,6 @@ command! -buffer ListCabalComponentsScion
 command! -buffer ListExposedModulesScion
   \ echo haskellcomplete#List('exposed-modules')
 
-command! -nargs=* -complete=file -buffer WriteSampleConfigScion
-  \ echo haskellcomplete#WriteSampleConfig(<f-args>) | e .scion-config
-
 command! -nargs=* ListCabalConfigurationsScion
   \ echo s:ListCabalConfigurations(<f-args>)
 
