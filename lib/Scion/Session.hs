@@ -647,9 +647,9 @@ filePathToProjectModule fname = do
    case [ m | m <- mod_graph
             , not (isBootSummary m)
             , Just src <- [ml_hs_file (ms_location m)]
-            , src == fname || src == rel_fname || src == "." </> rel_fname ]
+            , src == fname || src == rel_fname || normalise src == normalise rel_fname ]
     of [ m ] -> do return (Just m)
-       _     -> do message verbose $ "No module found for " ++ fname
+       l     -> do message verbose $ "No module found for " ++ fname ++ (if null l then "" else " reason: ambiguity")
                    return Nothing  -- ambiguous or not present
   `gcatch` \(_ :: NoCurrentCabalProject) -> return Nothing
 
