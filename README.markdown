@@ -33,6 +33,10 @@ working on Scion itself.
   [ci]: http://hackage.haskell.org/trac/hackage/wiki/CabalInstall
 
 
+  Easy installation:
+  ------------------
+  Unpack latest archive from http://github.com/nominolo/mondlide/tree/master
+  From within that direcotry run cabal install.
 
 Usage
 =====
@@ -179,8 +183,15 @@ Vim:
 
       set runtimepath+=<path to scion repo/vim_runtime_path/>
 
-    use one of
+    run
+      :WriteSampleConfigScion
 
+    keep only these lines:
+
+        {"type":"build-configuration", "dist-dir":"dist-scion", "extra-args": []}
+        {"scion-default-cabal-config":"dist-scion"}
+
+    use one of
       :LoadComponentScion library
       :LoadComponentScion executable:cabal_executable_name
       :LoadComponentScion file:cabal_executable_name
