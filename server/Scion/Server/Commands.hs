@@ -290,6 +290,10 @@ cmdConfigureCabalProject =
         preprocessPackage rel_dist
         (toJSString . display . PD.package) `fmap` currentCabalPackage
 
+decodeBool :: JSValue -> Bool
+decodeBool (JSBool b) = b
+decodeBool _ = error "no bool"
+
 decodeExtraArgs :: JSValue -> [String]
 decodeExtraArgs JSNull = []
 decodeExtraArgs (JSString s) =
@@ -439,8 +443,9 @@ cmdListCabalConfigurations :: Cmd
 cmdListCabalConfigurations =
     Cmd "list-cabal-configurations" $
       reqArg' "cabal-file" fromJSString <&>
-      optArg' "type" "uniq" fromJSString $ cmd
-  where cmd cabal_file type' = liftM showJSON $ cabalConfigurations cabal_file type'
+      optArg' "type" "uniq" id <&>
+      optArg' "scion-default" False decodeBool $ cmd
+  where cmd cabal_file type' scionDefault = liftM showJSON $ cabalConfigurations cabal_file type' scionDefault
 
 cmdWriteSampleConfig :: Cmd
 cmdWriteSampleConfig =

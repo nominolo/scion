@@ -28,7 +28,7 @@ import Control.Monad
 import Data.Data
 import Data.IORef
 import Data.List        ( intercalate, nubBy )
-import Data.Maybe       ( isJust, fromMaybe )
+import Data.Maybe       ( isJust, fromMaybe, fromJust )
 import Data.Monoid
 import Data.Time.Clock  ( getCurrentTime, diffUTCTime )
 import System.Directory ( setCurrentDirectory, getCurrentDirectory,
@@ -214,8 +214,9 @@ cabalProjectComponents cabal_file = do
 -- uniq: both, but prefer config items
 cabalConfigurations :: FilePath -- ^ The .cabal file
                        -> String -- ^ one of "dist" "config" "all"
+                       -> Bool -- only show scion default? 
                        -> ScionM [CabalConfiguration]
-cabalConfigurations cabal type' = do
+cabalConfigurations cabal type' scionDefaultOnly = do
   let allowed = ["dist", "config", "all", "uniq"]
   when (not $ elem type' allowed) $ scionError $ "invalid value for type, expected: one of " ++ (show allowed)
   let dir = takeDirectory cabal
@@ -226,7 +227,13 @@ cabalConfigurations cabal type' = do
           -- TODO read flags from setup-config files 
           ++ (if type' `elem` ["all", "dist",  "uniq"] then map (\ a-> CabalConfiguration a []) existingDists else [])
   let f = if type' == "uniq" then nubBy (\a b -> distDir a == distDir b) else id
-  return $ f list
+  -- apply filter 
+  let list' = f list
+  let d = scionDefaultCabalConfig config
+  let scionDefault = filter ( ((fromJust d) ==) . distDir) list'
+  return $ if isJust d && scionDefaultOnly && (not . null) scionDefault
+    then scionDefault
+    else list'
 
 -- | Run the steps that Cabal would call before building.
 --

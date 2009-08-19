@@ -319,7 +319,8 @@ type FileComponentConfiguration =
 -- helperf functions see Utils.hs 
 data ScionProjectConfig = ScionProjectConfig {
   buildConfigurations :: [CabalConfiguration],
-  fileComponentExtraFlags :: [FileComponentConfiguration]
+  fileComponentExtraFlags :: [FileComponentConfiguration],
+  scionDefaultCabalConfig :: Maybe String
   }
 emptyScionProjectConfig :: ScionProjectConfig
-emptyScionProjectConfig = ScionProjectConfig [] []
+emptyScionProjectConfig = ScionProjectConfig [] [] Nothing

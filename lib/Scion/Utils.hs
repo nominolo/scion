@@ -112,6 +112,15 @@ instance JSON CabalConfiguration where
         ("dist-dir", JSString (toJSString dd))
       , ("extra-args", JSArray (map (JSString . toJSString) ea)) ]
 
+
+data ScionDefaultCabalConfig = ScionDefaultCabalConfig String
+instance JSON ScionDefaultCabalConfig where
+  readJSON (JSObject obj)
+    | Ok s <- lookupKey obj "scion-default-cabal-config"
+    = return $ ScionDefaultCabalConfig s
+  readJSON _ = fail "ScionDefaultCabalConfig"
+  showJSON (ScionDefaultCabalConfig s) = makeObject $ [ ("scion-default-cabal-config", (JSString . toJSString) s) ]
+
 readFileComponentConfig :: JSValue -> Result (String, [String])
 
 readFileComponentConfig (JSObject obj)
@@ -137,8 +146,10 @@ writeSampleConfig file = do
              "// this is a demo scion project configuration file has been created for you"
             ,"// you can use it to write down a set of configurations you'd like to test"
             ,"//"
+            ,"// make scion select the default scion entry"
+            ,"{\"scion-default-cabal-config\":\"dist-scion\"}"
             ,"// default scion entry:"
-            ,"{\"type\":\"build-configuration\", \"dist-dir\":\"dist-scion\", \"extra-args\": []}"
+            ,"{\"type\":\"build-configuration\", \"dist-dir\":\"dist-scion\", \"extra-args\": [], \"scion-default\": 1}"
             ,"//"
             ,"// some examples:"
             ,"{\"type\":\"build-configuration\", \"dist-dir\":\"dist-demo-simple-tools-from-path-default\", \"extra-args\": []}"
@@ -171,5 +182,8 @@ parseScionProjectConfig path = do
     parseJSON pc json = case readJSON json of
       Ok bc -> return $ pc { buildConfigurations = bc : buildConfigurations pc }
       Error msg1 -> case readFileComponentConfig json of
-          Ok cf -> return $ pc { fileComponentExtraFlags = cf : fileComponentExtraFlags pc }
-          Error msg2 -> scionError $ "invalid JSON object " ++ (show json) ++ " error :" ++ msg1 ++ "\n" ++ msg2
+        Ok cf -> return $ pc { fileComponentExtraFlags = cf : fileComponentExtraFlags pc }
+        Error msg2 -> case readJSON json of
+          Ok (ScionDefaultCabalConfig name) -> return $ pc { scionDefaultCabalConfig = Just name }
+          Error msg3 -> scionError $ "invalid JSON object " ++ (show json) ++ " error :" ++ msg1 ++ "\n" ++ msg2 ++ "\n" ++ msg3
+
