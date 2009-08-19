@@ -254,7 +254,11 @@ class ScionServerConnection:
     self.scion_i.write("%s\n"%line)
     self.scion_i.flush()
   def receive(self):
-    return self.scion_o.readline()[:-1]
+    s = self.scion_o.readline()
+    if s == "":
+      raise "EOF"
+    else:
+      return s[:-1]
 
 class ScionServerConnectionStdinOut(ScionServerConnection):
   """this connection launches the server and connects to its stdin and stdout streams"""
@@ -264,20 +268,25 @@ class ScionServerConnectionStdinOut(ScionServerConnection):
             shell = False, bufsize = 1, stdin = PIPE, stdout = PIPE, stderr = PIPE)
     self.scion_o = p.stdout
     self.scion_i = p.stdin
+
   def receive(self):
+    global scion_log_stdout, scion_stdout
     s = ScionServerConnection.receive(self)
-    if s[:6] == "scion:":
-      # ghc doesn't always use the ghc API to print statements.. so ignore all
-      # lines not marked by "scion:" at the beginning
-      # see README.markdown
-      return s[6:]
-    else:
+
+    # ghc doesn't always use the ghc API to print statements.. so ignore all
+    # lines not marked by "scion:" at the beginning
+    # see README.markdown
+    while s[:6] != "scion:":
       # throw away non "scion:" line and try again
-      global scion_log_stdout, scion_stdout
       if scion_log_stdout:
         scion_stdout.append(s)
+        scion_stdout = scion_stdout[-200:]        
+      " should this be printed? It doesn't hurt much but might be useful when
+      " trouble shooting..
+      print "ignoring line", s
+      s = ScionServerConnection.receive(self)
 
-      return self.receive()
+    return s[6:]
 
 class ScionServerConnectionSocket(ScionServerConnection):
   """connects to the scion server by either TCP/IP or socketfile"""
