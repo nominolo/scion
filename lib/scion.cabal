@@ -23,7 +23,7 @@ library
                    base         == 4.*,
                    containers   == 0.2.*,
                    directory    == 1.0.*,
-                   Cabal        >= 1.5 && < 1.8,
+                   Cabal        >= 1.5 && < 1.7,
                    uniplate     == 1.2.*,
                    time         == 1.1.*,
                    filepath     == 1.1.*,
