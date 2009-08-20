@@ -26,6 +26,12 @@ import System.IO ( openTempFile, hPutStr, hClose )
 import Control.Monad
 import Control.Exception ( IOException )
 
+import Distribution.Simple.Configure
+import Distribution.PackageDescription.Parse ( readPackageDescription )
+import qualified Distribution.Verbosity as V ( normal, deafening )
+import Distribution.Simple.Program ( defaultProgramConfiguration, userSpecifyPaths )
+import Distribution.Simple.Setup ( defaultConfigFlags, ConfigFlags(..), Flag(..) )
+
 ------------------------------------------------------------------------------
 
 -- | Open or configure a Cabal project using the Cabal library.
@@ -65,23 +71,30 @@ openOrConfigureCabalProject root_dir dist_dir extra_args =
 configureCabalProject :: 
      FilePath -- ^ The project root.  (Where the .cabal file resides)
   -> FilePath -- ^ dist dir, i.e., directory where to put generated files.
-  -> [String] -- ^ command line arguments to "configure".
+  -> [String] -- ^ command line arguments to "configure". [XXX: currently
+              -- ignored!]
   -> ScionM ()
-configureCabalProject root_dir dist_dir extra_args = do
+configureCabalProject root_dir dist_dir _extra_args = do
    cabal_file <- find_cabal_file
-   let args = [ "configure"
-              , "-v3"
-              , "--user"
-              , "--builddir=" ++ dist_dir
-              , "--with-compiler=" ++ ghc
-              , "--with-hc-pkg=" ++ ghc_pkg
-              ] ++ extra_args
-   liftIO $ print args
+   gen_pkg_descr <- liftIO $ readPackageDescription V.normal cabal_file
+   let prog_conf =
+         userSpecifyPaths [("ghc", ghc), ("ghc-pkg", ghc_pkg)]
+           defaultProgramConfiguration
+   let config_flags = 
+         (defaultConfigFlags prog_conf)
+           { configDistPref = Flag dist_dir
+           , configVerbosity = Flag V.deafening
+           , configUserInstall = Flag True
+           -- TODO: parse flags properly
+           }
    setWorkingDir root_dir
-   ok <- cabalSetupWithArgs cabal_file args
-   if ok then openCabalProject root_dir dist_dir
-         else liftIO $ throwIO $ 
-                CannotOpenCabalProject "Failed to configure"
+   ghandle (\(_ :: IOError) ->
+               liftIO $ throwIO $ 
+                CannotOpenCabalProject "Failed to configure") $ do
+     lbi <- liftIO $ configure (Left gen_pkg_descr, (Nothing, [])) config_flags
+     liftIO $ writePersistBuildConfig dist_dir lbi
+     openCabalProject root_dir dist_dir
+
  where
    find_cabal_file = do
       fs <- liftIO $ getDirectoryContents root_dir
