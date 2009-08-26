@@ -1,0 +1,122 @@
+name:            scion
+version:         0.1
+license:         BSD3
+license-file:    LICENSE
+author:          Thomas Schilling <nominolo@googlemail.com>
+maintainer:      Thomas Schilling <nominolo@googlemail.com>
+homepage:        http://github.com/nominolo/scion
+description:     Haskell Source Code Inspection and Interaction library
+synopsis:        Haskell IDE library
+category:        Development
+stability:       provisional
+build-type:      Simple
+cabal-version:   >= 1.6
+extra-source-files: README.markdown
+data-files:
+  emacs/*.el
+  vim_runtime_path/autoload/*.vim
+  vim_runtime_path/ftplugin/*.vim
+  vim_runtime_path/plugin/*.vim
+
+flag testing
+  description: Enable Debugging things like QuickCheck properties, etc.
+  default: False
+
+flag server
+  description: Install the scion-server.
+  default: True
+
+library
+  build-depends:
+    base         == 4.*,
+    Cabal        >= 1.5 && < 1.7,
+    containers   == 0.2.*,
+    directory    == 1.0.*,
+    filepath     == 1.1.*,
+    ghc          >= 6.10 && < 6.12,
+    ghc-paths    == 0.1.*,
+    ghc-syb      == 0.1.*,
+    hslogger     == 1.0.*,
+    json         == 0.4.*,
+    multiset     == 0.1.*,
+    time         == 1.1.*,
+    uniplate     == 1.2.*
+
+  hs-source-dirs:  lib
+  extensions:      CPP, PatternGuards
+  exposed-modules:
+    Scion.Types,
+    Scion.Types.ExtraInstances,
+    Scion.Types.Notes,
+    Scion.Inspect,
+    Scion.Inspect.Find,
+    Scion.Inspect.TypeOf,
+    Scion.Inspect.DefinitionSite,
+    Scion.Utils,
+    Scion.Session,
+    Scion.Configure,
+    Scion
+
+  if flag(testing)
+    build-depends: QuickCheck == 2.*
+    cpp-options:   -DDEBUG
+
+  if impl(ghc > 6.11)
+    cpp-options:   -DHAVE_PACKAGE_DB_MODULES
+
+  -- TODO: drop after 6.10.2 is out
+  if impl(ghc >= 6.11.20081113) || impl(ghc >= 6.10.2 && < 6.11)
+    cpp-options:   -DRECOMPILE_BUG_FIXED
+
+  if impl(ghc == 6.10.*)
+    cpp-options:   -DWPINLINE
+
+  ghc-options:  -Wall
+
+executable scion-server
+  if !flag(server)
+    buildable: False
+
+  main-is: Main.hs
+  hs-source-dirs: lib server
+
+  build-depends:
+    -- From the library:
+    base         == 4.*,
+    Cabal        >= 1.5 && < 1.7,
+    containers   == 0.2.*,
+    directory    == 1.0.*,
+    filepath     == 1.1.*,
+    ghc          >= 6.10 && < 6.12,
+    ghc-paths    == 0.1.*,
+    ghc-syb      == 0.1.*,
+    hslogger     == 1.0.*,
+    json         == 0.4.*,
+    multiset     == 0.1.*,
+    time         == 1.1.*
+  
+  if flag(server)
+    build-depends:
+      -- Server only
+      bytestring   == 0.9.*,
+      network      >= 2.1 && < 2.3,
+      network-bytestring == 0.1.*,
+      utf8-string  == 0.3.*
+                 
+  ghc-options: -Wall
+  extensions:      CPP, PatternGuards
+
+  if flag(testing)
+    build-depends: QuickCheck == 2.*
+    cpp-options:   -DDEBUG
+
+  if impl(ghc > 6.11)
+    cpp-options:   -DHAVE_PACKAGE_DB_MODULES
+
+  -- TODO: drop after 6.10.2 is out
+  if impl(ghc >= 6.11.20081113) || impl(ghc >= 6.10.2 && < 6.11)
+    cpp-options:   -DRECOMPILE_BUG_FIXED
+
+  if impl(ghc == 6.10.*)
+    cpp-options:   -DWPINLINE
+

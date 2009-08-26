@@ -20,23 +20,40 @@ Installation
 
 Scion requires [GHC 6.10.1][ghc] or later.  All other dependencies
 should be on [Hackage][hackage] and can be installed using
-[cabal-install][ci] in the lib directory:
+[cabal-install][ci].  Scion consists of a library and a server which
+is used by front-ends that are not written in Haskell.
 
-    $ cd dir/to/scion/lib
+To install the library and server use:
+
+    $ cd dir/to/scion
     $ cabal install
+   
+This will install the executable `scion_server` in the `bin` directory
+of `cabal-install`, typically `$HOME/.cabal/bin`.
 
-Scion supports various configuration flags which are useful when
-working on Scion itself.
+If you do not want to install the server (and its dependencies), turn
+off the "server" flag which is enabled by default:
+
+    $ cabal install -f-server
+
+In order to use scion with your favourite front-end, see the specific
+instructions for the front-end below.  The Emacs and Vim front-ends
+are included with Scion and their installation instruction follow
+below.  The necessary files are installed with Scion by default and
+there is currently no option to turn this off.
 
   [ghc]: http://haskell.org/ghc/download.html
   [hackage]: http://hackage.haskell.org/packages/hackage.html
   [ci]: http://hackage.haskell.org/trac/hackage/wiki/CabalInstall
 
 
-  Easy installation:
-  ------------------
-  Unpack latest archive from http://github.com/nominolo/mondlide/tree/master
-  From within that direcotry run cabal install.
+Bug Reports
+===========
+
+Please send bug reports or feature requests to the [Issue tracker][issues].
+
+  [issues]: http://code.google.com/p/scion-lib/issues/list
+
 
 Usage
 =====
@@ -45,28 +62,22 @@ Since Scion is a library, you should consult the haddock documentation
 for how to use it.  However, you may look at the Emacs frontend for
 inspiration.
 
-The Emacs frontend is implemented as a Haskell server. The server is a
-separate package, scion-server, which depends on the main scion package.
-
 Emacs
------
+=====
 
-Install Scion with Emacs support:
+Install the Scion server as described above. In the following we'll
+assume that the server has been install as:
 
-    $ cd dir/to/scion/server
-    $ cabal install
-
-You'll end up with a binary called "scion_server".
-
-    $ ~/.cabal/bin/scion_server
+    $ ~/.cabal/bin/scion-server
 
 Add the following to your emacs configuration (typically "~/.emacs"):
 
-    (add-to-list 'load-path "<scion>/emacs")
+    ;; Substitute the desired version for <version>
+    (add-to-list 'load-path "~/.cabal/share/scion-<version>/emacs")
     (require 'scion)
 
     ;; if ./cabal/bin is not in your $PATH
-    (setq scion-program "~/.cabal/bin/scion_server")
+    (setq scion-program "~/.cabal/bin/scion-server")
 
     (defun my-haskell-hook ()
       ;; Whenever we open a file in Haskell mode, also activate Scion
@@ -78,14 +89,21 @@ Add the following to your emacs configuration (typically "~/.emacs"):
     (add-hook 'haskell-mode-hook 'my-haskell-hook)
     
 Scion mode needs to communicate with the external server.  By default
-it will automatically start the server when needed.  See "Manually
-Connecting to Scion" below for how to connect to the server manually. 
+the server will be started automatically when needed.  See "Manually
+Connecting to Scion" below for how to connect to the server manually.
+
+Scion uses Cabal as a library which in turn might look for external
+programs such as [happy][] or [alex][].  In order to find these, the
+`PATH` environment variable has to be set up correctly.
+
+  [happy]: http://www.haskell.org/happy/
+  [alex]: http://www.haskell.org/alex/
 
 The scion server process inherits the environment variables from the
 Emacs process.  Depending on your system this may be different than
-what you'd get if you started the server from the shell.  To adjust
-the `PATH` environment variable from within Emacs, add something like
-the following to your `.emacs`:
+what you would get if you started the server from the shell.  To
+adjust the `PATH` environment variable from within Emacs, add
+something like the following to your `.emacs`:
 
     ;; add ~/usr/bin to the PATH
     (setenv "PATH" "$HOME/usr/bin:$PATH" t)
@@ -96,8 +114,7 @@ commands provided by scion-mode:
   * `C-c C-x C-l` (`scion-load`) load the current file with Scion.  If
     the file is within a Cabal project this will prompt to use the
     settings from one of the components in the package description
-    file.  You can still choose to load only the current file using
-    the default settings.
+    file.  You can still choose to load only the current file.
 
   * `C-c C-o` (`scion-open-cabal-project`) configures a Cabal project
     and loads the meta-data from a Cabal file.  Note that this
@@ -167,63 +184,97 @@ convenient to start the server from within Emacs:
     M-x scion
 
 
-Vim:
-    ensure :echo has('python')
-    returns 1
+Vim
+===
 
-    add to your ~/.vimrc:
+## Installation
 
+Vim mode requires Python support (version 2.4 or later).  Vim 7.2 or
+later have Python support enabled by default.  However, not every
+distribution of Vim includes a recent enough version of Python.
+Notably, MacVim is only linked against version 2.3.5 to be compatible
+with OS X 10.4.  You will need to build it from source, which is
+however reasonably fast.
 
-      " recommended: vim spawns a scion instance itself:
-      let g:scion_connection_setting = [ 'scion', "path to scion_server executable"]
+To check for python support the following should return `1`:
 
-      " use socket or TCP/IP connection instead:
-      "let g:scion_connection_setting = [ 'socket',  ["localhost", 4005] ]
-      "let g:scion_connection_setting = [ 'socket',  "socket file " ]
+    :echo has('python')
 
-      set runtimepath+=<path to scion repo/vim_runtime_path/>
+To find out the version use:
 
-    run
-      :WriteSampleConfigScion
+    :py import sys
+    :py print sys.version
 
-    keep only these lines:
+Add the following to your `~/.vimrc` (or only `~/.gvimrc` if you have
+different Vim versions).  If Vim should start the Scion server itself
+(recommended):
 
-        {"type":"build-configuration", "dist-dir":"dist-scion", "extra-args": []}
-        {"scion-default-cabal-config":"dist-scion"}
+    " recommended: vim spawns a scion instance itself:
+    let g:scion_connection_setting = [ 'scion', "~/.cabal/bin/scion-server"]
 
-    use one of
-      :LoadComponentScion library
-      :LoadComponentScion executable:cabal_executable_name
-      :LoadComponentScion file:cabal_executable_name
-      :LoadComponentScion
+If you want to connect to a running instance of the server via TCP,
+add (where `4005` is the port number used by the scion server):
 
-    The last one is a shortcut for file:<this buf>
+    " use socket or TCP/IP connection instead:
+    let g:scion_connection_setting = [ 'socket',  ["localhost", 4005] ]
 
-    (you can use completion)
+Add the following independently of which connection mode you prefer:
 
-    At this point you should already get some compilation errors.
+    set runtimepath+=~/.cabal/share/scion-<version>/vim_runtime_path/
 
-    use
+Depending on your Vim config you will need to add the following lines
+as well:
+
+    :filetype plugin on
+    :source ~/.cabal/share/scion-<version>/vim_runtime_path/plugin/haskell_scion.vim
+
+You store certain settings in a configuration file.  (Note: This
+feature is currently experimental and details may change in future
+Scion releases.)  To generate an initial configuration file run
+
+    :WriteSampleConfigScion
+
+Keep only these lines:
+
+    {"type":"build-configuration", "dist-dir":"dist-scion", "extra-args": []}
+    {"scion-default-cabal-config":"dist-scion"}
+
+## Usage
+
+To load a component (a Cabal library or executable, or just a single
+file) use one of:
+
+    :LoadComponentScion library
+    :LoadComponentScion executable:cabal_executable_name
+    :LoadComponentScion file:cabal_executable_name
+    :LoadComponentScion
+
+The last one is a shortcut for `file:<this buf>`.  You can use completion.
+
+At this point you should already get some compilation errors.  After
+modifying the file, use
+
     :BackgroundTypecheckFileScion
 
-    before
+to re-typecheck just the current file.
+
+If the file typechecks you can move the cursor onto an identifier and
+use the command
+
     :ThingAtPointScion
-    You should see something like:
+
+You should see something like this, which is the (instantiated) type
+of the identifier at the point:
+
       {'Just': 'print :: [Char] -> IO ()'}
     
-    Have a look at vim_runtime_path/ftplugin/haskell.vim to see a list of all
-    commands which are implemented yet.
+Have a look at `vim_runtime_path/ftplugin/haskell.vim` to see a list of all
+commands which are implemented yet.
     
-    BackgroundTypecheckFileScion should be called automatically after buf write.
-    If you don't like this set g:dont_check_on_buf_write or overwrite g:haskell_qf_hook
-    to change open/close quickfix and jump to first *error* behaviour.
-
-Bug Reports
-===========
-
-Please send bug reports or feature requests to the [Issue tracker][issues].
-
-  [issues]: http://code.google.com/p/scion-lib/issues/list
+`BackgroundTypecheckFileScion` should be called automatically after
+buf write.  If you don't like this set `g:dont_check_on_buf_write` or
+overwrite `g:haskell_qf_hook` to change open/close quickfix and jump to
+first *error* behaviour.
 
 Discussion
 ==========
@@ -250,7 +301,7 @@ won't take up additional space on your account.
 Building
 --------
 
-For development it is probably easier to use the GNU make than Cabal
+For development it is probably easier to use the GNU Make than Cabal
 directly.  The makefile includes a file called `config.mk` which is
 not present by default.  You can use the provided `config.mk.sample`
 and edit it:
@@ -263,14 +314,6 @@ After that, the makefile takes care of the rest.
     $ make           # configure and build
     $ make install   # configure, build, and install
 
-If you don't have the dependencies, yet, and have `cabal-install`, the
-following may be helpful (If it's not in the path, adjust `config.mk`
-accordingly):
-
-    $ make cabal-install
-
-(This also installs Scion, but that shouldn't interfere with hacking.)
-
 
 Using an in-place GHC
 ---------------------
@@ -282,7 +325,7 @@ branch has some of these bugs fixed and may contain new features not
 present in the stable branch.  If you want to compile against an
 inplace GHC, the following steps should work:
 
- 1. On windows, make sure that Cabal finds the inplace gcc
+ 1. On Windows, make sure that Cabal finds the inplace gcc
 
         $ cd /path/to/ghc
         $ cp `which gcc` ghc/
@@ -293,12 +336,19 @@ inplace GHC, the following steps should work:
     system.  Make sure *not* to set `HC`, `PKG`, or `HADDOCK`, they
     will automatically be set to point to the inplace versions.
 
- 3. Use `make` or `make cabal-install` as above.
+ 3. Use `make`.
 
 
+License
+=======
 
-KNOWN PITFALLS
-------------------------------
+The parts of Scion written in Haskell are licensed under the BSD
+license.  The Emacs lisp parts are licensed under the GPL license
+version 2 or (at your option) any later version.
+
+
+Known Pitfalls
+==============
 If you get an error message like this:
   "scion_server: mkTopLevEnv: not interpreted main:Main"
 then you should rm [Ss]etup.hi [Ss]etup.o in the project directory.
