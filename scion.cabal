@@ -102,6 +102,21 @@ executable scion-server
       network      >= 2.1 && < 2.3,
       network-bytestring == 0.1.*,
       utf8-string  == 0.3.*
+
+  other-modules:
+    Scion
+    Scion.Configure
+    Scion.Inspect
+    Scion.Inspect.DefinitionSite
+    Scion.Session
+    Scion.Types
+    Scion.Types.Notes
+    Scion.Utils
+
+    Scion.Server.Commands
+    Scion.Server.ConnectionIO
+    Scion.Server.Generic
+    Scion.Server.Protocol
                  
   ghc-options: -Wall
   extensions:      CPP, PatternGuards
