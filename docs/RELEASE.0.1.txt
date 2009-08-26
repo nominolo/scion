@@ -1,0 +1,48 @@
+Hello,
+
+I am pleased to announce the first release of Scion.
+
+Scion [1] is a Haskell library that aims to implement those parts of a
+Haskell IDE which are independent of a particular front-end.  Scion
+is based on the GHC API and Cabal.  It provides both a Haskell API and
+a server for non-Haskell clients such as Emacs and Vim.
+
+Scion is bundled with two front-ends, Emacs and Vim, and is used by
+the Haskell Eclipse plugin EclipseFP.  Work on Yi support is underway.
+
+Scion's current features include:
+
+ - Opening (that is, typechecking) a component of a Cabal project or a
+   single file [Emacs, Vim]. Error messages are highlighted in the
+   source [Emacs].
+
+ - Saving a file automatically typechecks the file [Emacs, Vim].
+   This feature can be turned off.
+
+ - Look up the type of any identifier (even local variables) [Emacs, Vim].
+   Requires that the file typechecks.
+
+ - Jump to definition of an identifier defined in the current project
+   [Emacs].
+
+For more details on the provided features and instructions of how to
+set up a particular front-end see the README [2].
+
+Patches are always welcome.  The main source repository is hosted on
+Github [3].  If you find a problem please file a bug [4] and/or join
+the developer's mailing list [5].
+
+  [1]: http://code.google.com/p/scion-lib/
+  [2]: http://github.com/nominolo/scion/blob/master/README.markdown
+  [3]: http://github.com/nominolo/scion
+  [4]: http://code.google.com/p/scion-lib/issues/list
+  [5]: http://groups.google.com/group/scion-lib-devel
+
+Thanks
+------
+
+The following people contributed to patches to this release:
+
+Marc Weber
+Thomas ten Cate
+Sudish Joseph
