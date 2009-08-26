@@ -1,5 +1,5 @@
 name:            scion
-version:         0.1
+version:         0.1.0.1
 license:         BSD3
 license-file:    LICENSE
 author:          Thomas Schilling <nominolo@googlemail.com>
@@ -12,9 +12,8 @@ description:
   is based on the GHC API and Cabal.  It provides both a Haskell API and
   a server for non-Haskell clients such as Emacs and Vim.
   .
-  See the homepage (http://code.google.com/p/scion-lib/) and the
-  README
-  (http://github.com/nominolo/scion/blob/master/README.markdown) for
+  See the homepage <http://code.google.com/p/scion-lib> and the README
+  <http://github.com/nominolo/scion/blob/master/README.markdown> for
   more information.
 
 category:        Development
