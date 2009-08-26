@@ -2,13 +2,10 @@
 Introduction
 ============
 
-[Scion][home] is a Haskell library that aims to provide Haskell source
-code inspection and transformation functionality as well as various
-other features that may be useful for an IDE.
-
-Most of Scion's functionality is based on the GHC API.  Scion tries to
-be front-end agnostic; it provides both a Haskell API and servers for
-non-Haskell clients such as Emacs and Vim.
+[Scion][home] is a Haskell library that aims to implement those parts
+of a Haskell IDE which are independent of the particular front-end.
+Scion is based on the GHC API and Cabal.  It provides both a Haskell
+API and a server for non-Haskell clients such as Emacs and Vim.
 
   [home]: http://code.google.com/p/scion-lib/
 
@@ -65,8 +62,10 @@ inspiration.
 Emacs
 =====
 
-Install the Scion server as described above. In the following we'll
-assume that the server has been install as:
+Scion's Emacs mode should be seen as complimentary to the existing
+Haskell mode.  To use it install the Scion server as described
+above. In the following we'll assume that the server has been install
+as:
 
     $ ~/.cabal/bin/scion-server
 
@@ -146,7 +145,7 @@ The following commands offer completion for a few things.
     package.
     
   * `C-c i f` (`haskell-insert-flag`) insert (GHC) command line flag
-    at point.  (Really only makes sense within an `OPTiONS_GHC` pragma.)
+    at point.  (Really only makes sense within an `OPTIONS_GHC` pragma.)
 
 ## Experimental features
 

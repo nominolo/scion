@@ -5,8 +5,18 @@ license-file:    LICENSE
 author:          Thomas Schilling <nominolo@googlemail.com>
 maintainer:      Thomas Schilling <nominolo@googlemail.com>
 homepage:        http://github.com/nominolo/scion
-description:     Haskell Source Code Inspection and Interaction library
 synopsis:        Haskell IDE library
+description:
+  Scion is a Haskell library that aims to implement those parts of a
+  Haskell IDE which are independent of a particular front-end.  Scion
+  is based on the GHC API and Cabal.  It provides both a Haskell API and
+  a server for non-Haskell clients such as Emacs and Vim.
+  .
+  See the homepage (http://code.google.com/p/scion-lib/) and the
+  README
+  (http://github.com/nominolo/scion/blob/master/README.markdown) for
+  more information.
+
 category:        Development
 stability:       provisional
 build-type:      Simple
