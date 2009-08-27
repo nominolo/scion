@@ -215,7 +215,10 @@ different Vim versions).  If Vim should start the Scion server itself
 (recommended):
 
     " recommended: vim spawns a scion instance itself:
-    let g:scion_connection_setting = [ 'scion', "~/.cabal/bin/scion-server"]
+    let g:scion_connection_setting = [ 'scion', "<path/to/scion-server>"]
+    
+Note that there may be problems using "~" in the path, so better
+specify the absolute path.
 
 If you want to connect to a running instance of the server via TCP,
 add (where `4005` is the port number used by the scion server):
@@ -225,13 +228,13 @@ add (where `4005` is the port number used by the scion server):
 
 Add the following independently of which connection mode you prefer:
 
-    set runtimepath+=~/.cabal/share/scion-<version>/vim_runtime_path/
+    set runtimepath+=<home>/.cabal/share/scion-<version>/vim_runtime_path/
 
 Depending on your Vim config you will need to add the following lines
 as well:
 
     :filetype plugin on
-    :source ~/.cabal/share/scion-<version>/vim_runtime_path/plugin/haskell_scion.vim
+    :source <home>/.cabal/share/scion-<version>/vim_runtime_path/plugin/haskell_scion.vim
 
 You store certain settings in a configuration file.  (Note: This
 feature is currently experimental and details may change in future
