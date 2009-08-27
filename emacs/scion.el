@@ -188,19 +188,24 @@ current state will be saved and later restored."
 
 (put 'slime-define-keys 'lisp-indent-function 1)
 
-(defun aquamacs-p ()
-  (string-match "Aquamacs" (emacs-version)))
+(defvar scion-completing-read-function 'completing-read
+  "The completion function used by scion.
+
+You might prefer `ido-completing-read' to the default, but that
+leads to problems on some versions of Emacs which are so severe
+that Emacs needs to be restarted. (You have been warned!)")
 
 (defun scion-completing-read (prompt collection &optional predicate require-match
 				     initial-input hist def inherit-input-method)
-  (cond
-   ;; for some reason ido-completing-read is broken in Aquamacs
-   ((not (aquamacs-p))
-    (ido-completing-read prompt collection predicate 
-			 require-match initial-input hist def))
-   (t
-    (completing-read  prompt collection predicate require-match initial-input
-		      hist def inherit-input-method))))
+  (if (eq scion-completing-read-function 'ido-completing-read)
+      ;; ido-completing-read does not support the last argument.  What
+      ;; a mess.
+      (funcall scion-completing-read-function 
+	   prompt collection predicate require-match initial-input
+	   hist def)
+    (funcall scion-completing-read-function 
+	   prompt collection predicate require-match initial-input
+	   hist def inherit-input-method)))
 
 ;;;---------------------------------------------------------------------------
 ;;;;;; Tree View Widget

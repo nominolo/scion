@@ -86,7 +86,13 @@ Add the following to your emacs configuration (typically "~/.emacs"):
       (scion-flycheck-on-save 1))
 
     (add-hook 'haskell-mode-hook 'my-haskell-hook)
-    
+
+    ;; Use ido-mode completion (matches anywhere, not just beginning)
+    ;;
+    ;; WARNING: This causes some versions of Emacs to fail so badly
+    ;; that Emacs needs to be restarted.
+    (setq scion-completing-read-function 'ido-completing-read)
+
 Scion mode needs to communicate with the external server.  By default
 the server will be started automatically when needed.  See "Manually
 Connecting to Scion" below for how to connect to the server manually.
