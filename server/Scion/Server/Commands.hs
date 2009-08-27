@@ -519,7 +519,7 @@ cmdThingAtPoint =
                       return $ Just $ showSDocForUser unqual
                         (prettyResult x O.<+> dcolon O.<+> 
                           pprTypeForUser True t)
-                  _ -> return (Just (showSDocDebug (ppr x O.$$ ppr xs )))
+                  _ -> return (Just "No info") --(Just (showSDocDebug (ppr x O.$$ ppr xs )))
         _ -> return Nothing
 
 cmdDumpSources :: Cmd
