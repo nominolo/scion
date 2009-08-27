@@ -606,9 +606,8 @@ EVAL'd by Lisp."
 (defun scion-net-have-input-p ()
   "Return true if a complete message is available."
   (goto-char (point-min))
-  (if (= 0 (forward-line 1))
-      t
-    nil))
+  ;; A message is terminated by a newline.
+  (search-forward "\n" nil t))
 
 (defun scion-run-when-idle (function &rest args)
   "Call FUNCTION as soon as Emacs is idle."
