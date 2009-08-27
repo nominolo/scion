@@ -294,7 +294,7 @@ This is used for labels spanning multiple lines."
 
 ;;;---------------------------------------------------------------------------
 
-(defvar scion-program "scion_server"
+(defvar scion-program "scion-server"
   "Program name of the Scion server.")
 
 (defvar scion-last-compilation-result nil
