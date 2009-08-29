@@ -2282,6 +2282,10 @@ forces it to be off.  NIL toggles the current state."
   (interactive)
   (scion-eval '(dump-defined-names)))
 
+(defun scion-dump-module-graph ()
+  (interactive)
+  (scion-eval '(dump-module-graph)))
+
 (define-key scion-mode-map "\C-c\C-t" 'scion-thing-at-point)
 
 (provide 'scion)

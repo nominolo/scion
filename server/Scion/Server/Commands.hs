@@ -36,7 +36,7 @@ import FastString
 import GHC
 import PprTyThing ( pprTypeForUser )
 import Outputable ( ppr, showSDoc, showSDocDump, dcolon, showSDocForUser,
-                    showSDocDebug )
+                    showSDocDebug, printDump )
 import qualified Outputable as O ( (<+>), ($$) )
 
 import Control.Applicative
@@ -173,6 +173,7 @@ allCommands =
     , cmdDefinedNames
     , cmdNameDefinitions
     , cmdIdentify
+    , cmdDumpModuleGraph
     ]
 
 ------------------------------------------------------------------------------
@@ -586,3 +587,12 @@ cmdIdentify :: Cmd
 cmdIdentify =
     Cmd "client-identify" $ reqArg' "name" fromJSString $ cmd
   where cmd c = modifySessionState $ \s -> s { client = c }
+
+cmdDumpModuleGraph :: Cmd
+cmdDumpModuleGraph =
+   Cmd "dump-module-graph" $ noArgs $ cmd
+  where
+    cmd = do
+      mg <- getModuleGraph
+      liftIO $ printDump (ppr mg)
+      return ()
