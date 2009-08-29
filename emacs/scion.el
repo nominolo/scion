@@ -2314,7 +2314,7 @@ loaded."
 
 	;; Different Cabal project, we must configure it first.
 	(let ((rel-dist-dir (read-from-minibuffer "Dist directory: " ".dist-scion"))
-	      (extra-args (read-from-minibuffer "Configure Flags: " "")))
+	      (extra-args (read-from-minibuffer "Cabal Configure Flags: " "")))
 	  (lexical-let ((root-dir root-dir)
 			(comp comp))
 	    (scion-eval-async `(open-cabal-project :root-dir ,(expand-file-name root-dir)
