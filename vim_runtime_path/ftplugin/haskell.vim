@@ -87,8 +87,8 @@ command! -nargs=0 GetVerbosityScion
 command! -nargs=0 CurrentComponentScion
   \ echo haskellcomplete#EvalScion(1,'current-component',{})
 
-command! -nargs=0 CurrentCabalFileScion
-  \ echo haskellcomplete#EvalScion(1,'current-cabal-file',{})
+" command! -nargs=0 CurrentCabalFileScion
+"  \ echo haskellcomplete#EvalScion(1,'current-cabal-file',{})
 
 command! -nargs=0 DumpDefinedNamesScion
   \ echo haskellcomplete#EvalScion(1,'dump-defined-names',{})

@@ -32,15 +32,17 @@ handle con 0 = do
    loop = do
      -- TODO: don't require line-based input
      str <- liftIO $ CIO.getLine con
-     logDebug $ "parsing command: " ++ show str
+     logDebug $ "==> " ++ S.toString str
      let mb_req = decodeStrict (S.toString str)
      (resp, keep_going) 
          <- case mb_req of
               Error _ -> return (malformedRequest, True)
-              Ok req -> handleRequest req
+              Ok req -> do
+                --logDebug $ "Cmd: " ++ show req
+                handleRequest req
      c <- gets client
      let resp_str = encodeStrict (if (c == "vim") then vimHack resp else resp)
-     logDebug $ show resp_str
+     logDebug $ "<== " ++ resp_str
      liftIO $ CIO.putLine con (S.fromString resp_str)
      --logDebug $ "sent response"
      if keep_going then loop else do 

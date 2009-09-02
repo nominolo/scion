@@ -5,15 +5,15 @@
 -- Module      : Scion.Server.Commands
 -- Copyright   : (c) Thomas Schilling 2008
 -- License     : BSD-style
---
+-- 
 -- Maintainer  : nominolo@gmail.com
 -- Stability   : experimental
 -- Portability : portable
---
+-- 
 -- Commands provided by the server.
---
+-- 
 -- TODO: Need some way to document the wire protocol.  Autogenerate?
---
+-- 
 module Scion.Server.Commands ( 
   handleRequest, malformedRequest, -- allCommands, allCommands',
   -- these are reused in the vim interface 
@@ -28,7 +28,7 @@ import Scion.Session
 import Scion.Server.Protocol
 import Scion.Inspect
 import Scion.Inspect.DefinitionSite
-import Scion.Configure
+import Scion.Cabal
 
 import DynFlags ( supportedLanguages, allFlags )
 import Exception
@@ -48,8 +48,6 @@ import Text.JSON
 import qualified Data.Map as M
 import qualified Data.MultiSet as MS
 
-import Distribution.Text ( display )
-import qualified Distribution.PackageDescription as PD
 import GHC.SYB.Utils
 
 #ifndef HAVE_PACKAGE_DB_MODULES
@@ -147,9 +145,6 @@ allCmds = M.fromList [ (cmdName c, c) | c <- allCommands ]
 allCommands :: [Cmd]
 allCommands = 
     [ cmdConnectionInfo
-    , cmdOpenCabalProject
-    , cmdConfigureCabalProject
-    , cmdLoadComponent
     , cmdListSupportedLanguages
     , cmdListSupportedPragmas
     , cmdListSupportedFlags
@@ -159,7 +154,6 @@ allCommands =
     , cmdListRdrNamesInScope
     , cmdListExposedModules
     , cmdCurrentComponent
-    , cmdCurrentCabalFile
     , cmdSetVerbosity
     , cmdGetVerbosity
     , cmdLoad
@@ -267,30 +261,6 @@ cmdConnectionInfo = Cmd "connection-info" $ noArgs worker
                [("version", showJSON scionVersion)
                ,("pid",     showJSON pid)]
 
-cmdOpenCabalProject :: Cmd
-cmdOpenCabalProject =
-  Cmd "open-cabal-project" $
-    reqArg' "root-dir" fromJSString <&>
-    optArg' "dist-dir" ".dist-scion" fromJSString <&>
-    optArg' "extra-args" [] decodeExtraArgs $ worker
- where
-   worker root_dir dist_dir extra_args = do
-        openOrConfigureCabalProject root_dir dist_dir extra_args
-        preprocessPackage dist_dir
-        (toJSString . display . PD.package) `fmap` currentCabalPackage
-
-cmdConfigureCabalProject :: Cmd
-cmdConfigureCabalProject =
-  Cmd "configure-cabal-project" $
-    reqArg' "root-dir" fromJSString <&>
-    optArg' "dist-dir" ".dist-scion" fromJSString <&>
-    optArg' "extra-args" [] decodeExtraArgs $ cmd
-  where
-    cmd path rel_dist extra_args = do
-        configureCabalProject path rel_dist extra_args
-        preprocessPackage rel_dist
-        (toJSString . display . PD.package) `fmap` currentCabalPackage
-
 decodeBool :: JSValue -> Bool
 decodeBool (JSBool b) = b
 decodeBool _ = error "no bool"
@@ -303,19 +273,13 @@ decodeExtraArgs (JSArray arr) =
     [ fromJSString s | JSString s <- arr ]
 
 instance JSON Component where
-  readJSON (JSObject obj)
-    | Ok JSNull <- lookupKey obj "library" = return Library
-    | Ok s <- lookupKey obj "executable" =
-        return $ Executable (fromJSString s)
-    | Ok s <- lookupKey obj "file" =
-        return $ File (fromJSString s)
-  readJSON _ = fail "component"
+  readJSON obj = do
+    case readJSON obj of
+      Ok (c :: CabalComponent) -> return $ Component c
+      _ -> case readJSON obj of
+             Ok (c :: FileComp) -> return $ Component c
 
-  showJSON Library = makeObject [("library", JSNull)]
-  showJSON (Executable n) =
-      makeObject [("executable", JSString (toJSString n))]
-  showJSON (File n) =
-      makeObject [("file", JSString (toJSString n))]
+  showJSON (Component c) = showJSON c
 
 instance JSON CompilationResult where
   showJSON (CompilationResult suc notes time) =
@@ -386,23 +350,6 @@ instance JSON NominalDiffTime where
   readJSON (JSRational _ n) = return $ fromRational (toRational n)
   readJSON _ = fail "diff-time"
 
-cmdLoadComponent :: Cmd
-cmdLoadComponent =
-  Cmd "load-component" $
-    reqArg "component" $ cmd
-  where
-    cmd comp = do
-      loadComponent comp
-        
-instance Sexp CompilationResult where
-  toSexp (CompilationResult success notes time) = toSexp $
-      ExactSexp $ parens $ 
-        showString "compilation-result" <+>
-        toSexp success <+>
-        toSexp notes <+>
-        toSexp (ExactSexp (showString (show 
-                  (fromRational (toRational time) :: Float))))
-
 cmdListSupportedLanguages :: Cmd
 cmdListSupportedLanguages = Cmd "list-supported-languages" $ noArgs cmd
   where cmd = return (map toJSString supportedLanguages)
@@ -430,8 +377,6 @@ cmdListRdrNamesInScope =
           rdr_names <- getNamesInScope
           return (map (showSDoc . ppr) rdr_names)
 
--- FIXME: we want the results from a configured cabal file dist/ * because
--- some components may be skipped due to compilation flags (buildable : False) ?
 cmdListCabalComponents :: Cmd
 cmdListCabalComponents =
     Cmd "list-cabal-components" $ reqArg' "cabal-file" fromJSString $ cmd
@@ -537,7 +482,6 @@ cmdDumpSources = Cmd "dump-sources" $ noArgs $ cmd
           return ()
         _ -> return ()
 
--- remove this func, obsolete. there is also load-component 
 cmdLoad :: Cmd
 cmdLoad = Cmd "load" $ reqArg "component" $ cmd
   where
@@ -556,14 +500,6 @@ cmdGetVerbosity = Cmd "get-verbosity" $ noArgs $ verbosityToInt <$> getVerbosity
 -- rename to GetCurrentComponent? 
 cmdCurrentComponent :: Cmd
 cmdCurrentComponent = Cmd "current-component" $ noArgs $ getActiveComponent
-
-cmdCurrentCabalFile :: Cmd
-cmdCurrentCabalFile = Cmd "current-cabal-file" $ noArgs $ cmd
-  where cmd = do
-          r <- gtry currentCabalFile
-          case r of
-            Right f -> return (showJSON f)
-            Left (_::SomeScionException) -> return JSNull
 
 cmdDumpDefinedNames :: Cmd
 cmdDumpDefinedNames = Cmd "dump-defined-names" $ noArgs $ cmd

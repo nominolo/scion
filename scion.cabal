@@ -19,6 +19,7 @@ description:
 category:        Development
 stability:       provisional
 build-type:      Simple
+
 cabal-version:   >= 1.6
 extra-source-files: README.markdown
 data-files:
@@ -63,7 +64,8 @@ library
     Scion.Inspect.DefinitionSite,
     Scion.Utils,
     Scion.Session,
-    Scion.Configure,
+--    Scion.Configure,
+    Scion.Cabal,
     Scion
 
   if flag(testing)
@@ -114,7 +116,7 @@ executable scion-server
 
   other-modules:
     Scion
-    Scion.Configure
+    Scion.Cabal
     Scion.Inspect
     Scion.Inspect.DefinitionSite
     Scion.Session
