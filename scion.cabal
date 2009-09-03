@@ -1,7 +1,7 @@
 name:            scion
 version:         0.1.0.2
 license:         BSD3
-license-file:    LICENSE
+license-file:    docs/LICENSE
 author:          Thomas Schilling <nominolo@googlemail.com>
 maintainer:      Thomas Schilling <nominolo@googlemail.com>
 homepage:        http://github.com/nominolo/scion
