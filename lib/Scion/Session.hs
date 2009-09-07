@@ -184,6 +184,7 @@ currentCabalPackage = do
 currentCabalFile :: ScionM FilePath
 currentCabalFile = do
   lbi <- getLocalBuildInfo
+  liftIO $ putStrLn (show lbi)
   case pkgDescrFile lbi of
     Just f -> return f
     Nothing -> liftIO $ throwIO $ NoCurrentCabalProject
@@ -299,6 +300,7 @@ setComponentDynFlags component = do
    lbi <- getLocalBuildInfo
    bi <- component_build_info component (localPkgDescr lbi)
    let odir = buildDir lbi
+   liftIO $ putStrLn ("odir:"++(show odir))
    let flags = ghcOptions lbi bi odir
    addCmdLineFlags flags
  where
@@ -372,9 +374,10 @@ cabalModuleNameToTarget name =
 --    the specified component.
 --
 loadComponent :: Component
+	      -> Bool -- ^ Should we build on disk?
               -> ScionM CompilationResult
                  -- ^ The compilation result.
-loadComponent comp = do
+loadComponent comp build = do
    -- TODO: group warnings by file
    resetSessionState
    setActiveComponent comp
@@ -382,8 +385,14 @@ loadComponent comp = do
    -- Need to set DynFlags first, so that the search paths are set up
    -- correctly before looking for the targets.
    setComponentDynFlags comp
+   dflags<-getSessionDynFlags
+   setSessionDynFlags (if build 
+   	then
+		dflags{hscTarget = HscC,ghcMode=CompManager,ghcLink=LinkBinary}
+	else dflags)
    setComponentTargets comp
    rslt <- load LoadAllTargets
+   setSessionDynFlags dflags
    mg <- getModuleGraph
    base_dir <- projectRootDir
    db <- moduleGraphDefSiteDB base_dir mg
@@ -500,6 +509,7 @@ unload = do
 addCmdLineFlags :: [String] -> ScionM [PackageId]
 addCmdLineFlags flags = do
   message deafening $ "Setting Flags: " ++ show flags
+  liftIO $ putStrLn $ "Setting Flags: " ++ show flags
   dflags <- getSessionDynFlags
   res <- gtry $ parseDynamicFlags dflags (map noLoc flags)
   case res of

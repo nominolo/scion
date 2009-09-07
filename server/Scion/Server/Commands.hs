@@ -389,10 +389,11 @@ instance JSON NominalDiffTime where
 cmdLoadComponent :: Cmd
 cmdLoadComponent =
   Cmd "load-component" $
-    reqArg "component" $ cmd
+    reqArg "component" <&>
+    optArg' "build" False decodeBool $ cmd
   where
-    cmd comp = do
-      loadComponent comp
+    cmd comp build= loadComponent comp build
+
         
 instance Sexp CompilationResult where
   toSexp (CompilationResult success notes time) = toSexp $
@@ -539,11 +540,12 @@ cmdDumpSources = Cmd "dump-sources" $ noArgs $ cmd
 
 -- remove this func, obsolete. there is also load-component 
 cmdLoad :: Cmd
-cmdLoad = Cmd "load" $ reqArg "component" $ cmd
+cmdLoad = Cmd "load" $ reqArg "component" <&>
+    optArg' "build" False decodeBool $ cmd
   where
-    cmd comp = do
-      liftIO (putStrLn $ "Loading " ++ show comp)
-      loadComponent comp
+    cmd comp build= do
+      --liftIO (putStrLn $ "Loading " ++ show comp)
+      loadComponent comp build
 
 cmdSetVerbosity :: Cmd
 cmdSetVerbosity = 
