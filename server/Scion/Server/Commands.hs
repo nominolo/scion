@@ -278,6 +278,7 @@ instance JSON Component where
       Ok (c :: CabalComponent) -> return $ Component c
       _ -> case readJSON obj of
              Ok (c :: FileComp) -> return $ Component c
+             _ -> fail $ "Unknown component" ++ show obj
 
   showJSON (Component c) = showJSON c
 
