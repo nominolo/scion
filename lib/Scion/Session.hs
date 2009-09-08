@@ -34,7 +34,7 @@ import Data.Time.Clock  ( getCurrentTime, diffUTCTime )
 import System.Directory ( setCurrentDirectory, getCurrentDirectory,
                           doesFileExist, getDirectoryContents )
 import System.FilePath  ( (</>), isRelative, makeRelative, normalise, 
-                          dropFileName, takeDirectory, takeFileName )
+                          dropFileName, takeDirectory, takeFileName, (<.>), takeExtension,dropExtension)
 import Control.Exception
 import System.Exit ( ExitCode(..) )
 
@@ -43,6 +43,7 @@ import Distribution.Simple.Configure
 import Distribution.Simple.GHC ( ghcOptions )
 import Distribution.Simple.LocalBuildInfo hiding ( libdir )
 import Distribution.Simple.Build ( initialBuildSteps )
+import Distribution.Simple.BuildPaths ( exeExtension )
 import Distribution.Simple.PreProcess ( knownSuffixHandlers )
 import qualified Distribution.Verbosity as V
 import qualified Distribution.PackageDescription as PD
@@ -246,6 +247,7 @@ preprocessPackage dist_dir = do
   liftIO $ initialBuildSteps dist_dir pd lbi V.normal knownSuffixHandlers
   return ()
 
+ 
 -- | Return the current 'LocalBuildInfo'.
 --
 -- The 'LocalBuildInfo' is the result of configuring a Cabal project,
@@ -299,10 +301,16 @@ setComponentDynFlags (File f) = do
 setComponentDynFlags component = do
    lbi <- getLocalBuildInfo
    bi <- component_build_info component (localPkgDescr lbi)
-   let odir = buildDir lbi
-   liftIO $ putStrLn ("odir:"++(show odir))
-   let flags = ghcOptions lbi bi odir
-   addCmdLineFlags flags
+   let odir = (buildDir lbi) 
+   let odir2=case component of
+   	Executable exeName' -> odir </> (dropExtension exeName')
+	_ -> odir
+   let flags = ghcOptions lbi bi odir2
+   let flags2=case component of 
+   	Executable exeName' -> (flags ++ ["-o",(odir2 </> (exeName' <.>
+                                   (if null $ takeExtension exeName' then exeExtension else "")))])
+	_ -> flags
+   addCmdLineFlags flags2
  where
    component_build_info Library pd
        | Just lib <- PD.library pd = return (PD.libBuildInfo lib)
@@ -374,10 +382,15 @@ cabalModuleNameToTarget name =
 --    the specified component.
 --
 loadComponent :: Component
+	      -> ScionM CompilationResult
+loadComponent comp  = loadComponent' comp False
+	
+
+loadComponent' :: Component
 	      -> Bool -- ^ Should we build on disk?
               -> ScionM CompilationResult
                  -- ^ The compilation result.
-loadComponent comp build = do
+loadComponent' comp output = do
    -- TODO: group warnings by file
    resetSessionState
    setActiveComponent comp
@@ -386,9 +399,9 @@ loadComponent comp build = do
    -- correctly before looking for the targets.
    setComponentDynFlags comp
    dflags<-getSessionDynFlags
-   setSessionDynFlags (if build 
+   setSessionDynFlags (if output 
    	then
-		dflags{hscTarget = HscC,ghcMode=CompManager,ghcLink=LinkBinary}
+		dflags{hscTarget = defaultObjectTarget ,ghcMode=CompManager,ghcLink=LinkBinary}
 	else dflags)
    setComponentTargets comp
    rslt <- load LoadAllTargets

@@ -149,6 +149,7 @@ allCommands =
     [ cmdConnectionInfo
     , cmdOpenCabalProject
     , cmdConfigureCabalProject
+    , cmdPreprocessCabalProject
     , cmdLoadComponent
     , cmdListSupportedLanguages
     , cmdListSupportedPragmas
@@ -288,9 +289,18 @@ cmdConfigureCabalProject =
   where
     cmd path rel_dist extra_args = do
         configureCabalProject path rel_dist extra_args
-        preprocessPackage rel_dist
+        --preprocessPackage rel_dist
         (toJSString . display . PD.package) `fmap` currentCabalPackage
 
+cmdPreprocessCabalProject :: Cmd
+cmdPreprocessCabalProject =
+  Cmd "preprocess-cabal-project" $
+    optArg' "dist-dir" ".dist-scion" fromJSString  $ cmd
+  where
+    cmd rel_dist  = do
+        preprocessPackage rel_dist
+        (toJSString . display . PD.package) `fmap` currentCabalPackage
+	
 decodeBool :: JSValue -> Bool
 decodeBool (JSBool b) = b
 decodeBool _ = error "no bool"
@@ -390,9 +400,9 @@ cmdLoadComponent :: Cmd
 cmdLoadComponent =
   Cmd "load-component" $
     reqArg "component" <&>
-    optArg' "build" False decodeBool $ cmd
+    optArg' "output" False decodeBool $ cmd
   where
-    cmd comp build= loadComponent comp build
+    cmd comp output= loadComponent' comp output
 
         
 instance Sexp CompilationResult where
@@ -541,11 +551,10 @@ cmdDumpSources = Cmd "dump-sources" $ noArgs $ cmd
 -- remove this func, obsolete. there is also load-component 
 cmdLoad :: Cmd
 cmdLoad = Cmd "load" $ reqArg "component" <&>
-    optArg' "build" False decodeBool $ cmd
+    optArg' "output" False decodeBool $ cmd
   where
-    cmd comp build= do
-      --liftIO (putStrLn $ "Loading " ++ show comp)
-      loadComponent comp build
+    cmd comp output= do
+      loadComponent' comp output
 
 cmdSetVerbosity :: Cmd
 cmdSetVerbosity = 
