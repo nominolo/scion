@@ -28,6 +28,7 @@ import Scion.Session
 import Scion.Server.Protocol
 import Scion.Inspect
 import Scion.Inspect.DefinitionSite
+import Scion.Inspect.PackageDB
 import Scion.Cabal
 
 import DynFlags ( supportedLanguages, allFlags )
@@ -168,6 +169,7 @@ allCommands =
     , cmdNameDefinitions
     , cmdIdentify
     , cmdDumpModuleGraph
+    , cmdDumpNameDB
     ]
 
 ------------------------------------------------------------------------------
@@ -533,3 +535,12 @@ cmdDumpModuleGraph =
       mg <- getModuleGraph
       liftIO $ printDump (ppr mg)
       return ()
+
+cmdDumpNameDB :: Cmd
+cmdDumpNameDB =
+  Cmd "dump-name-db" $ noArgs $ cmd
+ where
+   cmd = do
+     db <- buildNameDB
+     liftIO $ dumpNameDB db
+     return ()

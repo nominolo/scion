@@ -50,7 +50,10 @@ library
     json         == 0.4.*,
     multiset     == 0.1.*,
     time         == 1.1.*,
-    uniplate     == 1.2.*
+    uniplate     == 1.2.*,
+    list-tries   == 0.1.*,
+    binary       == 0.5.*,
+    array        == 0.2.*
 
   hs-source-dirs:  lib
   extensions:      CPP, PatternGuards
@@ -62,9 +65,9 @@ library
     Scion.Inspect.Find,
     Scion.Inspect.TypeOf,
     Scion.Inspect.DefinitionSite,
+    Scion.Inspect.PackageDB,
     Scion.Utils,
     Scion.Session,
---    Scion.Configure,
     Scion.Cabal,
     Scion
 
@@ -104,7 +107,10 @@ executable scion-server
     hslogger     == 1.0.*,
     json         == 0.4.*,
     multiset     == 0.1.*,
-    time         == 1.1.*
+    time         == 1.1.*,
+    list-tries   == 0.1.*,
+    binary       == 0.5.*,
+    array        == 0.2.*
   
   if flag(server)
     build-depends:
