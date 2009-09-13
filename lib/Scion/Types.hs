@@ -375,7 +375,7 @@ instance IsComponent FileComp where
                     True
                     Nothing ]
   
-  componentOptions (FileComp f) = do
+  componentOptions (FileComp _f) = do
     --cfg <- io getCurrentDirectory
     -- liftM projectConfigFileFromDir $ 
     --config <- parseScionProjectConfig cfg
