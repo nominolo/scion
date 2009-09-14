@@ -1,6 +1,21 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE BangPatterns, ScopedTypeVariables #-}
+-- |
+-- Module      : Scion.Inspect.PackageDB
+-- Copyright   : (c) Thomas Schilling 2008
+-- License     : BSD-style
+-- 
+-- Maintainer  : nominolo@gmail.com
+-- Stability   : experimental
+-- Portability : portable
+-- 
+-- Functionality related to accessing the package database and some
+-- related databases that might be generated from the information in
+-- the package DB.
+-- 
 module Scion.Inspect.PackageDB
-  ( emptyNameDB, nameDBAddName, NameDB,
+  ( NameDB, nameDBAddName, emptyNameDB, unionNameDB, unionsNameDB,
+    lookupNameDB, deletePrefixNameDB,
     buildNameDB, nameDBAddModule, dumpNameDB, readNameDB, nameDBSize
   )
 where
@@ -19,20 +34,56 @@ import Data.List ( foldl' )
 import Data.Binary
 import Data.Array.IArray
 import Data.Binary.Put ( PutM )
+import Data.Monoid
 
 -- * Name Database
 
--- | A database of names and in which modules they are defined.
-newtype NameDB = NameDB (PM.TrieMap Char DBItems) -- TODO: add type info?
+-- | A database of names and what modules they are defined in.
+--
+-- The keys of the database are unqualified names, the values are the
+-- modules in which the name is defined.  As a result, looking up a
+-- name may return multiple modules.  For example, the (fully
+-- qualified) name @Foo.Bar.baz@ defined in package @blub@ will be
+-- stored as:
+-- 
+-- > "baz" -> "blub:Foo.Bar"
+-- 
+-- In fact, looking up a name not only returns the module in which the
+-- name is defined, but also the modules from which it is re-exported.
+-- 
+-- Note also that a 'Ghc.Module' consists of a versioned package and a
+-- module name.  Hence, if the user has multiple versions of the same
+-- package installed, their exported names will appear as different
+-- entities.
+-- 
+-- A 'NameDB' has an associated 'Binary' instance, so it can be
+-- serialised efficiently.
+
+-- TODO: add type info?
+newtype NameDB = NameDB { unNameDB :: PM.TrieMap Char DBItems }
   deriving (Eq)
+
+instance Monoid NameDB where
+  mempty = emptyNameDB
+  mappend = unionNameDB
+  mconcat = unionsNameDB
 
 type DBItems = M.Map Ghc.Module (S.Set Ghc.Module)
 
 emptyNameDB :: NameDB
 emptyNameDB = NameDB PM.empty
 
-nameDBAddName :: Ghc.Module -> NameDB -> Ghc.Name -> NameDB
-nameDBAddName exporting_mod (NameDB db) name = NameDB db'
+-- | Add a single name to the 'NameDB'.
+-- 
+-- The name must be exported, so that it has an associated
+-- 'Ghc.Module' in which the actual definition lives.
+-- 
+nameDBAddName :: 
+     Ghc.Module -- ^ Module from which the name was /exported/.  It
+                -- might be a re-export, though.
+  -> Ghc.Name -- ^ The name.  Must be an exported name.
+  -> NameDB -> NameDB
+nameDBAddName exporting_mod name (NameDB db) = NameDB db'
   where
     key = Ghc.getOccString name
     mdl = Ghc.nameModule name
@@ -41,17 +92,62 @@ nameDBAddName exporting_mod (NameDB db) name = NameDB db'
     exp_mods | exporting_mod == mdl = S.empty
              | otherwise = S.singleton exporting_mod
 
-dumpNameDB :: NameDB -> IO ()
-dumpNameDB (NameDB db) = do
+-- | Combine two 'NameDB's.
+unionNameDB :: NameDB -> NameDB -> NameDB
+unionNameDB (NameDB db1) (NameDB db2) =
+    NameDB (PM.unionWith combine db1 db2)
+  where
+    combine mp1 mp2 = M.unionWith S.union mp1 mp2
+
+unionsNameDB :: [NameDB] -> NameDB
+unionsNameDB dbs = NameDB $ PM.unionsWith combine (map unNameDB dbs)
+  where
+    combine = M.unionWith S.union
+
+nameDBSize :: NameDB -> Int
+nameDBSize (NameDB db) = PM.foldl' my_sum 0 db
+  where
+    my_sum m acc = M.size m + acc
+
+-- | Look up a string in the NameDB.
+-- 
+-- Returns a list of pairs where the first component is the defining
+-- module of the name and the second component are the modules from
+-- which the name is re-exported.
+lookupNameDB :: String -> NameDB -> [(Ghc.Module, S.Set Ghc.Module)]
+lookupNameDB key (NameDB db) =
+  case PM.lookup key db of
+    Nothing -> []
+    Just m -> M.toList m
+
+-- | Return the 'NameDB' of all items that start with the given
+-- prefix.  The prefix is removed from each key.
+-- 
+-- Note: Returns the /original/ map if none of the keys in the input
+-- DB have the given prefix.
+deletePrefixNameDB :: String -> NameDB -> NameDB
+deletePrefixNameDB key (NameDB db) = NameDB (PM.deletePrefix key db)
+
+-- | Dump the contents of the DB to @stdout@.  For debugging purposes
+-- only.
+dumpNameDB :: NameDB -> ScionM ()
+dumpNameDB (NameDB db) = io $ do
+  -- Note: It's in the ScionM monad because we require the
+  -- static_flags global vars to be initialised before using Ghc.ppr
   forM_ (PM.toAscList db) $ \(name, mods_set) -> do
     let mods = [ (m, S.toList re_exports)
                | (m, re_exports) <- M.toList mods_set ]
     putStrLn $ name ++ ": " ++ Ghc.showSDoc (Ghc.ppr mods)
 
+-- | Just a simple wrapper for 'decodeFile'.
+
+-- TODO: Can there be any difficulties due to GHC's use of a global
+-- symbol table for FastStrings (which are used in Ghc.Module)?  We
+-- make sure not to use 'ppr' which depends on static_flags which in
+-- turn requires an initialised session.
 readNameDB :: FilePath -> ScionM NameDB
 readNameDB path = do
-  db <- io $ decodeFile path
-  return db
+  io $ decodeFile path
 
 buildNameDB :: ScionM NameDB
 buildNameDB = do
@@ -63,11 +159,6 @@ buildNameDB = do
   --let base_mods = filter ((=="base") . Ghc.packageIdString . Ghc.modulePackageId) pkg_db_mods
   foldM nameDBAddModule emptyNameDB pkg_db_mods
 
-nameDBSize :: NameDB -> Int
-nameDBSize (NameDB db) = PM.foldl' my_sum 0 db
-  where
-    my_sum m acc = M.size m + acc
-
 nameDBAddModule :: NameDB -> Ghc.Module -> ScionM NameDB
 nameDBAddModule db mdl = do
   mb_mod_info <- Ghc.getModuleInfo mdl
@@ -75,7 +166,7 @@ nameDBAddModule db mdl = do
     Nothing -> return db
     Just mod_info -> do
       let names = Ghc.modInfoExports mod_info
-      return $! foldl' (nameDBAddName mdl) db names
+      return $! foldl' (flip (nameDBAddName mdl)) db names
 
 ----------------------------------------------------------------------
 -- * Serialisation

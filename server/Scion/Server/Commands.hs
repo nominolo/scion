@@ -542,5 +542,5 @@ cmdDumpNameDB =
  where
    cmd = do
      db <- buildNameDB
-     liftIO $ dumpNameDB db
+     dumpNameDB db
      return ()
