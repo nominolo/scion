@@ -146,13 +146,6 @@ allCmds = M.fromList [ (cmdName c, c) | c <- allCommands ]
 allCommands :: [Cmd]
 allCommands = 
     [ cmdConnectionInfo
-{--<<<<<<< HEAD:server/Scion/Server/Commands.hs
-    , cmdOpenCabalProject
-    , cmdConfigureCabalProject
-    , cmdPreprocessCabalProject
-    , cmdLoadComponent
-=======
->>>>>>> 4fc1f14a81f3582a48e1ad0b8c3fd88abf87ae42:server/Scion/Server/Commands.hs--}
     , cmdListSupportedLanguages
     , cmdListSupportedPragmas
     , cmdListSupportedFlags
@@ -270,45 +263,6 @@ cmdConnectionInfo = Cmd "connection-info" $ noArgs worker
                [("version", showJSON scionVersion)
                ,("pid",     showJSON pid)]
 
-{-- 
-<<<<<<< HEAD:server/Scion/Server/Commands.hs
-cmdOpenCabalProject :: Cmd
-cmdOpenCabalProject =
-  Cmd "open-cabal-project" $
-    reqArg' "root-dir" fromJSString <&>
-    optArg' "dist-dir" ".dist-scion" fromJSString <&>
-    optArg' "extra-args" [] decodeExtraArgs $ worker
- where
-   worker root_dir dist_dir extra_args = do
-        openOrConfigureCabalProject root_dir dist_dir extra_args
-        preprocessPackage dist_dir
-        (toJSString . display . PD.package) `fmap` currentCabalPackage
-
-cmdConfigureCabalProject :: Cmd
-cmdConfigureCabalProject =
-  Cmd "configure-cabal-project" $
-    reqArg' "root-dir" fromJSString <&>
-    optArg' "dist-dir" ".dist-scion" fromJSString <&>
-    optArg' "extra-args" [] decodeExtraArgs $ cmd
-  where
-    cmd path rel_dist extra_args = do
-        configureCabalProject path rel_dist extra_args
-        --preprocessPackage rel_dist
-        (toJSString . display . PD.package) `fmap` currentCabalPackage
-
-cmdPreprocessCabalProject :: Cmd
-cmdPreprocessCabalProject =
-  Cmd "preprocess-cabal-project" $
-    optArg' "dist-dir" ".dist-scion" fromJSString  $ cmd
-  where
-    cmd rel_dist  = do
-        preprocessPackage rel_dist
-        (toJSString . display . PD.package) `fmap` currentCabalPackage
-	
-=======
->>>>>>> 4fc1f14a81f3582a48e1ad0b8c3fd88abf87ae42:server/Scion/Server/Commands.hs
---}
-
 decodeBool :: JSValue -> Bool
 decodeBool (JSBool b) = b
 decodeBool _ = error "no bool"
@@ -399,29 +353,6 @@ instance JSON NominalDiffTime where
   readJSON (JSRational _ n) = return $ fromRational (toRational n)
   readJSON _ = fail "diff-time"
 
-{--
-<<<<<<< HEAD:server/Scion/Server/Commands.hs
-cmdLoadComponent :: Cmd
-cmdLoadComponent =
-  Cmd "load-component" $
-    reqArg "component" <&>
-    optArg' "output" False decodeBool $ cmd
-  where
-    cmd comp output= loadComponent' comp output
-
-        
-instance Sexp CompilationResult where
-  toSexp (CompilationResult success notes time) = toSexp $
-      ExactSexp $ parens $ 
-        showString "compilation-result" <+>
-        toSexp success <+>
-        toSexp notes <+>
-        toSexp (ExactSexp (showString (show 
-                  (fromRational (toRational time) :: Float))))
-
-=======
->>>>>>> 4fc1f14a81f3582a48e1ad0b8c3fd88abf87ae42:server/Scion/Server/Commands.hs
---}
 cmdListSupportedLanguages :: Cmd
 cmdListSupportedLanguages = Cmd "list-supported-languages" $ noArgs cmd
   where cmd = return (map toJSString supportedLanguages)

@@ -30,32 +30,9 @@ import Data.IORef
 import Data.Maybe       ( isJust )
 import Data.Monoid
 import Data.Time.Clock  ( getCurrentTime, diffUTCTime )
-{--<<<<<<< HEAD:lib/Scion/Session.hs
-import System.Directory ( setCurrentDirectory, getCurrentDirectory,
-                          doesFileExist, getDirectoryContents )
-import System.FilePath  ( (</>), isRelative, makeRelative, normalise, 
-                          dropFileName, takeDirectory, takeFileName, (<.>), takeExtension,dropExtension)
-import Control.Exception
-import System.Exit ( ExitCode(..) )
-
-import qualified Distribution.ModuleName as PD ( ModuleName, components )
-import Distribution.Simple.Configure
-import Distribution.Simple.GHC ( ghcOptions )
-import Distribution.Simple.LocalBuildInfo hiding ( libdir )
-import Distribution.Simple.Build ( initialBuildSteps )
-import Distribution.Simple.BuildPaths ( exeExtension )
-import Distribution.Simple.PreProcess ( knownSuffixHandlers )
-import qualified Distribution.Verbosity as V
-import qualified Distribution.PackageDescription as PD
-import qualified Distribution.PackageDescription.Parse as PD
-import qualified Distribution.PackageDescription.Configuration as PD
-=======--}
 import System.Directory ( getCurrentDirectory )
 import System.FilePath  ( isRelative, makeRelative, normalise )
 import Control.Exception
-{--
-	>>>>>>> 4fc1f14a81f3582a48e1ad0b8c3fd88abf87ae42:lib/Scion/Session.hs
---}
 ------------------------------------------------------------------------------
 
 -- TODO: have some kind of project description file, that allows us to
@@ -136,48 +113,12 @@ setComponentDynFlags ::
        -- build-depends of the loaded component.
        --
        -- TODO: do something with this depending on Scion mode?
-{--<<<<<<< HEAD:lib/Scion/Session.hs
-setComponentDynFlags (File f) = do
-   cfg <- liftM projectConfigFileFromDir $ liftIO getCurrentDirectory
-   config <- parseScionProjectConfig cfg
-   addCmdLineFlags $ fromMaybe [] $ lookup (takeFileName f) (fileComponentExtraFlags config)
-setComponentDynFlags component = do
-   lbi <- getLocalBuildInfo
-   bi <- component_build_info component (localPkgDescr lbi)
-   let odir = (buildDir lbi) 
-   let odir2=case component of
-   	Executable exeName' -> odir </> (dropExtension exeName')
-	_ -> odir
-   let flags = ghcOptions lbi bi odir2
-   let flags2=case component of 
-   	Executable exeName' -> (flags ++ ["-o",(odir2 </> (exeName' <.>
-                                   (if null $ takeExtension exeName' then exeExtension else "")))])
-	_ -> flags
-   addCmdLineFlags flags2
- where
-   component_build_info Library pd
-       | Just lib <- PD.library pd = return (PD.libBuildInfo lib)
-       | otherwise                 = noLibError
-   component_build_info (Executable n) pd =
-       case [ exe | exe <- PD.executables pd, PD.exeName exe == n ] of
-         [ exe ] -> return (PD.buildInfo exe)
-         [] -> noExeError n
-         _ -> error $ "Multiple executables, named \"" ++ n ++ 
-                      "\" found.  This is weird..."
-   component_build_info _ _ =
-       dieHard "component_build_info: impossible case"
-
--- | Set the targets for a 'GHC.load' command from the meta data of the
---   current Cabal project.
---
---}
 setComponentDynFlags (Component c) = do
   addCmdLineFlags =<< componentOptions c
 
 -- | Set the targets for a 'GHC.load' command from the meta data of
 -- the current component.
 -- 
---  >>>>>>> 4fc1f14a81f3582a48e1ad0b8c3fd88abf87ae42:lib/Scion/Session.hs
 -- Throws:
 -- 
 --  * 'NoCurrentCabalProject' if there is no current Cabal project.
