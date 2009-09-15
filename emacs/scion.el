@@ -1881,7 +1881,7 @@ If NO-POPUP is non-NIL, only show the buffer if it is already visible."
   (let ((dir (or start-directory
 		 default-directory
 		 (error "No start directory given"))))
-    (if (car (directory-files dir t ".cabal$"))
+    (if (car (directory-files dir t ".+\.cabal$"))
 	dir
       (let ((next-dir (file-name-directory (directory-file-name
                                             (file-truename dir)))))
@@ -1892,7 +1892,7 @@ If NO-POPUP is non-NIL, only show the buffer if it is already visible."
   "Return the only Cabal file in the given directory.
 Returns NIL if the directory does not contain such file, and
 signals an error if multiple files are present."
-  (let ((cabal-files (directory-files dir t ".cabal$")))
+  (let ((cabal-files (directory-files dir t ".+\.cabal$")))
     (if (car cabal-files)
 	(if (cadr cabal-files)
 	    (error "Multiple .cabal files in directory: %s" dir)
@@ -1953,16 +1953,6 @@ EXTRA-ARGS is a string of command line flags."
       (lambda (x)
 	(setq scion-project-root-dir root-dir)
 	(message (format "Cabal project loaded: %s" x))))))
-
-(defun scion-load-library ()
-  "Load the library of the current cabal project.
-
-Sets the GHC flags for the library from the current Cabal project and loads it."
-  (interactive)
-  (message "Loading library...")
-  (scion-eval-async `(load-component :component (:library nil))
-    (lambda (result)
-      (scion-report-compilation-result result))))
 
 (defun scion-count-notes (notes)
   (let ((warns 0)
@@ -2286,6 +2276,10 @@ forces it to be off.  NIL toggles the current state."
   (interactive)
   (scion-eval '(dump-module-graph)))
 
+(defun scion-dump-name-db ()
+  (interactive)
+  (scion-eval '(dump-name-db)))
+
 (define-key scion-mode-map "\C-c\C-t" 'scion-thing-at-point)
 
 (provide 'scion)
@@ -2300,32 +2294,7 @@ loaded."
   (cond 
    ((null comp)
     (error "Invalid component"))
-
-   ((scion-cabal-component-p comp)
-    (let* ((curr-cabal-file (scion-eval '(current-cabal-file)))
-	   ;; (current-component (scion-eval '(current-component))
-	   (root-dir (scion-cabal-root-dir))
-	   (new-cabal-file (ignore-errors (scion-cabal-file root-dir))))
-      ;; if we have a component
-      (assert (not (null new-cabal-file)))
-      (if (equal curr-cabal-file new-cabal-file)
-	  ;; Same Cabal project, just load the component
-	  (scion-load-component% comp)
-
-	;; Different Cabal project, we must configure it first.
-	(let ((rel-dist-dir (read-from-minibuffer "Dist directory: " ".dist-scion"))
-	      (extra-args (read-from-minibuffer "Cabal Configure Flags: " "")))
-	  (lexical-let ((root-dir root-dir)
-			(comp comp))
-	    (scion-eval-async `(open-cabal-project :root-dir ,(expand-file-name root-dir)
-						   :dist-dir ,rel-dist-dir
-						   :extra-args ,extra-args)
-	      (lambda (x)
-		(setq scion-project-root-dir root-dir)
-		(message (format "Cabal project loaded: %s" x))
-		(scion-load-component% comp))))))))
-
-   ((eq (car comp) :file)
+   (t
     (scion-load-component% comp))))
 
 (defun scion-load-component% (comp)
@@ -2336,11 +2305,9 @@ loaded."
 
 (defun scion-cabal-component-p (comp)
   (cond
-   ((eq (car comp) :library)
+   ((plist-member comp :library)
     t)
-   ((and (consp comp)
-	 (eq (car comp)
-	     :executable))
+   ((plist-member comp :executable)
     t)
    (t
     nil)))
@@ -2348,7 +2315,9 @@ loaded."
 (defun scion-select-component ()
   (let* ((cabal-dir (scion-cabal-root-dir))
 	 (cabal-file (ignore-errors (scion-cabal-file cabal-dir)))
-	 (cabal-components (ignore-errors (scion-cabal-components cabal-file)))
+	 (cabal-components 
+          (when cabal-file 
+            (ignore-errors (scion-cabal-components cabal-file))))
 	 (options (nconc cabal-components
 			 `((:file ,(buffer-file-name))))))
     (if (null (cdr options))
@@ -2366,12 +2335,12 @@ loaded."
 
 (defun scion-format-component (comp)
   (cond
-   ((eq (car comp) :library)
+   ((plist-member comp :library)
     "Library")
-   ((eq (car comp) :executable)
-    (format "Executable %s" (cadr comp)))
-   ((eq (car comp) :file)
-    (format "File %s" (cadr comp)))
+   ((plist-member comp :executable)
+    (format "Executable %s" (plist-get comp :executable)))
+   ((plist-member comp :file)
+    (format "File %s" (plist-get comp :file)))
    (t
     (format "%s" comp))))
 

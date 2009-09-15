@@ -15,12 +15,12 @@ module Scion
   , module Scion  -- re-export full module at least for now
   , module Scion.Session
   , module Scion.Utils
-  , module Scion.Configure
+  , module Scion.Cabal
   ) where
 
 import Scion.Types
 import Scion.Session
-import Scion.Configure
+import Scion.Cabal
 import Scion.Utils
 
 import GHC

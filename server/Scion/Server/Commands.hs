@@ -5,15 +5,15 @@
 -- Module      : Scion.Server.Commands
 -- Copyright   : (c) Thomas Schilling 2008
 -- License     : BSD-style
---
+-- 
 -- Maintainer  : nominolo@gmail.com
 -- Stability   : experimental
 -- Portability : portable
---
+-- 
 -- Commands provided by the server.
---
+-- 
 -- TODO: Need some way to document the wire protocol.  Autogenerate?
---
+-- 
 module Scion.Server.Commands ( 
   handleRequest, malformedRequest, -- allCommands, allCommands',
   -- these are reused in the vim interface 
@@ -28,7 +28,8 @@ import Scion.Session
 import Scion.Server.Protocol
 import Scion.Inspect
 import Scion.Inspect.DefinitionSite
-import Scion.Configure
+import Scion.Inspect.PackageDB
+import Scion.Cabal
 
 import DynFlags ( supportedLanguages, allFlags )
 import Exception
@@ -48,8 +49,6 @@ import Text.JSON
 import qualified Data.Map as M
 import qualified Data.MultiSet as MS
 
-import Distribution.Text ( display )
-import qualified Distribution.PackageDescription as PD
 import GHC.SYB.Utils
 
 #ifndef HAVE_PACKAGE_DB_MODULES
@@ -147,10 +146,13 @@ allCmds = M.fromList [ (cmdName c, c) | c <- allCommands ]
 allCommands :: [Cmd]
 allCommands = 
     [ cmdConnectionInfo
+{--<<<<<<< HEAD:server/Scion/Server/Commands.hs
     , cmdOpenCabalProject
     , cmdConfigureCabalProject
     , cmdPreprocessCabalProject
     , cmdLoadComponent
+=======
+>>>>>>> 4fc1f14a81f3582a48e1ad0b8c3fd88abf87ae42:server/Scion/Server/Commands.hs--}
     , cmdListSupportedLanguages
     , cmdListSupportedPragmas
     , cmdListSupportedFlags
@@ -160,7 +162,6 @@ allCommands =
     , cmdListRdrNamesInScope
     , cmdListExposedModules
     , cmdCurrentComponent
-    , cmdCurrentCabalFile
     , cmdSetVerbosity
     , cmdGetVerbosity
     , cmdLoad
@@ -175,6 +176,7 @@ allCommands =
     , cmdNameDefinitions
     , cmdIdentify
     , cmdDumpModuleGraph
+    , cmdDumpNameDB
     ]
 
 ------------------------------------------------------------------------------
@@ -268,6 +270,8 @@ cmdConnectionInfo = Cmd "connection-info" $ noArgs worker
                [("version", showJSON scionVersion)
                ,("pid",     showJSON pid)]
 
+{-- 
+<<<<<<< HEAD:server/Scion/Server/Commands.hs
 cmdOpenCabalProject :: Cmd
 cmdOpenCabalProject =
   Cmd "open-cabal-project" $
@@ -301,6 +305,10 @@ cmdPreprocessCabalProject =
         preprocessPackage rel_dist
         (toJSString . display . PD.package) `fmap` currentCabalPackage
 	
+=======
+>>>>>>> 4fc1f14a81f3582a48e1ad0b8c3fd88abf87ae42:server/Scion/Server/Commands.hs
+--}
+
 decodeBool :: JSValue -> Bool
 decodeBool (JSBool b) = b
 decodeBool _ = error "no bool"
@@ -313,19 +321,14 @@ decodeExtraArgs (JSArray arr) =
     [ fromJSString s | JSString s <- arr ]
 
 instance JSON Component where
-  readJSON (JSObject obj)
-    | Ok JSNull <- lookupKey obj "library" = return Library
-    | Ok s <- lookupKey obj "executable" =
-        return $ Executable (fromJSString s)
-    | Ok s <- lookupKey obj "file" =
-        return $ File (fromJSString s)
-  readJSON _ = fail "component"
+  readJSON obj = do
+    case readJSON obj of
+      Ok (c :: CabalComponent) -> return $ Component c
+      _ -> case readJSON obj of
+             Ok (c :: FileComp) -> return $ Component c
+             _ -> fail $ "Unknown component" ++ show obj
 
-  showJSON Library = makeObject [("library", JSNull)]
-  showJSON (Executable n) =
-      makeObject [("executable", JSString (toJSString n))]
-  showJSON (File n) =
-      makeObject [("file", JSString (toJSString n))]
+  showJSON (Component c) = showJSON c
 
 instance JSON CompilationResult where
   showJSON (CompilationResult suc notes time) =
@@ -396,6 +399,8 @@ instance JSON NominalDiffTime where
   readJSON (JSRational _ n) = return $ fromRational (toRational n)
   readJSON _ = fail "diff-time"
 
+{--
+<<<<<<< HEAD:server/Scion/Server/Commands.hs
 cmdLoadComponent :: Cmd
 cmdLoadComponent =
   Cmd "load-component" $
@@ -414,6 +419,9 @@ instance Sexp CompilationResult where
         toSexp (ExactSexp (showString (show 
                   (fromRational (toRational time) :: Float))))
 
+=======
+>>>>>>> 4fc1f14a81f3582a48e1ad0b8c3fd88abf87ae42:server/Scion/Server/Commands.hs
+--}
 cmdListSupportedLanguages :: Cmd
 cmdListSupportedLanguages = Cmd "list-supported-languages" $ noArgs cmd
   where cmd = return (map toJSString supportedLanguages)
@@ -441,8 +449,6 @@ cmdListRdrNamesInScope =
           rdr_names <- getNamesInScope
           return (map (showSDoc . ppr) rdr_names)
 
--- FIXME: we want the results from a configured cabal file dist/ * because
--- some components may be skipped due to compilation flags (buildable : False) ?
 cmdListCabalComponents :: Cmd
 cmdListCabalComponents =
     Cmd "list-cabal-components" $ reqArg' "cabal-file" fromJSString $ cmd
@@ -548,7 +554,6 @@ cmdDumpSources = Cmd "dump-sources" $ noArgs $ cmd
           return ()
         _ -> return ()
 
--- remove this func, obsolete. there is also load-component 
 cmdLoad :: Cmd
 cmdLoad = Cmd "load" $ reqArg "component" <&>
     optArg' "output" False decodeBool $ cmd
@@ -567,14 +572,6 @@ cmdGetVerbosity = Cmd "get-verbosity" $ noArgs $ verbosityToInt <$> getVerbosity
 -- rename to GetCurrentComponent? 
 cmdCurrentComponent :: Cmd
 cmdCurrentComponent = Cmd "current-component" $ noArgs $ getActiveComponent
-
-cmdCurrentCabalFile :: Cmd
-cmdCurrentCabalFile = Cmd "current-cabal-file" $ noArgs $ cmd
-  where cmd = do
-          r <- gtry currentCabalFile
-          case r of
-            Right f -> return (showJSON f)
-            Left (_::SomeScionException) -> return JSNull
 
 cmdDumpDefinedNames :: Cmd
 cmdDumpDefinedNames = Cmd "dump-defined-names" $ noArgs $ cmd
@@ -607,3 +604,12 @@ cmdDumpModuleGraph =
       mg <- getModuleGraph
       liftIO $ printDump (ppr mg)
       return ()
+
+cmdDumpNameDB :: Cmd
+cmdDumpNameDB =
+  Cmd "dump-name-db" $ noArgs $ cmd
+ where
+   cmd = do
+     db <- buildNameDB
+     dumpNameDB db
+     return ()

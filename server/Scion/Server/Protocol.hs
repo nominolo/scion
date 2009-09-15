@@ -18,15 +18,12 @@ module Scion.Server.Protocol where
 import Prelude hiding ( span )
 
 import Scion.Types
-import Scion.Types.Notes
 
 import Data.Char ( isDigit, isSpace )
 import Numeric   ( showInt )
 import Text.ParserCombinators.ReadP
-import qualified Data.Map as M
-import qualified Data.MultiSet as MS
 
-------------------------------------------------------------------------------
+----------------------------------------------------------------------
 
 -- Bump this before every release whenever the wire-protocol is changed
 -- (extension-only is fine)
@@ -35,83 +32,7 @@ import qualified Data.MultiSet as MS
 scionVersion :: Int
 scionVersion = 1
 
-------------------------------------------------------------------------------
-
-class Sexp a where toSexp :: a -> ShowS
-instance Sexp String where toSexp s = showString (show s)
-instance Sexp Int where toSexp i = showInt i
-instance Sexp Integer where toSexp i = showInt i
-instance Sexp () where toSexp _ = showString "nil"
-instance Sexp Bool where 
-    toSexp True = showChar 't'
-    toSexp False = showString "nil"
-instance (Sexp a, Sexp b) => Sexp (a, b) where
-  toSexp (x, y) = parens (toSexp x <+> toSexp y)
-instance Sexp a => Sexp (Maybe a) where
-  toSexp Nothing = showString "nil"
-  toSexp (Just x) = toSexp x
-
-newtype Lst a = Lst [a]
-instance Sexp a => Sexp (Lst a) where
-  toSexp (Lst xs) = parens (go xs)
-    where go [] = id
-          go [y] = toSexp y
-          go (y:ys) = toSexp y <+> go ys
-
-newtype Keyword = K String deriving (Eq, Ord, Show)
-instance Sexp Keyword where
-  toSexp (K s) = showChar ':' . showString s
-
--- if you need to cheat
-newtype ExactSexp = ExactSexp ShowS
-instance Sexp ExactSexp where
-  toSexp (ExactSexp s) = s
-
-instance (Sexp a, Sexp b) => Sexp (M.Map a b) where
-  toSexp m = parens (go (M.assocs m))
-    where go ((k,v):r) = toSexp k <+> toSexp v <+> go r
-          go [] = id
-
-instance Sexp Component where
-  toSexp Library = showString ":library"
-  toSexp (Executable n) = 
-     parens (showString ":executable" <+> showString (show n))
-  toSexp (File f) =
-     parens (showString ":file" <+> showString (show f))
-
-instance Sexp a => Sexp (MS.MultiSet a) where
-  toSexp ms = toSexp (Lst (MS.toList ms))
-
-instance Sexp NoteKind where
-  toSexp k = showString $ case k of
-               ErrorNote -> ":error"
-               WarningNote -> ":warning"
-               InfoNote -> ":info"
-               OtherNote -> ":other"
-
-instance Sexp Note where
-  toSexp n =
-      parens (toSexp (noteKind n) <+>
-              toSexp (noteLoc n) <+>
-              putString (noteMessage n) <+>
-              putString "")
-
-instance Sexp Location where
-  toSexp loc
-    | isValidLoc loc,
-      (f, sl, sc, el, ec) <- viewLoc loc =
-         parens (showString ":loc" <+> toSexp f <+>
-                 showInt sl <+> showInt sc <+>
-                 showInt el <+> showInt ec)
-    | otherwise =
-        parens (showString ":no-loc" <+> showString (show (noLocText loc)))
-
-instance Sexp LocSource where
-  toSexp (FileSrc f) = showString (show f)
-  toSexp (OtherSrc s) = showString s
-
-
-------------------------------------------------------------------------------
+----------------------------------------------------------------------
 
 data Request
   = Rex (ScionM String) Int -- Remote EXecute

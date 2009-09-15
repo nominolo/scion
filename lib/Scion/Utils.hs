@@ -74,11 +74,6 @@ ifM cm tm em = do
 ------------------------------------------------------------------------
 -- JSON helper functions
 
-lookupKey :: JSON a => JSObject JSValue -> String -> Result a
-lookupKey = flip valFromObj
-
-makeObject :: [(String, JSValue)] -> JSValue
-makeObject = makeObj
 
 ------------------------------------------------------------------------------
 

@@ -24,9 +24,13 @@ import HscTypes
 import MonadUtils ( liftIO, MonadIO )
 import Exception
 
+import Text.JSON
+
 import qualified Data.Map as M
 import qualified Data.MultiSet as MS
 import Distribution.Simple.LocalBuildInfo
+import System.Directory ( setCurrentDirectory, getCurrentDirectory )
+import System.FilePath ( normalise, (</>), dropFileName )
 import Control.Monad ( when )
 import Data.IORef
 import Data.Monoid
@@ -113,6 +117,9 @@ instance WarnLogMonad ScionM where
 instance GhcMonad ScionM where
   getSession = liftScionM getSession
   setSession = liftScionM . setSession
+
+io :: MonadIO m => IO a -> m a
+io = liftIO
 
 modifySessionState :: (SessionState -> SessionState) -> ScionM ()
 modifySessionState f =
@@ -235,12 +242,6 @@ dieHard last_wish = do
 ------------------------------------------------------------------------------
 -- * Others \/ Helpers
 
-data Component 
-  = Library
-  | Executable String
-  | File FilePath
-  deriving (Eq, Show, Typeable)
-
 -- | Shorthand for 'undefined'.
 __ :: a
 __ = undefined
@@ -324,3 +325,77 @@ data ScionProjectConfig = ScionProjectConfig {
   }
 emptyScionProjectConfig :: ScionProjectConfig
 emptyScionProjectConfig = ScionProjectConfig [] [] Nothing
+
+----------------------------------------------------------------------
+
+
+
+-- | Sets the current working directory and notifies GHC about the
+-- change.
+-- 
+-- TODO: do we want to adjust certain flags automatically?
+setWorkingDir :: FilePath -> ScionM ()
+setWorkingDir home = do
+  cwd <- liftIO $ getCurrentDirectory
+  message deafening $ "Setting working directory: " ++ home ++ " (old: " ++ cwd ++ ")"
+  liftIO $ setCurrentDirectory home
+  cwd' <- liftIO $ getCurrentDirectory -- to avoid normalisation issues
+  when (cwd /= cwd') $ do
+    message deafening $ "(Working directory changed.)"
+    workingDirectoryChanged
+
+
+
+class (Show c, Eq c, JSON c) => IsComponent c where
+  componentInit    :: c -> ScionM (Maybe String) --error msg
+  componentTargets :: c -> ScionM [Target]
+  componentOptions :: c -> ScionM [String]
+
+  componentInit _ = return Nothing
+
+data Component = forall c. IsComponent c => Component c
+
+instance Eq Component where
+  Component c1 == Component c2 = show c1 == show c2
+
+instance Show Component where
+  show (Component c) = show c
+
+data FileComp = FileComp FilePath deriving (Eq, Show)
+
+instance IsComponent FileComp where
+  componentInit (FileComp f) = do
+    wd <- liftIO $ getCurrentDirectory
+    let dir = normalise $ wd </> dropFileName f
+    setWorkingDir dir
+    return Nothing
+
+  componentTargets (FileComp f) = do
+    return [ Target (TargetFile f Nothing)
+                    True
+                    Nothing ]
+  
+  componentOptions (FileComp _f) = do
+    --cfg <- io getCurrentDirectory
+    -- liftM projectConfigFileFromDir $ 
+    --config <- parseScionProjectConfig cfg
+    return []
+    -- let config = []
+    -- return $ fromMaybe [] $ 
+    --   lookup (takeFileName f) [] --(fileComponentExtraFlags config)
+
+lookupKey :: JSON a => JSObject JSValue -> String -> Result a
+lookupKey = flip valFromObj
+
+makeObject :: [(String, JSValue)] -> JSValue
+makeObject = makeObj
+
+instance JSON FileComp where
+  readJSON (JSObject obj)
+    | Ok s <- lookupKey obj "file" =
+        return $ FileComp (fromJSString s)
+    | otherwise = fail "cabal file"
+  readJSON j = fail $ "filecomp not an object" ++ show j
+  showJSON (FileComp n) =
+      makeObject [("file", JSString (toJSString n))]
+

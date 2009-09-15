@@ -24,7 +24,7 @@ if !has('python') | call s:Log(0, "Error: scion requires vim compiled with +pyth
 let g:vim_scion_protocol_version = "0"
 
 fun! haskellcomplete#LoadComponent(set_cabal_project, component)
-  let result = haskellcomplete#EvalScion(0, 'load-component', { 'component' : a:component})
+  let result = haskellcomplete#EvalScion(0, 'load', { 'component' : a:component})
   if has_key(result,'error')
     if result['error']['message'] == "NoCurrentCabalProject" && a:set_cabal_project
       let cabal_project = haskellcomplete#SetCurrentCabalProject()
