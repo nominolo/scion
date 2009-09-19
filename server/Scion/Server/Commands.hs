@@ -170,6 +170,8 @@ allCommands =
     , cmdIdentify
     , cmdDumpModuleGraph
     , cmdDumpNameDB
+    , cmdToplevelNames
+    , cmdOutline
     ]
 
 ------------------------------------------------------------------------------
@@ -353,6 +355,12 @@ instance JSON NominalDiffTime where
   readJSON (JSRational _ n) = return $ fromRational (toRational n)
   readJSON _ = fail "diff-time"
 
+instance JSON OutlineDef where
+  showJSON t =   makeObject [("name", str $ showSDocDump $ ppr $ od_name t)
+  	,("location",showJSON $ od_loc t)
+  	,("type",str $ od_type t)]
+  readJSON _ = fail "OutlineDef"
+
 cmdListSupportedLanguages :: Cmd
 cmdListSupportedLanguages = Cmd "list-supported-languages" $ noArgs cmd
   where cmd = return (map toJSString supportedLanguages)
@@ -470,6 +478,29 @@ cmdThingAtPoint =
                           pprTypeForUser True t)
                   _ -> return (Just "No info") --(Just (showSDocDebug (ppr x O.$$ ppr xs )))
         _ -> return Nothing
+
+cmdToplevelNames :: Cmd
+cmdToplevelNames=
+     Cmd "top-level-names" $ noArgs $ cmd
+  where
+    cmd =do
+    tc_res <- gets bgTcCache
+    case tc_res of
+      Just (Typechecked tcm) -> do
+          return $ map (showSDocDump . ppr) $ toplevelNames tcm
+      _ -> return []
+
+cmdOutline :: Cmd
+cmdOutline=
+     Cmd "outline" $ noArgs $ cmd
+  where
+    cmd =do
+    root_dir <- projectRootDir
+    tc_res <- gets bgTcCache
+    case tc_res of
+      Just (Typechecked tcm) -> do
+          return $ outline root_dir tcm 
+      _ -> return []
 
 cmdDumpSources :: Cmd
 cmdDumpSources = Cmd "dump-sources" $ noArgs $ cmd

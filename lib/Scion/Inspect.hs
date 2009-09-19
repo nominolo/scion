@@ -19,11 +19,14 @@ module Scion.Inspect
   , toplevelNames
   , module Scion.Inspect.Find
   , module Scion.Inspect.TypeOf
+  , outline, OutlineDef,od_name
+  , od_type, od_loc
   ) where
 
 import Scion.Utils()
 import Scion.Inspect.Find
 import Scion.Inspect.TypeOf
+import Scion.Types.Notes
 
 import GHC
 import Bag
@@ -80,17 +83,37 @@ familyDecls (grp, _, _, _, _) =
         , isFamilyDecl (unLoc t) ]
 
 toplevelNames :: TypecheckedMod m => m -> [Name]
-toplevelNames m | Just (grp, _imps, _exps, _doc, _hmi) <- renamedSource m =
-    [ n | L _ tycld <- hs_tyclds grp
-        , L _ n <- tyClDeclNames tycld
-    ]
-   ++
+toplevelNames m  = map od_name $ outline "" m
+
+------------------------------------------------------------------------------
+
+data OutlineDef=OutlineDef {
+	od_name::Name,
+	od_type::String,
+	od_loc::Location
+	}
+
+typeToName :: [(TyClDecl Name -> Bool, [Char])]
+typeToName=[(isFamilyDecl,"family"),(isClassDecl,"class"),(isDataDecl,"data"),(isSynDecl,"syn"),(const True,"type")]
+
+mkOutlineDef :: FilePath -> Located (TyClDecl Name) -> [OutlineDef]
+mkOutlineDef base_dir d=let
+	L _ t=d
+	tN=foldl (\tn (f,result)->if null tn 
+		then if (f t) 
+			then result
+			else tn
+		else tn) "" typeToName
+	in [OutlineDef n tN (ghcSpanToLocation base_dir sp)| L sp n<-tyClDeclNames t]
+
+valBinds :: FilePath -> HsGroup Name -> [OutlineDef]
+valBinds base_dir grp=
     let ValBindsOut bind_grps _sigs = hs_valds grp
     in [ n | (_, binds0) <- bind_grps
            , L _ bind <- bagToList binds0
            , n <- case bind of
-                    FunBind {fun_id = L _ n} -> [n]
-                    PatBind {pat_lhs = L _ p} -> pat_names p
+                    FunBind {fun_id = L sp n} -> [OutlineDef n "function" (ghcSpanToLocation base_dir sp)]
+                    PatBind {pat_lhs = L sp p} ->[OutlineDef n "pattern" (ghcSpanToLocation base_dir sp) | n<-pat_names p]
                     _ -> []
        ]
   where
@@ -104,7 +127,14 @@ toplevelNames m | Just (grp, _imps, _exps, _doc, _hmi) <- renamedSource m =
     pat_bind_name (VarPat id) = Just id
     pat_bind_name (AsPat (L _ id) _) = Just id
     pat_bind_name _ = Nothing
-toplevelNames _ = []
+
+outline ::  TypecheckedMod m => FilePath -> m -> [OutlineDef]
+outline base_dir m | Just (grp, _imps, _exps, _doc, _hmi) <- renamedSource m =
+	(concat $ map (mkOutlineDef base_dir) $ hs_tyclds grp)
+	++ (valBinds base_dir grp)
+outline _ _ = []
+
+
 
 ------------------------------------------------------------------------------
 
