@@ -23,6 +23,7 @@ module Scion.Server.Commands (
 import Prelude as P
 import Scion.Types
 import Scion.Types.Notes
+import Scion.Types.Outline
 import Scion.Utils
 import Scion.Session
 import Scion.Server.Protocol
@@ -356,9 +357,14 @@ instance JSON NominalDiffTime where
   readJSON _ = fail "diff-time"
 
 instance JSON OutlineDef where
-  showJSON t =   makeObject [("name", str $ showSDocDump $ ppr $ od_name t)
+  showJSON t =   makeObject ([("name", str $ case  od_name t of
+  	Left n->showSDocDump $ ppr $ n
+  	Right s->s)
   	,("location",showJSON $ od_loc t)
-  	,("type",str $ od_type t)]
+  	,("block",showJSON $ od_block t)
+  	,("type",str $ od_type t)] ++ (case od_parentName t of
+  		Just n->[("parent",str $ showSDocDump $ ppr $ n)]
+  		Nothing->[]))
   readJSON _ = fail "OutlineDef"
 
 cmdListSupportedLanguages :: Cmd
@@ -492,14 +498,15 @@ cmdToplevelNames=
 
 cmdOutline :: Cmd
 cmdOutline=
-     Cmd "outline" $ noArgs $ cmd
+     Cmd "outline" $  optArg' "trimFile" True decodeBool $ cmd
   where
-    cmd =do
+    cmd trim=do
     root_dir <- projectRootDir
     tc_res <- gets bgTcCache
     case tc_res of
       Just (Typechecked tcm) -> do
-          return $ outline root_dir tcm 
+          let f=if trim then trimLocationFile else id
+          return $ f $ outline root_dir tcm 
       _ -> return []
 
 cmdDumpSources :: Cmd

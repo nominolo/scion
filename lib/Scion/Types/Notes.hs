@@ -17,7 +17,7 @@ module Scion.Types.Notes
   , AbsFilePath(toFilePath), mkAbsFilePath
   , Note(..), NoteKind(..), Notes
   , ghcSpanToLocation, ghcErrMsgToNote, ghcWarnMsgToNote
-  , ghcMessagesToNotes
+  , ghcMessagesToNotes, trimFile
   )
 where
 
@@ -148,6 +148,13 @@ mkLocation file l0 c0 l1 c1
 -- available.  (E.g., \"File not found\").
 mkNoLoc :: String -> Location
 mkNoLoc msg = LocNone msg
+
+-- | Remove file name to save on size
+trimFile :: Location -> Location
+trimFile a@(LocNone _)=a
+trimFile a= case (locSource a) of 
+	FileSrc _->a{locSource=FileSrc $ AFP ""}
+	_ -> a
 
 -- | Test whether a location is valid, i.e., not constructed with 'mkNoLoc'.
 isValidLoc :: Location -> Bool
