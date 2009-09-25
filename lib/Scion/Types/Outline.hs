@@ -1,4 +1,14 @@
-
+-- |
+-- Module      : Scion.Types.Outlines
+-- Copyright   : (c) JP Moresmau 2009
+-- License     : BSD-style
+--
+-- Maintainer  : jp@moresmau.fr
+-- Stability   : experimental
+-- Portability : portable
+--
+-- Outline representation of source code
+--
 module Scion.Types.Outline 
 ( OutlineDef(..),
   extractNames,trimLocationFile)
@@ -14,7 +24,7 @@ data OutlineDef=OutlineDef {
 	od_type::String,
 	od_loc::Location,
 	od_block::Location,
-	od_parentName::Maybe Name
+	od_parentName::Maybe (Name,String)
 	}
 
 	

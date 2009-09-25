@@ -38,7 +38,7 @@ import FastString
 import GHC
 import PprTyThing ( pprTypeForUser )
 import Outputable ( ppr, showSDoc, showSDocDump, dcolon, showSDocForUser,
-                    showSDocDebug, printDump )
+                    showSDocDebug, printDump ,showSDocUnqual)
 import qualified Outputable as O ( (<+>), ($$) )
 
 import Control.Applicative
@@ -358,12 +358,12 @@ instance JSON NominalDiffTime where
 
 instance JSON OutlineDef where
   showJSON t =   makeObject ([("name", str $ case  od_name t of
-  	Left n->showSDocDump $ ppr $ n
+  	Left n->showSDocUnqual $ ppr n
   	Right s->s)
   	,("location",showJSON $ od_loc t)
   	,("block",showJSON $ od_block t)
   	,("type",str $ od_type t)] ++ (case od_parentName t of
-  		Just n->[("parent",str $ showSDocDump $ ppr $ n)]
+  		Just (n,typ)->[("parent",makeObject[("name",str $ showSDocUnqual $ ppr $ n),("type",str typ)])]
   		Nothing->[]))
   readJSON _ = fail "OutlineDef"
 

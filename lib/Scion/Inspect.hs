@@ -92,9 +92,9 @@ typeToName=[(isFamilyDecl,"family"),(isClassDecl,"class"),(isDataDecl,"data"),(i
 mkCondDeclOutlineDef :: FilePath -> SrcSpan -> Name -> Located (ConDecl Name) -> [OutlineDef]
 mkCondDeclOutlineDef  base_dir sp n (L _ c@(ConDecl { con_name = lname}))=let
 	L sp2 n2=lname
-	o1=OutlineDef (Left n2) "data" (ghcSpanToLocation base_dir sp2) (ghcSpanToLocation base_dir sp) (Just n)
+	o1=OutlineDef (Left n2) "constructor" (ghcSpanToLocation base_dir sp2) (ghcSpanToLocation base_dir sp) (Just (n,"data"))
 	os=case con_details c of
-		RecCon flds-> [OutlineDef (Left n3) "field" (ghcSpanToLocation base_dir sp3) (ghcSpanToLocation base_dir sp) (Just n2)| L sp3 n3<-map cd_fld_name flds]
+		RecCon flds-> [OutlineDef (Left n3) "field" (ghcSpanToLocation base_dir sp3) (ghcSpanToLocation base_dir sp) (Just (n2,"constructor"))| L sp3 n3<-map cd_fld_name flds]
 		_->[]
 	in (o1:os)
 
@@ -103,6 +103,11 @@ mkOutlineDef base_dir (L sp (TyData {tcdLName = tc_name, tcdCons = cons}))=let
 	L sp2 n=tc_name
 	o1=OutlineDef (Left n) "data" (ghcSpanToLocation base_dir sp2) (ghcSpanToLocation base_dir sp) Nothing
 	os=concat $ map (mkCondDeclOutlineDef base_dir sp2 n) cons
+	in (o1:os)
+mkOutlineDef base_dir (L sp (ClassDecl {tcdLName = cls_name, tcdSigs = sigs}))=let
+	L sp2 n=cls_name
+	o1=OutlineDef (Left n) "class" (ghcSpanToLocation base_dir sp2) (ghcSpanToLocation base_dir sp) Nothing
+	os=[OutlineDef (Left n2) "function" (ghcSpanToLocation base_dir sp3) (ghcSpanToLocation base_dir sp) (Just (n,"class"))| L _ (TypeSig (L sp3 n2) _)<- sigs]
 	in (o1:os)
 mkOutlineDef base_dir (L sp t)=let
 	tN=foldl (\tn (f,result)->if null tn 
@@ -136,7 +141,7 @@ valBinds base_dir grp=
 
 instBinds :: FilePath -> HsGroup Name -> [OutlineDef]
 instBinds base_dir grp=[OutlineDef (Right $ pretty n) "instance" (ghcSpanToLocation base_dir sp) (ghcSpanToLocation base_dir sp) Nothing| L sp n<-hs_instds grp]
-	where pretty (InstDecl inst_ty _ _ _)=showSDocDump $ ppr inst_ty
+	where pretty (InstDecl inst_ty _ _ _)=showSDocUnqual $ ppr inst_ty
 
 outline ::  TypecheckedMod m => FilePath -> m -> [OutlineDef]
 outline base_dir m | Just (grp, _imps, _exps, _doc, _hmi) <- renamedSource m =
