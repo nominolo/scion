@@ -53,7 +53,8 @@ library
     uniplate     == 1.2.*,
     list-tries   == 0.1.*,
     binary       == 0.5.*,
-    array        == 0.2.*
+    array        == 0.2.*,
+    old-time
 
   hs-source-dirs:  lib
   extensions:      CPP, PatternGuards
@@ -110,7 +111,8 @@ executable scion-server
     time         == 1.1.*,
     list-tries   == 0.1.*,
     binary       == 0.5.*,
-    array        == 0.2.*
+    array        == 0.2.*,
+    old-time
   
   if flag(server)
     build-depends:

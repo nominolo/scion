@@ -17,6 +17,7 @@ import Prelude hiding ( mod )
 import GHC hiding ( flags, load )
 import HscTypes ( srcErrorMessages, SourceError, isBootSummary )
 import Exception
+import StringBuffer (stringToStringBuffer)
 
 import Scion.Types
 import Scion.Types.Notes
@@ -32,6 +33,8 @@ import Data.Monoid
 import Data.Time.Clock  ( getCurrentTime, diffUTCTime )
 import System.Directory ( getCurrentDirectory )
 import System.FilePath  ( isRelative, makeRelative, normalise )
+import System.Time (getClockTime) 
+
 import Control.Exception
 ------------------------------------------------------------------------------
 
@@ -163,6 +166,12 @@ loadComponent' comp output = do
    setComponentTargets comp
    rslt <- load LoadAllTargets
    setSessionDynFlags dflags
+   getDefSiteDB rslt
+   
+-- | utility method to regenerate defSiteDB after loading
+getDefSiteDB :: CompilationResult -- ^ the result of the load
+        -> ScionM (CompilationResult) -- ^ gives back the parameter
+getDefSiteDB rslt=do
    mg <- getModuleGraph
    base_dir <- projectRootDir
    db <- moduleGraphDefSiteDB base_dir mg
@@ -377,7 +386,32 @@ backgroundTypecheckFile fname = do
        Nothing -> error "Huh? No modsummary after preprocessing?"
        Just ms -> return ms
 
-       
+-- | typechecks a file whose content are given as a string
+backgroundTypecheckArbitrary:: 
+       FilePath -- ^ the file path
+    -> String -- ^ the file contents
+    -> ScionM (Either String CompilationResult) -- ^ the result
+backgroundTypecheckArbitrary fname contents=do
+    mb_modsum <- filePathToProjectModule fname
+    case mb_modsum of
+            Nothing -> do
+              return $ Left "Could not find file in module graph."
+            Just modsum -> do
+              let modName=moduleName $ ms_mod modsum
+              -- get contents
+              sb<-liftIO $ stringToStringBuffer contents
+              ct<-liftIO $ getClockTime
+              -- I don't think we use TargetModule anywhere but hey
+              removeTarget (TargetModule modName)
+              -- remove old target
+              removeTarget (TargetFile fname Nothing)
+              -- add target + content
+              addTarget (Target (TargetFile fname Nothing) False (Just (sb,ct)))
+              rslt <- load LoadAllTargets >>= getDefSiteDB
+              if (compilationSucceeded rslt)
+                then backgroundTypecheckFile fname
+                else return (Right rslt)
+
 -- | Return whether the filepath refers to a file inside the current project
 --   root.  Return 'False' if there is no current project.
 isRelativeToProjectRoot :: FilePath -> ScionM Bool

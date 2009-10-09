@@ -38,8 +38,8 @@ import FastString
 import GHC
 import PprTyThing ( pprTypeForUser )
 import Outputable ( ppr, showSDoc, showSDocDump, dcolon, showSDocForUser,
-                    showSDocDebug, printDump ,showSDocUnqual)
-import qualified Outputable as O ( (<+>), ($$) )
+                     printDump ,showSDocUnqual)
+import qualified Outputable as O ( (<+>) )
 
 import Control.Applicative
 import Control.Monad
@@ -163,6 +163,7 @@ allCommands =
     , cmdThingAtPoint
     , cmdSetGHCVerbosity
     , cmdBackgroundTypecheckFile
+    , cmdBackgroundTypecheckArbitrary
     , cmdAddCmdLineFlag
     , cmdForceUnload
     , cmdDumpDefinedNames
@@ -441,6 +442,13 @@ cmdBackgroundTypecheckFile :: Cmd
 cmdBackgroundTypecheckFile = 
     Cmd "background-typecheck-file" $ reqArg' "file" fromJSString $ cmd
   where cmd fname = backgroundTypecheckFile fname
+
+cmdBackgroundTypecheckArbitrary :: Cmd
+cmdBackgroundTypecheckArbitrary = 
+    Cmd "background-typecheck-arbitrary" $ 
+        reqArg' "file" fromJSString <&> 
+        reqArg' "contents" fromJSString $ cmd
+  where cmd fname contents = backgroundTypecheckArbitrary fname contents
 
 cmdForceUnload :: Cmd
 cmdForceUnload = Cmd "force-unload" $ noArgs $ unload
