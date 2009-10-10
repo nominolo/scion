@@ -396,21 +396,31 @@ backgroundTypecheckArbitrary fname contents=do
     case mb_modsum of
             Nothing -> do
               return $ Left "Could not find file in module graph."
-            Just modsum -> do
+            Just modsum -> (do
               let modName=moduleName $ ms_mod modsum
               -- get contents
               sb<-liftIO $ stringToStringBuffer contents
               ct<-liftIO $ getClockTime
+              let tgt=TargetFile fname Nothing
               -- I don't think we use TargetModule anywhere but hey
               removeTarget (TargetModule modName)
               -- remove old target
-              removeTarget (TargetFile fname Nothing)
+              removeTarget tgt
               -- add target + content
-              addTarget (Target (TargetFile fname Nothing) False (Just (sb,ct)))
+              addTarget (Target tgt False (Just (sb,ct)))
+              
               rslt <- load LoadAllTargets >>= getDefSiteDB
               if (compilationSucceeded rslt)
                 then backgroundTypecheckFile fname
-                else return (Right rslt)
+                else do
+                         return (Right rslt)
+              ) `gcatch` \(e' :: GhcException) -> do
+                removeTarget (TargetFile fname Nothing)
+                -- add target without content
+                addTarget (Target (TargetFile fname Nothing) False Nothing)
+                load LoadAllTargets >>= getDefSiteDB
+                throw e'       
+                
 
 -- | Return whether the filepath refers to a file inside the current project
 --   root.  Return 'False' if there is no current project.
