@@ -32,7 +32,8 @@ import Data.Maybe       ( isJust, fromMaybe, fromJust )
 import Data.Monoid
 import Data.Time.Clock  ( getCurrentTime, diffUTCTime )
 import System.Directory ( setCurrentDirectory, getCurrentDirectory,
-                          doesFileExist, getDirectoryContents )
+                          doesFileExist, getDirectoryContents,
+                          canonicalizePath )
 import System.FilePath  ( (</>), isRelative, makeRelative, normalise, 
                           dropFileName, takeDirectory, takeFileName )
 import Control.Exception
@@ -272,7 +273,7 @@ projectRootDir :: ScionM FilePath
 projectRootDir = do
    -- _ <- getLocalBuildInfo -- ensure we have a current project
    -- TODO: error handling
-   liftIO $ getCurrentDirectory
+   liftIO (canonicalizePath =<< getCurrentDirectory)
 
 -- | Set GHC's dynamic flags for the given component of the current Cabal
 -- project (see 'openCabalProject').
@@ -562,20 +563,21 @@ backgroundTypecheckFile ::
        FilePath 
     -> ScionM (Either String CompilationResult)
        -- ^ First element is @False@ <=> step 1 above failed.
-backgroundTypecheckFile fname = do
+backgroundTypecheckFile fname0 = do
+   fname <- liftIO (canonicalizePath fname0)
    root_dir <- projectRootDir
    ifM (not `fmap` isRelativeToProjectRoot fname)
      (return (Left ("file " ++ fname ++ " is not relative to project root " ++ root_dir)))
-     prepareContext
+     (prepareContext fname)
   where
-   prepareContext :: ScionM (Either String CompilationResult)
-   prepareContext = do
+   prepareContext :: FilePath -> ScionM (Either String CompilationResult)
+   prepareContext fname = do
      message verbose $ "Preparing context for " ++ fname
      -- if it's the focused module, we know that the context is right
      mb_focusmod <- gets focusedModule
      case mb_focusmod of
        Just ms | Just f <- ml_hs_file (ms_location ms), f == fname -> 
-          backgroundTypecheckFile' mempty
+          backgroundTypecheckFile' mempty fname
 
        _otherwise -> do
           mb_modsum <- filePathToProjectModule fname
@@ -585,14 +587,14 @@ backgroundTypecheckFile fname = do
             Just modsum -> do
               (_, rslt) <- setContextForBGTC modsum
               if compilationSucceeded rslt
-               then backgroundTypecheckFile' rslt
+               then backgroundTypecheckFile' rslt fname
                else return $ Right rslt
 
-   backgroundTypecheckFile' comp_rslt = do
+   backgroundTypecheckFile' comp_rslt fname = do
       message verbose $ "Background type checking: " ++ fname
       clearWarnings
       start_time <- liftIO $ getCurrentTime
-      modsum <- preprocessModule
+      modsum <- preprocessModule fname
 
       let finish_up tc_res errs = do
               base_dir <- projectRootDir
@@ -621,7 +623,7 @@ backgroundTypecheckFile fname = do
           loadModule ds_mod -- ensure it's in the HPT
           finish_up (Just (Typechecked tcd_mod)) mempty
 
-   preprocessModule = do
+   preprocessModule fname = do
      depanal [] True
      -- reload-calculate the ModSummary because it contains the cached
      -- preprocessed source code
