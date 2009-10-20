@@ -81,6 +81,12 @@ instance IsComponent CabalComponent where
 scionDistDir :: FilePath
 scionDistDir = ".dist-scion"
 
+-- | Set up a Cabal component, (re-)configuring it if necessary.
+--
+-- Checks whether an existing configuration result exists on disk and
+-- configures the project if not.  Similarly, if the existing config
+-- is outdated the project is reconfigured.
+--
 cabalComponentInit :: CabalComponent -> ScionM (Maybe String)
 cabalComponentInit c = do
   -- TODO: verify that components exist in cabal file
@@ -119,6 +125,7 @@ cabalFile :: CabalComponent -> FilePath
 cabalFile (Library f) = f
 cabalFile (Executable f _) = f
 
+-- | Return GHC 'Target's corresponding to this component.
 cabalTargets :: CabalComponent -> ScionM [Target]
 cabalTargets (Library f) = do
   pd <- cabal_package f
@@ -237,6 +244,9 @@ cabalConfigurations _cabal _type' _scionDefaultOnly = do
     else list'
 -}
 -- | Run the steps that Cabal would call before building.
+--
+-- The main purpose is to run various pre-processors like @c2hs@,
+-- @alex@, @happy@, etc.
 -- 
 preprocessPackage :: FilePath
                   -> ScionM ()
