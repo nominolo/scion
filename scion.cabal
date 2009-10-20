@@ -54,7 +54,7 @@ library
     list-tries   == 0.1.*,
     binary       == 0.5.*,
     array        == 0.2.*,
-    old-time
+    old-time     == 1.0.*
 
   hs-source-dirs:  lib
   extensions:      CPP, PatternGuards
@@ -112,7 +112,7 @@ executable scion-server
     list-tries   == 0.1.*,
     binary       == 0.5.*,
     array        == 0.2.*,
-    old-time
+    old-time     == 1.0.*
   
   if flag(server)
     build-depends:
