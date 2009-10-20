@@ -33,7 +33,7 @@ import Data.Monoid
 import Data.Time.Clock  ( getCurrentTime, diffUTCTime )
 import System.Directory ( getCurrentDirectory )
 import System.FilePath  ( isRelative, makeRelative, normalise )
-import System.Time (getClockTime) 
+import System.Time      ( getClockTime )
 
 import Control.Exception
 ------------------------------------------------------------------------------
@@ -144,13 +144,12 @@ setComponentTargets (Component c) = do
 -- 
 loadComponent :: Component
 	      -> ScionM CompilationResult
-loadComponent comp  = loadComponent' comp False
-	
+loadComponent comp = loadComponent' comp False
 
 loadComponent' :: Component
-	      -> Bool -- ^ Should we build on disk?
-              -> ScionM CompilationResult
-                 -- ^ The compilation result.
+	       -> Bool -- ^ Should we build on disk?
+               -> ScionM CompilationResult
+                  -- ^ The compilation result.
 loadComponent' comp output = do
    -- TODO: group warnings by file
    resetSessionState
@@ -158,27 +157,31 @@ loadComponent' comp output = do
    -- Need to set DynFlags first, so that the search paths are set up
    -- correctly before looking for the targets.
    setComponentDynFlags comp
-   dflags<-getSessionDynFlags
-   setSessionDynFlags (if output 
-   	then
-		dflags{hscTarget = defaultObjectTarget ,ghcMode=CompManager,ghcLink=LinkBinary}
-	else dflags)
+   dflags0 <- getSessionDynFlags
+   let dflags
+         | output = dflags0{ hscTarget = defaultObjectTarget
+                          , ghcMode = CompManager
+                          , ghcLink = LinkBinary
+                          }
+         | otherwise = dflags0
+   setSessionDynFlags dflags
    setComponentTargets comp
    rslt <- load LoadAllTargets
-   setSessionDynFlags dflags
+   setSessionDynFlags dflags    -- XXX: Why is this necessary?
    getDefSiteDB rslt
+   return rslt
    
--- | utility method to regenerate defSiteDB after loading
-getDefSiteDB :: CompilationResult -- ^ the result of the load
-        -> ScionM (CompilationResult) -- ^ gives back the parameter
-getDefSiteDB rslt=do
+-- | Utility method to regenerate defSiteDB after loading.
+getDefSiteDB :: CompilationResult -- ^ The result of loading.
+             -> ScionM ()
+getDefSiteDB rslt = do
    mg <- getModuleGraph
    base_dir <- projectRootDir
    db <- moduleGraphDefSiteDB base_dir mg
    liftIO $ evaluate db
    modifySessionState $ \s -> s { lastCompResult = rslt
                                 , defSiteDB = db }
-   return rslt
+   return ()
 
 -- | Make the specified component the active one.  Sets the DynFlags
 --  to those specified for the given component.  Unloads the possible
@@ -386,41 +389,44 @@ backgroundTypecheckFile fname = do
        Nothing -> error "Huh? No modsummary after preprocessing?"
        Just ms -> return ms
 
--- | typechecks a file whose content are given as a string
+-- | Typechecks a file whose content are given as a string.
 backgroundTypecheckArbitrary:: 
        FilePath -- ^ the file path
     -> String -- ^ the file contents
-    -> ScionM (Either String CompilationResult) -- ^ the result
-backgroundTypecheckArbitrary fname contents=do
-    mb_modsum <- filePathToProjectModule fname
-    case mb_modsum of
-            Nothing -> do
-              return $ Left "Could not find file in module graph."
-            Just modsum -> (do
-              let modName=moduleName $ ms_mod modsum
-              -- get contents
-              sb<-liftIO $ stringToStringBuffer contents
-              ct<-liftIO $ getClockTime
-              let tgt=TargetFile fname Nothing
-              -- I don't think we use TargetModule anywhere but hey
-              removeTarget (TargetModule modName)
-              -- remove old target
-              removeTarget tgt
-              -- add target + content
-              addTarget (Target tgt False (Just (sb,ct)))
-              
-              rslt <- load LoadAllTargets >>= getDefSiteDB
-              if (compilationSucceeded rslt)
-                then backgroundTypecheckFile fname
-                else do
-                         return (Right rslt)
-              ) `gcatch` \(e' :: GhcException) -> do
-                removeTarget (TargetFile fname Nothing)
-                -- add target without content
-                addTarget (Target (TargetFile fname Nothing) False Nothing)
-                load LoadAllTargets >>= getDefSiteDB
-                throw e'       
-                
+    -> ScionM (Either String CompilationResult)
+       -- ^ Error message or compilation result
+backgroundTypecheckArbitrary fname contents = do
+  mb_modsum <- filePathToProjectModule fname
+  case mb_modsum of
+    Nothing -> do
+      return $ Left "Could not find file in module graph."
+
+    Just modsum ->
+      ghandle (\(e' :: GhcException) -> do
+          removeTarget (TargetFile fname Nothing)
+          -- add target without content
+          addTarget (Target (TargetFile fname Nothing) False Nothing)
+          load LoadAllTargets >>= getDefSiteDB
+          throw e') $ do
+
+        let modName = moduleName $ ms_mod modsum
+        -- get contents
+        sb <- liftIO $ stringToStringBuffer contents
+        ct <- liftIO $ getClockTime
+        let tgt = TargetFile fname Nothing
+        -- I don't think we use TargetModule anywhere but hey
+        removeTarget (TargetModule modName)
+        -- remove old target
+        removeTarget tgt
+        -- add target + content
+        addTarget (Target tgt False (Just (sb,ct)))
+      
+        rslt <- load LoadAllTargets
+        getDefSiteDB rslt
+        if compilationSucceeded rslt
+          then backgroundTypecheckFile fname
+          else do
+                   return (Right rslt)
 
 -- | Return whether the filepath refers to a file inside the current project
 --   root.  Return 'False' if there is no current project.
