@@ -16,7 +16,8 @@
 module Scion.Inspect.PackageDB
   ( NameDB, nameDBAddName, emptyNameDB, unionNameDB, unionsNameDB,
     lookupNameDB, deletePrefixNameDB,
-    buildNameDB, nameDBAddModule, dumpNameDB, readNameDB, nameDBSize
+    buildNameDB, nameDBAddModule, dumpNameDB, readNameDB, nameDBSize,
+    scionNameDBLocation, readOrCreateNameDB
   )
 where
 
@@ -25,6 +26,7 @@ import qualified GHC as Ghc
 import qualified Name as Ghc
 import qualified Outputable as Ghc
 import qualified Module as Ghc
+import qualified Config as Ghc
 
 import qualified Data.ListTrie.Patricia.Map.Enum as PM
 import qualified Data.Set as S
@@ -35,6 +37,8 @@ import Data.Binary
 import Data.Array.IArray
 import Data.Binary.Put ( PutM )
 import Data.Monoid
+import System.Directory
+import System.FilePath ( (</>), dropFileName )
 
 -- * Name Database
 
@@ -167,6 +171,38 @@ nameDBAddModule db mdl = do
     Just mod_info -> do
       let names = Ghc.modInfoExports mod_info
       return $! foldl' (flip (nameDBAddName mdl)) db names
+
+-- | Return the path to Scion's name DB.  File or directory may not
+-- exist.
+scionNameDBLocation :: IO FilePath
+scionNameDBLocation = do
+  data_dir <- getAppUserDataDirectory "scion"
+  return $ data_dir </> ("ghc-" ++ Ghc.cProjectVersion) </> "name_db"
+
+readOrCreateNameDB :: ScionM NameDB
+readOrCreateNameDB = do
+  loc <- io $ scionNameDBLocation
+  -- TODO: Make atomic (open_or_create)
+  has_db <- io $ doesFileExist loc
+  if has_db then
+    -- TODO: Check if it's up to date (and relates to the correct
+    -- package DB).  Requires checking the time stamp of all
+    -- --package-db=... arguments to the GHC API.
+    readNameDB loc
+   else 
+     createNameDB loc
+
+-- | (Re-)create Name DB; overwrites any existing Name DB.
+createNameDB :: FilePath -> ScionM NameDB
+createNameDB loc = do
+  io $ createDirectoryIfMissing True (dropFileName loc)
+  -- userMsg "Building index of all installed packages, this may take a while..."
+
+  -- TODO: Build DB in a separate GHC session which is then thrown
+  -- away (or reset the external package state).
+  name_db <- buildNameDB
+  io $ encodeFile loc name_db
+  return name_db
 
 ----------------------------------------------------------------------
 -- * Serialisation
