@@ -176,8 +176,6 @@ cabalDynFlags component = do
        [] -> error "no exe" --noExeError n
        _ -> error $ "Multiple executables, named \"" ++ n ++ 
                     "\" found.  This is weird..."
-   component_build_info _ _ =
-       dieHard "component_build_info: impossible case"
 
    output_file_opts odir =
      case component of
