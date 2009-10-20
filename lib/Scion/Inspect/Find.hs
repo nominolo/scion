@@ -54,14 +54,18 @@ deepestLeaf t = snd $ go (0::Int) t
 
 -- | Returns the deepest leaf, together with the path to this leaf.  For
 -- example, for the following tree with root @A@:
+--
 -- @
 --     A -+- B --- C
 --        '- D --- E --- F
 -- @
+--
 -- this function will return:
+--
 -- @
 --    (F, [E, D, A])
 -- @
+--
 -- If @F@ were missing the result is either @(C, [B,A])@ or @(E, [D,A])@.
 -- 
 pathToDeepest :: Ord a => PosForest a -> Maybe (a, [a])
