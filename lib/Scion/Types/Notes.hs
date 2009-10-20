@@ -149,12 +149,17 @@ mkLocation file l0 c0 l1 c1
 mkNoLoc :: String -> Location
 mkNoLoc msg = LocNone msg
 
--- | Remove file name to save on size
+-- | Remove file name to save on size.
+--
+-- TODO: Why do we need this?  To save memory?  That could be fixed
+-- more sharing.  Or to display things more compactly?  A different
+-- display function would be better.
+--
 trimFile :: Location -> Location
-trimFile a@(LocNone _)=a
-trimFile a= case (locSource a) of 
-	FileSrc _->a{locSource=FileSrc $ AFP ""}
-	_ -> a
+trimFile l@(LocNone _) = l
+trimFile l 
+  | FileSrc _ <- locSource l = l{ locSource = FileSrc $ AFP "" }
+  | otherwise                = l
 
 -- | Test whether a location is valid, i.e., not constructed with 'mkNoLoc'.
 isValidLoc :: Location -> Bool
