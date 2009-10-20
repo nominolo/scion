@@ -358,14 +358,20 @@ instance JSON NominalDiffTime where
   readJSON _ = fail "diff-time"
 
 instance JSON OutlineDef where
-  showJSON t =   makeObject ([("name", str $ case  od_name t of
-  	Left n->showSDocUnqual $ ppr n
-  	Right s->s)
-  	,("location",showJSON $ od_loc t)
-  	,("block",showJSON $ od_block t)
-  	,("type",str $ od_type t)] ++ (case od_parentName t of
-  		Just (n,typ)->[("parent",makeObject[("name",str $ showSDocUnqual $ ppr $ n),("type",str typ)])]
-  		Nothing->[]))
+  showJSON t =
+    makeObject $ 
+      [("name", str $ case od_name t of
+  	                Left n -> showSDocUnqual $ ppr n
+  	                Right s -> s)
+      ,("location", showJSON $ od_loc t)
+      ,("block", showJSON $ od_block t)
+      ,("type", str $ od_type t)]
+      ++
+      (case od_parentName t of
+  	 Just (n,typ) -> 
+             [("parent", makeObject [("name", str $ showSDocUnqual $ ppr $ n)
+                                    ,("type", str typ)])]
+  	 Nothing -> [])
   readJSON _ = fail "OutlineDef"
 
 cmdListSupportedLanguages :: Cmd
@@ -505,16 +511,16 @@ cmdToplevelNames=
       _ -> return []
 
 cmdOutline :: Cmd
-cmdOutline=
-     Cmd "outline" $  optArg' "trimFile" True decodeBool $ cmd
-  where
-    cmd trim=do
+cmdOutline =
+    Cmd "outline" $  optArg' "trimFile" True decodeBool $ cmd
+ where
+  cmd trim = do
     root_dir <- projectRootDir
     tc_res <- gets bgTcCache
     case tc_res of
       Just (Typechecked tcm) -> do
-          let f=if trim then trimLocationFile else id
-          return $ f $ outline root_dir tcm 
+        let f = if trim then trimLocationFile else id
+        return $ f $ outline root_dir tcm 
       _ -> return []
 
 cmdDumpSources :: Cmd
