@@ -50,11 +50,13 @@ import Test.GHC.Gen()
 #endif
 ------------------------------------------------------------------------------
 
+-- | Extract the type of a search result.
 typeOfResult :: SearchResult Id -> Maybe Type
 typeOfResult (FoundId i) = Just $ tidyType emptyTidyEnv $ varType i
 typeOfResult (FoundCon _ c) = Just $ dataConUserType c
 typeOfResult _ = Nothing
 
+-- | Pretty-print a search result.
 prettyResult :: OutputableBndr id => SearchResult id -> SDoc
 prettyResult (FoundId i) = ppr i
 prettyResult (FoundName n) = ppr n
@@ -194,7 +196,13 @@ instBinds base_dir grp =
  where
    pretty (InstDecl inst_ty _ _ _) = showSDocUnqual $ ppr inst_ty
 
-outline ::  TypecheckedMod m => FilePath -> m -> [OutlineDef]
+-- | Generate outline view for the given module.
+outline :: TypecheckedMod m => 
+           FilePath
+           -- ^ The base directory for relative source locations,
+           -- typically the project root.
+        -> m
+        -> [OutlineDef]
 outline base_dir m
   | Just (grp, _imps, _exps, _doc, _hmi) <- renamedSource m =
      concatMap (mkOutlineDef base_dir) (hs_tyclds grp)
