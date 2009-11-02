@@ -2236,10 +2236,11 @@ forces it to be off.  NIL toggles the current state."
 	 (lambda (result)
 	   (setq scion-flycheck-is-running nil)
 	   (destructuring-bind (ok comp-rslt) result
-	     (if (not (eq ok :json-false))
-		 (scion-report-compilation-result comp-rslt 
+	     (if (eq ok :Right)
+		 (scion-report-compilation-result comp-rslt
 						  (current-buffer))
-	       (scion-report-status "[?]")))
+	       (scion-report-status "[?]")
+	       (message comp-rslt)))
 	   nil)))))
 
 (make-variable-buffer-local
