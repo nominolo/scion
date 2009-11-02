@@ -41,7 +41,7 @@ import Outputable
 import GHC.SYB.Utils
 import Data.List ( foldl' )
 
-#ifdef DEBUG
+#ifdef SCION_DEBUG
 --import FastString
 import Test.QuickCheck()
 import Test.GHC.Gen()

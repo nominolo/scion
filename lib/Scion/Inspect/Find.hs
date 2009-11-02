@@ -16,7 +16,7 @@ module Scion.Inspect.Find
   ( findHsThing, SearchResult(..), SearchResults
   , PosTree(..), PosForest, deepestLeaf, pathToDeepest
   , surrounds, overlaps
-#ifdef DEBUG
+#ifdef SCION_DEBUG
   , prop_invCmpOverlap
 #endif
   ) 
@@ -141,7 +141,7 @@ overlaps :: SrcSpan -> SrcSpan -> Bool
 overlaps sp1 sp2 = cmpOverlap sp1 sp2 == EQ
     
 
-#ifdef DEBUG
+#ifdef SCION_DEBUG
 
 prop_invCmpOverlap :: SrcSpan -> SrcSpan -> Bool
 prop_invCmpOverlap s1 s2 =

@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Test.GHC.Gen where
 
-#ifdef DEBUG
+#ifdef SCION_DEBUG
 import Test.QuickCheck
 
 import SrcLoc

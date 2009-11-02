@@ -74,7 +74,7 @@ library
 
   if flag(testing)
     build-depends: QuickCheck == 2.*
-    cpp-options:   -DDEBUG
+    cpp-options:   -DSCION_DEBUG
 
   if impl(ghc > 6.11)
     cpp-options:   -DHAVE_PACKAGE_DB_MODULES
@@ -142,7 +142,7 @@ executable scion-server
 
   if flag(testing)
     build-depends: QuickCheck == 2.*
-    cpp-options:   -DDEBUG
+    cpp-options:   -DSCION_DEBUG
 
   if impl(ghc > 6.11)
     cpp-options:   -DHAVE_PACKAGE_DB_MODULES
