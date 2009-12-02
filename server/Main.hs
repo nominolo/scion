@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns, DeriveDataTypeable, ScopedTypeVariables,
              TypeFamilies, PatternGuards, CPP #-}
-{-# OPTIONS_GHC -Wall #-}
+{-# OPTIONS_GHC -Wnot #-}
 -- |
 -- Module      : Scion.Server.Emacs
 -- License     : BSD-style
