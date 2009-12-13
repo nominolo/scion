@@ -24,8 +24,8 @@ import Name ( getOccString, getSrcSpan )
 import Outputable ( showSDoc, ppr, Outputable, (<+>) )
 import PprTyThing ( pprTyThingInContext )
 import TyCon ( isCoercionTyCon, isFamInstTyCon )
-import Var ( globalIdVarDetails )
-import IdInfo ( GlobalIdDetails(..) )
+import Var ( idDetails )
+import IdInfo ( IdDetails(..) )
 import HscTypes ( isBootSummary )
 
 import qualified Data.Map as M
@@ -81,11 +81,11 @@ mkSiteDB base_dir ty_things = foldl' go emptyDefSiteDB ty_things
                ty_thing db
 
     is_interesting_id ident =
-        case globalIdVarDetails ident of
-          VanillaGlobal -> True
+        case idDetails ident of
+          VanillaId -> True
           ClassOpId _ -> True
-          RecordSelId {} -> True
-          NotGlobalId -> True -- global but not exported
+          RecSelId {} -> True
+--          NotGlobalId -> True -- global but not exported
           _ -> False
 
     is_boring_tycon tycon =
@@ -108,7 +108,7 @@ dumpDefSiteDB (DefSiteDB m) = unlines (map pp (M.assocs m))
         | (l, t) <- l_ty_things ]
 
     pp_ty_thing tt@(AnId ident) =
-        showSDoc (pprTyThingInContext False tt <+> ppr (globalIdVarDetails ident))
+        showSDoc (pprTyThingInContext False tt <+> ppr (idDetails ident))
 
     pp_ty_thing (ADataCon dcon) =
         showSDoc (ppr dcon <+> ppr (dataConType dcon))

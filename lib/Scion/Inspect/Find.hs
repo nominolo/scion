@@ -324,6 +324,10 @@ instance (Search id id) => Search id (HsExpr id) where
           HsWrap _ e       -> search p s e
           _ -> mempty
 
+instance (Search id id) => Search id (HsTupArg id) where
+  search p s (Present e) = search p s e
+  search _ _ _ = mempty
+
 instance (Search id id) => Search id (HsLocalBindsLR id id) where
   search p s (HsValBinds val_binds) = search p s val_binds
   search _ _ _ = mempty
@@ -338,7 +342,7 @@ instance (Search id id) => Search id (HsCmdTop id) where
 
 instance (Search id id) => Search id (StmtLR id id) where
   search p s st 
-    | RecStmt _ _ _ _ _ <- st = search_inside -- see Note [SearchRecStmt]
+    | RecStmt _ _ _ _ _ _ _ _ <- st = search_inside -- see Note [SearchRecStmt]
     | otherwise               = FoundStmt s st `above` search_inside
     where
       search_inside =
@@ -350,7 +354,7 @@ instance (Search id id) => Search id (StmtLR id id) where
           TransformStmt (ss,_) f e -> search p s ss `mappend` search p s f
                                                     `mappend` search p s e
           GroupStmt (ss, _) g -> search p s ss `mappend` search p s g
-          RecStmt ss _ _ _ _ -> search p s ss
+          RecStmt ss _ _ _ _ _ _ _ -> search p s ss
 
 --
 -- Note [SearchRecStmt]

@@ -66,7 +66,7 @@ prettyResult r = ppr r
 ------------------------------------------------------------------------------
 
 typeDecls :: TypecheckedMod m => m -> [LTyClDecl Name]
-typeDecls m | Just (grp, _, _, _, _) <- renamedSource m =
+typeDecls m | Just (grp, _, _, _) <- renamedSource m =
     [ t | t <- hs_tyclds grp
         , isDataDecl (unLoc t) 
             || isTypeDecl (unLoc t) 
@@ -75,12 +75,12 @@ typeDecls m | Just (grp, _, _, _, _) <- renamedSource m =
 typeDecls _ = error "typeDecls: No renamer information available."
 
 classDecls :: RenamedSource -> [LTyClDecl Name]
-classDecls (grp, _, _, _, _) =
+classDecls (grp, _, _, _) =
     [ t | t <- hs_tyclds grp
         , isClassDecl (unLoc t) ]
 
 familyDecls :: RenamedSource -> [LTyClDecl Name]
-familyDecls (grp, _, _, _, _) =
+familyDecls (grp, _, _, _) =
     [ t | t <- hs_tyclds grp
         , isFamilyDecl (unLoc t) ]
 
@@ -204,7 +204,7 @@ outline :: TypecheckedMod m =>
         -> m
         -> [OutlineDef]
 outline base_dir m
-  | Just (grp, _imps, _exps, _doc, _hmi) <- renamedSource m =
+  | Just (grp, _imps, _exps, _doc) <- renamedSource m =
      concatMap (mkOutlineDef base_dir) (hs_tyclds grp)
        ++ valBinds base_dir grp
        ++ instBinds base_dir grp

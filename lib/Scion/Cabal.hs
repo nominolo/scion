@@ -28,7 +28,7 @@ import Text.JSON
 import Control.Monad
 import Data.Data
 import Data.List        ( intercalate )
-import Data.Maybe       ( isJust )
+import Data.Maybe       ( fromJust, isJust )
 import System.Directory ( doesFileExist, getDirectoryContents,
                           getModificationTime )
 import System.FilePath ( (</>), dropFileName, takeExtension,dropExtension,(<.>) )
@@ -129,7 +129,7 @@ cabalFile (Executable f _) = f
 cabalTargets :: CabalComponent -> ScionM [Target]
 cabalTargets (Library f) = do
   pd <- cabal_package f
-  let modnames = PD.libModules pd
+  let modnames = PD.libModules . fromJust $ PD.library pd
   return (map cabalModuleNameToTarget modnames)
 cabalTargets (Executable f name) = do
   pd <- cabal_package f
@@ -171,7 +171,12 @@ cabalDynFlags component = do
            = odir0 </> dropExtension exeName'
          | otherwise
            = odir0
-   let opts = ghcOptions lbi bi odir
+       clbi
+         | Executable _ exeName' <- component
+           = fromJust $ lookup exeName' (executableConfigs lbi)
+         | otherwise
+           = fromJust $ libraryConfig lbi
+   let opts = ghcOptions lbi bi clbi odir
    return $ opts ++ output_file_opts odir
  where
    component_build_info (Library _) pd
@@ -305,7 +310,7 @@ configureCabalProject root_dir dist_dir _extra_args = do
    ghandle (\(_ :: IOError) ->
                io $ throwIO $ 
                 CannotOpenCabalProject "Failed to configure") $ do
-     lbi <- io $ configure (Left gen_pkg_descr, (Nothing, []))
+     lbi <- io $ configure (gen_pkg_descr, (Nothing, []))
                            config_flags
      io $ writePersistBuildConfig dist_dir lbi
      io $ initialBuildSteps dist_dir (localPkgDescr lbi) lbi V.normal

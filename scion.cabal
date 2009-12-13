@@ -39,21 +39,21 @@ flag server
 library
   build-depends:
     base         == 4.*,
-    Cabal        >= 1.5 && < 1.7,
-    containers   == 0.2.*,
+    Cabal        >= 1.5 && < 1.9,
+    containers   == 0.3.*,
     directory    == 1.0.*,
     filepath     == 1.1.*,
-    ghc          >= 6.10 && < 6.12,
+    ghc          >= 6.10 && < 6.13,
     ghc-paths    == 0.1.*,
     ghc-syb      == 0.1.*,
     hslogger     == 1.0.*,
     json         == 0.4.*,
-    multiset     == 0.1.*,
+    multiset     == 0.2.*,
     time         == 1.1.*,
     uniplate     == 1.2.*,
     list-tries   == 0.1.*,
     binary       == 0.5.*,
-    array        == 0.2.*,
+    array        == 0.3.*,
     old-time     == 1.0.*
 
   hs-source-dirs:  lib
@@ -98,20 +98,20 @@ executable scion-server
   build-depends:
     -- From the library:
     base         == 4.*,
-    Cabal        >= 1.5 && < 1.7,
-    containers   == 0.2.*,
+    Cabal        >= 1.5 && < 1.9,
+    containers   == 0.3.*,
     directory    == 1.0.*,
     filepath     == 1.1.*,
-    ghc          >= 6.10 && < 6.12,
+    ghc          >= 6.10 && < 6.13,
     ghc-paths    == 0.1.*,
     ghc-syb      == 0.1.*,
     hslogger     == 1.0.*,
     json         == 0.4.*,
-    multiset     == 0.1.*,
+    multiset     == 0.2.*,
     time         == 1.1.*,
     list-tries   == 0.1.*,
     binary       == 0.5.*,
-    array        == 0.2.*,
+    array        == 0.3.*,
     old-time     == 1.0.*
   
   if flag(server)

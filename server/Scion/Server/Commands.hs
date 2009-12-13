@@ -530,7 +530,7 @@ cmdDumpSources = Cmd "dump-sources" $ noArgs $ cmd
       tc_res <- gets bgTcCache
       case tc_res of
         Just (Typechecked tcm) -> do
-          let Just (rn, _, _, _, _) = renamedSource tcm
+          let Just (rn, _, _, _) = renamedSource tcm
           let tc = typecheckedSource tcm
           liftIO $ putStrLn $ showSDocDump $ ppr rn
           liftIO $ putStrLn $ showData TypeChecker 2 tc
