@@ -24,9 +24,6 @@ cabal-version:   >= 1.6
 extra-source-files: README.markdown
 data-files:
   emacs/*.el
-  vim_runtime_path/autoload/*.vim
-  vim_runtime_path/ftplugin/*.vim
-  vim_runtime_path/plugin/*.vim
 
 flag testing
   description: Enable Debugging things like QuickCheck properties, etc.
