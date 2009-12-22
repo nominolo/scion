@@ -18,15 +18,19 @@ module Scion.Inspect.DefinitionSite where
 
 import Scion.Types
 import Scion.Types.Notes
+import Scion.Ghc
 
-import GHC
-import Name ( getOccString, getSrcSpan )
-import Outputable ( showSDoc, ppr, Outputable, (<+>) )
 import PprTyThing ( pprTyThingInContext )
 import TyCon ( isCoercionTyCon, isFamInstTyCon )
+import HscTypes ( isBootSummary )
+
+#if GHC_VERSION < 611
+import Var ( globalIdVarDetails )
+import IdInfo ( GlobalIdDetails(..) )
+#else
 import Var ( idDetails )
 import IdInfo ( IdDetails(..) )
-import HscTypes ( isBootSummary )
+#endif
 
 import qualified Data.Map as M
 import Data.List ( foldl' )
@@ -81,12 +85,20 @@ mkSiteDB base_dir ty_things = foldl' go emptyDefSiteDB ty_things
                ty_thing db
 
     is_interesting_id ident =
+#if GHC_VERSION < 611
+      case globalIdVarDetails ident of
+        VanillaGlobal -> True
+        ClassOpId _ -> True
+        RecordSelId {} -> True
+        NotGlobalId -> True -- global but not exported
+        _ -> False
+#else
         case idDetails ident of
           VanillaId -> True
           ClassOpId _ -> True
           RecSelId {} -> True
---          NotGlobalId -> True -- global but not exported
           _ -> False
+#endif
 
     is_boring_tycon tycon =
         isClassTyCon tycon || isCoercionTyCon tycon || isFamInstTyCon tycon
@@ -108,7 +120,11 @@ dumpDefSiteDB (DefSiteDB m) = unlines (map pp (M.assocs m))
         | (l, t) <- l_ty_things ]
 
     pp_ty_thing tt@(AnId ident) =
+#if GHC_VERSION < 611
+        showSDoc (pprTyThingInContext False tt <+> ppr (globalIdVarDetails ident))
+#else
         showSDoc (pprTyThingInContext False tt <+> ppr (idDetails ident))
+#endif
 
     pp_ty_thing (ADataCon dcon) =
         showSDoc (ppr dcon <+> ppr (dataConType dcon))

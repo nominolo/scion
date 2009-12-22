@@ -31,14 +31,12 @@ import Scion.Inspect
 import Scion.Inspect.DefinitionSite
 import Scion.Inspect.PackageDB
 import Scion.Cabal
+import Scion.Ghc hiding ( (<+>) )
 
 import DynFlags ( supportedLanguages, allFlags )
 import Exception
 import FastString
-import GHC
 import PprTyThing ( pprTypeForUser )
-import Outputable ( ppr, showSDoc, showSDocDump, dcolon, showSDocForUser,
-                     printDump ,showSDocUnqual)
 import qualified Outputable as O ( (<+>) )
 
 import Control.Applicative
@@ -529,12 +527,12 @@ cmdDumpSources = Cmd "dump-sources" $ noArgs $ cmd
     cmd = do
       tc_res <- gets bgTcCache
       case tc_res of
-        Just (Typechecked tcm) -> do
-          let Just (rn, _, _, _) = renamedSource tcm
-          let tc = typecheckedSource tcm
-          liftIO $ putStrLn $ showSDocDump $ ppr rn
-          liftIO $ putStrLn $ showData TypeChecker 2 tc
-          return ()
+        Just (Typechecked tcm)
+         | Just rn <- renamedSourceGroup `fmap` renamedSource tcm ->
+          do let tc = typecheckedSource tcm
+             liftIO $ putStrLn $ showSDocDump $ ppr rn
+             liftIO $ putStrLn $ showData TypeChecker 2 tc
+             return ()
         _ -> return ()
 
 cmdLoad :: Cmd

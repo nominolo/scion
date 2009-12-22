@@ -23,12 +23,11 @@ module Scion.Inspect.Find
 where
 
 import Scion.Utils()
+import Scion.Ghc hiding ( varName )
 
-import GHC
 import BasicTypes ( IPName(..) )
 import Bag
 import Var ( varName )
-import Outputable
 
 import Data.Monoid ( mempty, mappend, mconcat )
 import Data.Foldable as F ( toList, maximumBy )
@@ -324,9 +323,11 @@ instance (Search id id) => Search id (HsExpr id) where
           HsWrap _ e       -> search p s e
           _ -> mempty
 
+#if GHC_VERSION > 610
 instance (Search id id) => Search id (HsTupArg id) where
   search p s (Present e) = search p s e
   search _ _ _ = mempty
+#endif
 
 instance (Search id id) => Search id (HsLocalBindsLR id id) where
   search p s (HsValBinds val_binds) = search p s val_binds
@@ -342,7 +343,7 @@ instance (Search id id) => Search id (HsCmdTop id) where
 
 instance (Search id id) => Search id (StmtLR id id) where
   search p s st 
-    | RecStmt _ _ _ _ _ _ _ _ <- st = search_inside -- see Note [SearchRecStmt]
+    | isRecStmt st = search_inside -- see Note [SearchRecStmt]
     | otherwise               = FoundStmt s st `above` search_inside
     where
       search_inside =
@@ -354,7 +355,7 @@ instance (Search id id) => Search id (StmtLR id id) where
           TransformStmt (ss,_) f e -> search p s ss `mappend` search p s f
                                                     `mappend` search p s e
           GroupStmt (ss, _) g -> search p s ss `mappend` search p s g
-          RecStmt ss _ _ _ _ _ _ _ -> search p s ss
+          stm | isRecStmt stm -> search p s (recS_stmts stm)
 
 --
 -- Note [SearchRecStmt]

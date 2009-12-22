@@ -36,11 +36,12 @@ flag server
   description: Install the scion-server.
   default: True
 
+flag cabal_1_8
+
 library
   build-depends:
     base         == 4.*,
-    Cabal        >= 1.5 && < 1.9,
-    containers   == 0.3.*,
+    containers   >= 0.2 && < 0.4,
     directory    == 1.0.*,
     filepath     == 1.1.*,
     ghc          >= 6.10 && < 6.13,
@@ -48,13 +49,20 @@ library
     ghc-syb      == 0.1.*,
     hslogger     == 1.0.*,
     json         == 0.4.*,
-    multiset     == 0.2.*,
+    multiset     >= 0.1 && < 0.3,
     time         == 1.1.*,
     uniplate     == 1.2.*,
     list-tries   == 0.1.*,
     binary       == 0.5.*,
-    array        == 0.3.*,
+    array        >= 0.2 && < 0.4,
     old-time     == 1.0.*
+
+  if flag(cabal_1_8)
+    build-depends:  Cabal == 1.8.*
+    cpp-options:    -DCABAL_VERSION=108
+  else
+    build-depends:  Cabal == 1.6.*
+    cpp-options:    -DCABAL_VERSION=106
 
   hs-source-dirs:  lib
   extensions:      CPP, PatternGuards
@@ -70,6 +78,7 @@ library
     Scion.Utils,
     Scion.Session,
     Scion.Cabal,
+    Scion.Ghc,
     Scion
 
   if flag(testing)
@@ -84,7 +93,10 @@ library
     cpp-options:   -DRECOMPILE_BUG_FIXED
 
   if impl(ghc == 6.10.*)
-    cpp-options:   -DWPINLINE
+    cpp-options:   -DWPINLINE -DGHC_VERSION=610
+
+  if impl(ghc == 6.12.*)
+    cpp-options:   -DGHC_VERSION=612
 
   ghc-options:  -Wall
 
@@ -98,8 +110,7 @@ executable scion-server
   build-depends:
     -- From the library:
     base         == 4.*,
-    Cabal        >= 1.5 && < 1.9,
-    containers   == 0.3.*,
+    containers   >= 0.2 && < 0.4,
     directory    == 1.0.*,
     filepath     == 1.1.*,
     ghc          >= 6.10 && < 6.13,
@@ -107,12 +118,19 @@ executable scion-server
     ghc-syb      == 0.1.*,
     hslogger     == 1.0.*,
     json         == 0.4.*,
-    multiset     == 0.2.*,
+    multiset     >= 0.1 && < 0.3,
     time         == 1.1.*,
     list-tries   == 0.1.*,
     binary       == 0.5.*,
-    array        == 0.3.*,
+    array        >= 0.2 && < 0.4,
     old-time     == 1.0.*
+
+  if flag(cabal_1_8)
+    build-depends:  Cabal == 1.8.*
+    cpp-options:    -DCABAL_VERSION=108
+  else
+    build-depends:  Cabal == 1.6.*
+    cpp-options:    -DCABAL_VERSION=106
   
   if flag(server)
     build-depends:
@@ -131,6 +149,7 @@ executable scion-server
     Scion.Types
     Scion.Types.Notes
     Scion.Utils
+    Scion.Ghc
 
     Scion.Server.Commands
     Scion.Server.ConnectionIO
@@ -152,5 +171,7 @@ executable scion-server
     cpp-options:   -DRECOMPILE_BUG_FIXED
 
   if impl(ghc == 6.10.*)
-    cpp-options:   -DWPINLINE
+    cpp-options:   -DWPINLINE -DGHC_VERSION=610
 
+  if impl(ghc == 6.12.*)
+    cpp-options:   -DGHC_VERSION=612

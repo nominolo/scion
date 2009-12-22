@@ -36,7 +36,7 @@ runScion m = do
   runGhc (Just libdir) $ do
     dflags <- getSessionDynFlags
     r <- liftIO $ mkSessionState dflags
-    setSessionDynFlags (initialScionDynFlags dflags)
+    _ <- setSessionDynFlags (initialScionDynFlags dflags)
     unScionM m r
 
 -- | Run the session with the given static flags.

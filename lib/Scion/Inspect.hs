@@ -21,6 +21,7 @@ module Scion.Inspect
   , module Scion.Inspect.TypeOf
   ) where
 
+import Scion.Ghc
 import Scion.Utils()
 import Scion.Inspect.Find
 import Scion.Inspect.TypeOf
@@ -66,7 +67,7 @@ prettyResult r = ppr r
 ------------------------------------------------------------------------------
 
 typeDecls :: TypecheckedMod m => m -> [LTyClDecl Name]
-typeDecls m | Just (grp, _, _, _) <- renamedSource m =
+typeDecls m | Just grp <- renamedSourceGroup `fmap` renamedSource m =
     [ t | t <- hs_tyclds grp
         , isDataDecl (unLoc t) 
             || isTypeDecl (unLoc t) 
@@ -75,13 +76,13 @@ typeDecls m | Just (grp, _, _, _) <- renamedSource m =
 typeDecls _ = error "typeDecls: No renamer information available."
 
 classDecls :: RenamedSource -> [LTyClDecl Name]
-classDecls (grp, _, _, _) =
-    [ t | t <- hs_tyclds grp
+classDecls rn_src =
+    [ t | t <- hs_tyclds (renamedSourceGroup rn_src)
         , isClassDecl (unLoc t) ]
 
 familyDecls :: RenamedSource -> [LTyClDecl Name]
-familyDecls (grp, _, _, _) =
-    [ t | t <- hs_tyclds grp
+familyDecls rn_src =
+    [ t | t <- hs_tyclds (renamedSourceGroup rn_src)
         , isFamilyDecl (unLoc t) ]
 
 toplevelNames :: TypecheckedMod m => m -> [Name]
@@ -204,7 +205,7 @@ outline :: TypecheckedMod m =>
         -> m
         -> [OutlineDef]
 outline base_dir m
-  | Just (grp, _imps, _exps, _doc) <- renamedSource m =
+  | Just grp <- renamedSourceGroup `fmap` renamedSource m =
      concatMap (mkOutlineDef base_dir) (hs_tyclds grp)
        ++ valBinds base_dir grp
        ++ instBinds base_dir grp
