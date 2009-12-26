@@ -49,6 +49,9 @@ setup: $(SETUP)
 
 build: $(DIST)/build/libHSscion-0.1.a
 
+.PHONY: rebuild
+rebuild: clean build
+
 # TODO: dodgy
 install: $(DIST)/build/libHSscion-0.1.a
 	$(CABAL) install
