@@ -224,7 +224,7 @@ that Emacs needs to be restarted. (You have been warned!)")
   (not (scion-tree.kids tree)))
 
 (defun scion-tree-default-printer (tree)
-  (princ (scion-tree.item tree) (current-buffer)))
+  (insert (scion-tree.item tree)))
 
 (defun scion-tree-decoration (tree)
   (cond ((scion-tree-leaf-p tree) "-- ")
@@ -1478,6 +1478,11 @@ last activated the buffer."
   "Face for warnings from the compiler."
   :group 'scion-mode-faces)
 
+(defface scion-filename-face
+  `((t (:inherit 'font-lock-comment-face)))
+  "Face for file name in compiler notes view."
+  :group 'scion-mode-faces)
+
 (defun scion-face-inheritance-possible-p ()
   "Return true if the :inherit face attribute is supported." 
   (assq :inherit custom-face-attributes))
@@ -1854,7 +1859,8 @@ If NO-POPUP is non-NIL, only show the buffer if it is already visible."
 
 (defun scion-tree-for-note (note)
   (make-scion-tree :item (format "%s:\n%s"
-				 (scion-note.filename note)
+				 (propertize (scion-note.filename note)
+					     'face 'scion-filename-face)
 				 (scion-note.message note))
 		   :plist (list 'note note)
 		   :print-fn scion-tree-printer))
