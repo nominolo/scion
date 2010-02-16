@@ -168,7 +168,13 @@ fun! haskellcomplete#SaneHook()
     " move to first error
     if firstError > 0 | exec "crewind ".firstError | endif
   else
-    cclose
+    " if g:scion_quickfixes_always_open is set to true (non-zero) do not close
+    " quickfix window even when there are not any errors.
+    if exists("g:scion_quickfixes_always_open") && g:scion_quickfixes_always_open
+      call setqflist([{'text' : 'No errors'}])
+    else
+      cclose
+    endif
   endif
 endf
 
