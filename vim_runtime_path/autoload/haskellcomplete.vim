@@ -249,7 +249,7 @@ endfunction
 
 function! s:DefPython()
 python << PYTHONEOF
-import sys, tokenize, cStringIO, types, socket, string, vim, popen2, os
+import sys, tokenize, cStringIO, types, socket, string, vim, os
 from subprocess import Popen, PIPE
 
 scion_log_stdout = vim.eval('exists("g:scion_log_stdout") && g:scion_log_stdout')
@@ -350,7 +350,7 @@ def evalscion(str):
     try:
       server_connection.send(str)
     except:
-      vim.command('echom "%s"'% ("(re)connecting to scion"))
+      vim.command('echom "(re)connecting to scion"')
       connectscion()
       server_connection.send(str)
     return server_connection.receive()
