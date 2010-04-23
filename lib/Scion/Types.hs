@@ -21,7 +21,7 @@ import Scion.Types.ExtraInstances()
 
 import GHC
 import HscTypes
-import MonadUtils ( liftIO, MonadIO )
+import MonadUtils ( MonadIO )
 import Exception
 
 import Text.JSON
