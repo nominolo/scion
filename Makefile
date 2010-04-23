@@ -54,7 +54,7 @@ rebuild: clean build
 
 # TODO: dodgy
 install: $(DIST)/build/libHSscion-0.1.a
-	$(CABAL) install
+	$(CABAL) install --builddir=$(DIST)
 
 # test: build
 # 	echo main | $(HC) --interactive -package ghc -DDEBUG -isrc -idist/build tests/RunTests.hs
