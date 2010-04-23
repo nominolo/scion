@@ -28,7 +28,6 @@ import Scion.Inspect.TypeOf
 import Scion.Types.Notes
 import Scion.Types.Outline
 
-import GHC
 import Bag
 import Var ( varType )
 import DataCon ( dataConUserType )
@@ -38,8 +37,6 @@ import VarEnv ( emptyTidyEnv )
 import Data.Generics.Biplate
 import Data.Generics.UniplateStr hiding ( Str (..) )
 import qualified Data.Generics.Str as U 
-import Outputable
-import GHC.SYB.Utils
 import Data.List ( foldl' )
 
 #ifdef SCION_DEBUG
@@ -179,14 +176,7 @@ valBinds base_dir grp =
   where
     -- return names bound by pattern
     pat_names :: Pat Name -> [Name]
-    pat_names pat = 
-        [ n | Just n <- map pat_bind_name 
-                          (trace (showData Renamer 2 (pat, universe pat)) (universe pat)) ]
-
-    pat_bind_name :: Pat Name -> Maybe Name
-    pat_bind_name (VarPat id) = Just id
-    pat_bind_name (AsPat (L _ id) _) = Just id
-    pat_bind_name _ = Nothing
+    pat_names pat = collectPatBinders (L noSrcSpan pat)
 
 instBinds :: FilePath -> HsGroup Name -> [OutlineDef]
 instBinds base_dir grp = 
