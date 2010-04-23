@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, ScopedTypeVariables, CPP #-}
+{-# LANGUAGE DeriveDataTypeable, ScopedTypeVariables, CPP, PatternGuards #-}
 -- |
 -- Module      : Scion.Cabal
 -- Copyright   : (c) Thomas Schilling 2008
