@@ -1,19 +1,27 @@
 {-# LANGUAGE OverloadedStrings, ExistentialQuantification #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, PatternGuards #-}
 module Scion.Server.Commands2 where
 
-import Scion.Types
-import Scion.Backend
 import Scion.Server.Message
+
+import Scion.Types
+import Scion.Types.Notes
+import Scion.Backend
+import Scion.Cabal
+import Scion.Session
 
 import GHC (GhcException(..))
 import Exception (gcatch, ghandle)
 
-import Control.Exception ( throwIO, SomeException )
-import Data.String ( fromString )
-import System.Exit (ExitCode)
 import qualified Data.Map             as M
 import qualified Data.Text            as T
+import qualified Data.MultiSet as MS
+import Control.Applicative
+import Control.Exception ( throwIO, SomeException )
+import Data.String ( fromString )
+import Data.Time.Clock  ( NominalDiffTime )
+import Data.Typeable ( cast )
+import System.Exit (ExitCode)
 
 ------------------------------------------------------------------------
 type KeepGoing = Bool
@@ -152,8 +160,43 @@ instance Monad Pa where
               Right a -> unPa (k a) req
   fail msg = Pa $ \_ -> Left msg
 
+withReq :: (M.Map T.Text MsgData -> Pa a) -> Pa a
+withReq f = Pa $ \req -> unPa (f req) req
+
 noArgs :: r -> Pa r
 noArgs = return
+
+getArg :: Message a => T.Text -> Pa r -> (a -> b) -> (b -> r) -> Pa r
+getArg arg_name not_present trans f = withReq $ \req ->
+  case M.lookup arg_name req of
+    Nothing -> not_present
+    Just x ->
+      case fromMsg x of
+        Error m ->
+          fail $ "could not decode: " ++ show arg_name ++ " - " ++ m
+        Ok a -> return (f (trans a))
+
+-- | Combine two arguments.
+--
+-- TODO: explain type
+(<&>) :: (a -> Pa b)
+      -> (b -> Pa c)
+      -> a -> Pa c
+a1 <&> a2 = \f -> do f' <- a1 f; a2 f'
+
+reqArg :: Message a => T.Text -> (a -> r) -> Pa r
+reqArg arg_name f = reqArg' arg_name id f
+
+reqArg' :: Message a => T.Text -> (a -> b) -> (b -> r) -> Pa r
+reqArg' arg_name trans f =
+  getArg arg_name (fail $ "required arg missing: " ++ show arg_name) trans f
+
+optArg :: Message a => T.Text -> a -> (a -> r) -> Pa r
+optArg name dflt f = optArg' name dflt id f
+
+optArg' :: Message a => T.Text -> b -> (a -> b) -> (b -> r) -> Pa r
+optArg' name dflt trans f =
+  getArg name (return (f dflt)) trans f
 
 data Cmd = forall a. Message a => Cmd T.Text (Pa (ScionM a))
 
@@ -174,12 +217,13 @@ allCommands =
   , cmdListSupportedPragmas
   , cmdListSupportedFlags
   , cmdListExposedModules
+  , cmdLoad
   ]
 
 instance Message ModuleName where
   toMsg mn = MsgText (moduleNameText mn)
-  fromMsg (MsgText txt) = Just (mkModuleName txt)
-  fromMsg _ = Nothing
+  fromMsg (MsgText txt) = pure (mkModuleName txt)
+  fromMsg _ = fail $ "ModuleName"
 
 -- | Used to test whether the server is alive.
 cmdPing :: Cmd
@@ -213,3 +257,110 @@ cmdListSupportedFlags =
 cmdListExposedModules :: Cmd
 cmdListExposedModules =
   Cmd "list-exposed-modules" $ noArgs $ allExposedModuleNames
+
+instance Message Component where
+  toMsg (Component comp)
+    | Just (c :: CabalComponent) <- cast comp = toMsg c
+    | Just (c :: FileComp) <- cast comp = toMsg c
+  toMsg _ = error "Cannot encode component."
+  fromMsg m
+    | Ok (c :: CabalComponent) <- fromMsg m
+    = return $ Component c
+    | Ok (c :: FileComp) <- fromMsg m
+    = return $ Component c
+    | otherwise
+    = fail "Component"
+
+instance Message FileComp where
+  toMsg (FileComp f) = mkMap [("file", fromString f)]
+  fromMsg m
+    | Ok f <- decodeKey m "file" = return (FileComp (T.unpack f))
+  fromMsg _ = fail "FileComp"
+
+instance Message CabalComponent where
+  toMsg (Library f) =
+    mkMap [("library", MsgNull), ("cabal-file", fromString f)]
+  toMsg (Executable f n) =
+    mkMap [("executable", fromString n), ("cabal-file", fromString f)]
+  fromMsg m
+    | Ok () <- decodeKey m "library", Ok f <- decodeKey m "cabal-file"
+    = return $ Library (T.unpack f)
+    | Ok e <- decodeKey m "executable", Ok f <- decodeKey m "cabal-file"
+    = return $ Executable (T.unpack f) (T.unpack e)
+  fromMsg _ = fail "CabalComponent"
+
+instance Message CompilationResult where
+  toMsg (CompilationResult suc notes time) =
+    mkMap [("succeeded", toMsg suc)
+          ,("notes", toMsg notes)
+          ,("duration", toMsg time)]
+  fromMsg m =
+    CompilationResult <$> decodeKey m "succeeded"
+                      <*> decodeKey m "notes"
+                      <*> decodeKey m "duration"
+
+instance (Ord a, Message a) => Message (MS.MultiSet a) where
+  toMsg ms = toMsg (MS.toList ms)
+  fromMsg m = MS.fromList <$> fromMsg m
+
+instance Message Note where
+  toMsg (Note note_kind loc msg) =
+    mkMap [("kind", toMsg note_kind)
+          ,("location", toMsg loc)
+          ,("message", fromString msg)]
+  fromMsg m =
+    Note <$> decodeKey m "kind"
+         <*> decodeKey m "location"
+         <*> (T.unpack <$> decodeKey m "message")
+
+instance Message NoteKind where
+  toMsg ErrorNote = "error"
+  toMsg WarningNote = "warning"
+  toMsg InfoNote = "info"
+  toMsg OtherNote = "other"
+  fromMsg (MsgText nk) =
+    let mp = M.fromList [("error", ErrorNote)
+                        ,("warning", WarningNote)
+                        ,("info", InfoNote)
+                        ,("other", OtherNote)]
+    in case M.lookup nk mp of
+         Nothing -> fail "NoteKind"
+         Just k -> return k
+
+instance Message Location where
+  toMsg loc | not (isValidLoc loc) =
+    mkMap [("no-location", fromString (noLocText loc))]
+  toMsg loc | (src, l0, c0, l1, c1) <- viewLoc loc =
+    mkMap [case src of
+             FileSrc f -> ("file", fromString (toFilePath f))
+             OtherSrc s -> ("other", fromString s)
+          ,("region", toMsg [l0,c0,l1,c1])]
+  fromMsg m
+    | Ok fp <- decodeKey m "file"
+    , Ok [l0,c0,l1,c1] <- decodeKey m "region"
+    = return $ mkLocation (FileSrc (mkAbsFilePath "/" (T.unpack fp))) -- XXX: Why the "/"?
+                          l0 c0 l1 c1
+    | Ok s <- decodeKey m "other"
+    , Ok [l0,c0,l1,c1] <- decodeKey m "region"
+    = return $ mkLocation (OtherSrc (T.unpack s)) l0 c0 l1 c1
+    | Ok s <- decodeKey m "no-location"
+    = return $ mkNoLoc (T.unpack s)
+  fromMsg _ = fail "Location"
+
+instance Message NominalDiffTime where
+  toMsg ndt = MsgDouble $ fromRational $ toRational ndt
+  fromMsg (MsgInt n) = return $ fromIntegral n
+  fromMsg (MsgDouble n) = return $ fromRational $ toRational n
+  fromMsg _ = fail "NominalDiffTime"
+
+cmdListCabalComponents :: Cmd
+cmdListCabalComponents =
+    Cmd "list-cabal-components" $ reqArg "cabal-file" $ cmd
+  where cmd cabal_file = cabalProjectComponents (T.unpack cabal_file)
+
+cmdLoad :: Cmd
+cmdLoad = 
+  Cmd "load" $ reqArg "component" <&>
+               optArg "output" False $
+      loadComponent'
+

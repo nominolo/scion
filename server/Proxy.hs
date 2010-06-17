@@ -6,6 +6,7 @@ module Main where
 import Scion.Server
 import Scion.Server.Options
 import Scion.Server.Message
+import Scion.Server.Message.Parse
 --import Scion.Server.Commands2
 
 -- import qualified Data.ByteString as S
