@@ -2,16 +2,16 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Scion.Server.Commands2 where
 
+import Scion.Types
+import Scion.Backend
+import Scion.Server.Message
+
 import GHC (GhcException(..))
 import Exception (gcatch, ghandle)
+
 import Control.Exception ( throwIO, SomeException )
-import System.Exit (ExitCode)
-import Scion.Types
-import Scion.Server.Message
 import Data.String ( fromString )
-
-import DynFlags ( supportedLanguages, allFlags )
-
+import System.Exit (ExitCode)
 import qualified Data.Map             as M
 import qualified Data.Text            as T
 
@@ -169,9 +169,17 @@ allCmds = M.fromList [ (cmdName c, c) | c <- allCommands ]
 allCommands :: [Cmd]
 allCommands =
   [ cmdPing
-  , cmdListSupportedPragmas
   , cmdConnectionInfo
+  , cmdListSupportedLanguages
+  , cmdListSupportedPragmas
+  , cmdListSupportedFlags
+  , cmdListExposedModules
   ]
+
+instance Message ModuleName where
+  toMsg mn = MsgText (moduleNameText mn)
+  fromMsg (MsgText txt) = Just (mkModuleName txt)
+  fromMsg _ = Nothing
 
 -- | Used to test whether the server is alive.
 cmdPing :: Cmd
@@ -191,17 +199,17 @@ cmdConnectionInfo = Cmd "connection-info" $ noArgs worker
                ,("pid",     pid)]
 
 cmdListSupportedLanguages :: Cmd
-cmdListSupportedLanguages = Cmd "list-supported-languages" $ noArgs cmd
-  where cmd = return (map T.pack supportedLanguages)
+cmdListSupportedLanguages =
+  Cmd "list-supported-languages" $ noArgs $ return supportedLanguages
 
 cmdListSupportedPragmas :: Cmd
 cmdListSupportedPragmas = 
   Cmd "list-supported-pragmas" $ noArgs $ return supportedPragmas
 
-supportedPragmas :: [T.Text]
-supportedPragmas =
-    [ "OPTIONS_GHC", "LANGUAGE", "INCLUDE", "WARNING", "DEPRECATED"
-    , "INLINE", "NOINLINE", "RULES", "SPECIALIZE", "UNPACK", "SOURCE"
-    , "SCC"
-    , "LINE" -- XXX: only used by code generators, still include?
-    ]
+cmdListSupportedFlags :: Cmd
+cmdListSupportedFlags =
+  Cmd "list-supported-flags" $ noArgs $ return supportedOptions
+
+cmdListExposedModules :: Cmd
+cmdListExposedModules =
+  Cmd "list-exposed-modules" $ noArgs $ allExposedModuleNames
