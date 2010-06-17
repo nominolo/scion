@@ -1,5 +1,5 @@
 name:            scion
-version:         0.2.0.0
+version:         0.2.0.1
 license:         BSD3
 license-file:    docs/LICENSE
 author:          Thomas Schilling <nominolo@googlemail.com>
@@ -123,7 +123,7 @@ executable scion-server
     multiset     >= 0.1 && < 0.3,
     hslogger     == 1.0.*,
     time         == 1.1.*,
-    list-tries   == 0.1.*,
+    list-tries   >= 0.1 && < 0.3,
     binary       == 0.5.*,
     array        >= 0.2 && < 0.4,
     old-time     == 1.0.*
