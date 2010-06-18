@@ -226,6 +226,7 @@ allCommands =
   , cmdListCabalComponents
   , cmdCurrentComponent
   , cmdForceUnload
+  , cmdBackgroundTypecheckFile
   ]
 
 instance Message ModuleName where
@@ -377,3 +378,10 @@ cmdCurrentComponent = Cmd "current-component" $ noArgs $ getActiveComponent
 
 cmdForceUnload :: Cmd
 cmdForceUnload = Cmd "force-unload" $ noArgs $ unload
+cmdBackgroundTypecheckFile :: Cmd
+cmdBackgroundTypecheckFile =
+    Cmd "background-typecheck-file" $ reqArg "file" $ cmd
+  where cmd fname = do
+          either (Left . T.pack) Right <$>
+            backgroundTypecheckFile (T.unpack fname)
+

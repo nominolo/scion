@@ -224,7 +224,15 @@ instance Message a => Message (Maybe a) where
   fromMsg MsgNull = pure Nothing -- Masks 'Just ()' and 'Just Nothing'
                                  -- as 'Nothing'
   fromMsg x = Just <$> fromMsg x
-  
+
+instance (Message a, Message b) => Message (Either a b) where
+  toMsg (Right b) = mkMap [("ok", toMsg b)]
+  toMsg (Left a) = mkMap [("error", toMsg a)]
+  fromMsg m
+    | Ok a <- decodeKey m "error" = pure (Left a)
+    | Ok b <- decodeKey m "ok" = pure (Right b)
+    | otherwise = fail "Either"
+
 ------------------------------------------------------------------------
 -- * Sending and Receiving Messages
 ------------------------------------------------------------------------
