@@ -63,7 +63,7 @@ initialScionDynFlags dflags =
       -- byte code compiler.
 #ifdef RECOMPILE_BUG_FIXED
       hscTarget = HscNothing  -- by default, don't modify anything
-    , ghcLink   = NoLink      -- just to be sure
+    , ghcLink   = LinkInMemory
 #else
       hscTarget = HscInterpreted
     , ghcLink   = LinkInMemory
