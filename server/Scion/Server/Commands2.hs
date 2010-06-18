@@ -1,6 +1,11 @@
 {-# LANGUAGE OverloadedStrings, ExistentialQuantification #-}
 {-# LANGUAGE ScopedTypeVariables, PatternGuards #-}
-module Scion.Server.Commands2 where
+{-# OPTIONS_GHC -fwarn-unused-binds -fwarn-unused-imports #-}
+-- Warn unused binds is important, because it allows us to notice when
+-- we forgot to add a command to 'allCommands'.
+module Scion.Server.Commands2 
+  ( handleRequest, KeepGoing )
+where
 
 import Scion.Server.Message
 
@@ -218,6 +223,9 @@ allCommands =
   , cmdListSupportedFlags
   , cmdListExposedModules
   , cmdLoad
+  , cmdListCabalComponents
+  , cmdCurrentComponent
+  , cmdForceUnload
   ]
 
 instance Message ModuleName where
@@ -364,3 +372,8 @@ cmdLoad =
                optArg "output" False $
       loadComponent'
 
+cmdCurrentComponent :: Cmd
+cmdCurrentComponent = Cmd "current-component" $ noArgs $ getActiveComponent
+
+cmdForceUnload :: Cmd
+cmdForceUnload = Cmd "force-unload" $ noArgs $ unload

@@ -212,6 +212,18 @@ instance Message a => Message [a] where
   toMsg ls = MsgList $ map toMsg ls
   fromMsg MsgNull = pure []
   fromMsg (MsgList l) = mapM fromMsg l
+
+-- TODO: Is this instance OK?  It does not allow nested Maybe types.
+-- It's meant to be more in line with the JSON/BSON data model.  I.e.,
+--
+--     Maybe X = nullable X
+--
+instance Message a => Message (Maybe a) where
+  toMsg Nothing = MsgNull
+  toMsg (Just x) = toMsg x
+  fromMsg MsgNull = pure Nothing -- Masks 'Just ()' and 'Just Nothing'
+                                 -- as 'Nothing'
+  fromMsg x = Just <$> fromMsg x
   
 ------------------------------------------------------------------------
 -- * Sending and Receiving Messages
