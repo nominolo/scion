@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, CPP, DeriveDataTypeable,
-             ScopedTypeVariables #-}
+             ScopedTypeVariables, PatternGuards #-}
 module Scion.Server.Message
   ( MsgData(..), mkMap, Message(..), Result(..), decodeKey
   , recvMessage, sendMessage
