@@ -84,7 +84,9 @@ getLineSC :: SocketConn -> IO L.ByteString
 getLineSC (SocketConn sock buf_ref) = do
   (line_chunks, buf') <- go =<< readIORef buf_ref
   writeIORef buf_ref buf'
-  return (L.fromChunks line_chunks)
+  let s = (L.fromChunks line_chunks)
+  putStrLn $ "==> " ++ L.unpack s
+  return s
  where
    chunk_size = 1024
    go buf | C.null buf = do
@@ -101,7 +103,9 @@ getLineSC (SocketConn sock buf_ref) = do
         return ([before], C.drop 1 rest)
 
 putLineSC :: SocketConn -> L.ByteString -> IO ()
-putLineSC (SocketConn sock _) str = go (L.toChunks str)
+putLineSC (SocketConn sock _) str = do
+   putStrLn $ "<== " ++ L.unpack str
+   go (L.toChunks str)
  where
    newline = C.singleton '\n'
    go [] = send sock newline >> return ()

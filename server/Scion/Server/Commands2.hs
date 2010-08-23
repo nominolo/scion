@@ -227,6 +227,9 @@ allCommands =
   , cmdCurrentComponent
   , cmdForceUnload
   , cmdBackgroundTypecheckFile
+  , cmdBackgroundTypecheckArbitrary
+  , cmdSetVerbosity
+  , cmdAddCmdLineFlag
   ]
 
 instance Message ModuleName where
@@ -248,7 +251,7 @@ cmdConnectionInfo = Cmd "connection-info" $ noArgs worker
   where
     worker = let pid = 0 in -- TODO for linux: System.Posix.Internals (c_getpid)
              return $ mkMap
-               [("version", MsgList $ map MsgInt [0,2,0,1])
+               [("version", MsgInt 2)
                ,("pid",     pid)]
 
 cmdListSupportedLanguages :: Cmd
@@ -385,3 +388,38 @@ cmdBackgroundTypecheckFile =
           either (Left . T.pack) Right <$>
             backgroundTypecheckFile (T.unpack fname)
 
+-- | TODO: Horribly inefficient -- we're going from Text to String to
+-- GHC's StringBuffer.  What we actually want is a diff.
+cmdBackgroundTypecheckArbitrary :: Cmd
+cmdBackgroundTypecheckArbitrary =
+  Cmd "background-typecheck-arbitrary" $
+      reqArg "file" <&>
+      reqArg "contents" $ cmd
+ where
+   cmd fname contents =
+     either (Left . T.pack) Right <$>
+       backgroundTypecheckArbitrary (T.unpack fname) (T.unpack contents)
+
+cmdSetVerbosity :: Cmd
+cmdSetVerbosity = 
+    Cmd "set-verbosity" $
+        reqArg "level" <&>
+        optArg' "backend-level" Nothing Just
+        $ cmd
+  where 
+    cmd :: Int -> Maybe Int -> ScionM ()
+    cmd v mb_v' = do
+      setVerbosity (intToVerbosity v)
+      case mb_v' of
+        Just v' -> setGHCVerbosity v'
+        _ -> return ()
+
+cmdAddCmdLineFlag :: Cmd
+cmdAddCmdLineFlag = 
+    Cmd "add-command-line-flag" $
+      optArg "flag" "" <&>
+      optArg "flags" [] $ cmd
+  where 
+    cmd flag flags = do
+      addCmdLineFlags $ map T.unpack $ if flag == "" then flags else flag:flags
+      return ()
