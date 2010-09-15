@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP, DeriveDataTypeable #-}
+-- | Command line options for the @scion-server@ binary.
 module Scion.Server.Options 
   ( ProxyMode(..), WireFormat(..),
     parseArgs
@@ -32,7 +33,7 @@ data WireFormat
   deriving (Eq, Show, Data, Typeable)
 
 defaultPort :: Int
-defaultPort = 4040  -- unassigned according to wikipedia
+defaultPort = 4040  -- unassigned according to Wikipedia
 
 stdioMode =
   mode $ StdIO
