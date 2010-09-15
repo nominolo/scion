@@ -102,7 +102,7 @@ library
   if impl(ghc == 6.12.*)
     cpp-options:   -DGHC_VERSION=612
 
-  ghc-options:  -Wall
+  ghc-options:  -Wall -fno-warn-unused-do-bind
 
 executable scion-server
   if !flag(server)
