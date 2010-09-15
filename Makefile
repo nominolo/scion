@@ -35,7 +35,7 @@ $(DIST)/setup-config: scion.cabal
 	$(CABAL) configure -v --builddir=$(DIST) \
 	     --with-compiler=$(HC) --with-hc-pkg=$(PKG) \
 	     -f-server \
-             --user $(CABAL_FLAGS) > $(DIST)/lib-config-log
+             --user $(CABAL_FLAGS) # > $(DIST)/lib-config-log
 
 $(DIST)/build/libHSscion-$(VERSION).a: $(DIST)/setup-config $(LIB_DEPS)
 	@echo === Building scion ===
@@ -133,3 +133,25 @@ printvars:
 	@echo "CABAL_FLAGS        = $(CABAL_FLAGS)"
 	@echo "DIST               = $(DIST)"
 	@echo "TOP                = $(TOP)"
+
+
+#
+# Automatically test that the build works using a fresh checkout from
+# the current repository.
+#
+# Clones the repo into $(TEST_CHECKOUT_DIR) and runs the tests.  This
+# directory must be defined in config.mk
+#
+.PHONY: test-checkout
+ifdef TEST_CHECKOUT_DIR
+test-checkout:
+	@echo "Testing checkout in directory: $(TEST_CHECKOUT_DIR)"
+	@test ! -d $(TEST_CHECKOUT_DIR)/scion || (echo "Directory $(TEST_CHECKOUT_DIR)/scion already exists." ; exit 1)
+	(cd $(TEST_CHECKOUT_DIR); git clone $(TOP); $(PKG) init test-db; \
+	$(CABAL) install --package-db=./test-db --prefix=$(TEST_CHECKOUT_DIR) \
+        ) || rm -rf $(TEST_CHECKOUT_DIR)/scion
+	rm -rf $(TEST_CHECKOUT_DIR)/scion
+else
+test-checkout:
+	@echo "Please define TEST_CHECKOUT_DIR in your config.mk."
+endif
