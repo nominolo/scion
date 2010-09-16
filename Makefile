@@ -103,6 +103,10 @@ $(DIST)/manual/scion-server: server/Proxy.hs $(SERVER_DEPS) $(DIST)/manual/.inst
 worker: $(DIST)/manual/scion-worker
 server: $(DIST)/manual/scion-server $(DIST)/manual/scion-worker
 
+.PHONY: haddock
+haddock: $(DIST)/build/libHSscion-$(VERSION).a
+	$(CABAL) haddock --builddir=$(DIST)
+
 .PHONY: bench
 bench: $(DIST)/manual/bench $(DIST)/manual/worker
 	$(DIST)/manual/bench
