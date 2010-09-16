@@ -63,12 +63,22 @@ initialScionDynFlags dflags =
       -- byte code compiler.
 #ifdef RECOMPILE_BUG_FIXED
       hscTarget = HscNothing  -- by default, don't modify anything
-    , ghcLink   = LinkInMemory
+    , ghcLink   = LinkInMemory  -- See note below
 #else
       hscTarget = HscInterpreted
     , ghcLink   = LinkInMemory
 #endif
     }
+
+-- Note: Choice of 'ghcLink'.
+--
+-- You might think that when using target @HscNothing@ it doesn't
+-- matter whether we use 'LinkInMemory' or 'NoLink' since the linking
+-- step will never be executed.  This is mostly right, but there is
+-- one subtle difference: Using 'NoLink' will cause an error if we're
+-- compiling module @Main@ (or one without a @module Foo where@ part).
+-- Using 'LinkInMemory' avoids this warning\/error.
+
 ----------------------------------------------------------------------
 
 -- | Reset the state of the session to a defined default state.
