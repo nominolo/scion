@@ -48,10 +48,10 @@ library
     multiset     >= 0.1 && < 0.3,
     time         == 1.1.*,
     uniplate     == 1.5.*,
-    list-tries   >= 0.1 && < 0.3,
+    list-tries   >= 0.1 && < 0.5,
     binary       == 0.5.*,
     array        >= 0.2 && < 0.4,
-    text         == 0.7.*,
+    text         >= 0.7 && < 0.11,
     old-time     == 1.0.*
 
   if impl(ghc == 6.12.*)
@@ -123,9 +123,9 @@ executable scion-server
     ghc-syb-utils == 0.2.*,
     json         == 0.4.*,
     multiset     >= 0.1 && < 0.3,
-    hslogger     == 1.0.*,
+    hslogger     >= 1.0 && < 1.2,
     time         == 1.1.*,
-    list-tries   >= 0.1 && < 0.3,
+    list-tries   >= 0.1 && < 0.5,
     binary       == 0.5.*,
     array        >= 0.2 && < 0.4,
     old-time     == 1.0.*
@@ -141,8 +141,7 @@ executable scion-server
     build-depends:
       -- Server only
       bytestring   == 0.9.*,
-      network      >= 2.1 && < 2.3,
-      network-bytestring == 0.1.*,
+      network      >= 2.2,
       utf8-string  == 0.3.*
 
   other-modules:
