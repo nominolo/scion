@@ -224,7 +224,7 @@ that Emacs needs to be restarted. (You have been warned!)")
   (not (scion-tree.kids tree)))
 
 (defun scion-tree-default-printer (tree)
-  (princ (scion-tree.item tree) (current-buffer)))
+  (insert (scion-tree.item tree)))
 
 (defun scion-tree-decoration (tree)
   (cond ((scion-tree-leaf-p tree) "-- ")
@@ -297,6 +297,12 @@ This is used for labels spanning multiple lines."
 (defvar scion-program "scion-server"
   "Program name of the Scion server.")
 
+(defvar scion-worker "scion-worker"
+  "Program name for the Scion worker.
+
+This must be the name of an executable in the PATH or an absolute
+path to the executable.")
+
 (defvar scion-last-compilation-result nil
   "The result of the most recently issued compilation.")
 
@@ -329,14 +335,17 @@ Scion: Smart Haskell mode.
     (scion-start :program server-program)))
 
 (defun* scion-start (&key (program scion-program)
-			  program-args
+			  (program-args (list 
+                                         "socket" 
+                                         (concat "--worker-path="
+                                                 (expand-file-name scion-worker))))
 			  env
 			  directory
 			  name
 			  (buffer "*scion-server*"))
   (let ((proc (scion-maybe-start-server program program-args env
 					directory buffer)))
-    ))
+    proc))
 
 (defun scion-maybe-start-server (program program-args env directory buffer)
   (cond
@@ -360,7 +369,8 @@ Scion: Smart Haskell mode.
     (add-hook 'comint-output-filter-functions 
               'scion-check-server-ready nil t)
     (let ((process-environment (append env process-environment)))
-      (comint-exec (current-buffer) "scion-emacs" program nil program-args))
+      (print program)
+      (comint-exec (current-buffer) "scion-server" program nil program-args))
     (let ((proc (get-buffer-process (current-buffer))))
       ; (scion-set-query-on-exit-flag proc)
       proc)))
@@ -894,7 +904,7 @@ Bound in the connection's process-buffer.")
                     (scion-curry #'scion-set-connection-info proc)))
 
 (defun scion-set-connection-info (connection info)
-  "Initialize CONNECTION with INFO received from Lisp."
+  "Initialize CONNECTION with INFO received from Server."
   (let ((scion-dispatching-connection connection))
     (destructuring-bind (&key pid version
                               &allow-other-keys) info
@@ -905,7 +915,7 @@ Bound in the connection's process-buffer.")
       (run-hooks 'scion-connected-hook))
     (message "Connected.")))
 
-(defvar scion-protocol-version 1)
+(defvar scion-protocol-version 2)
 
 (defun scion-check-version (version conn)
   (or (equal version scion-protocol-version)
@@ -1478,6 +1488,11 @@ last activated the buffer."
   "Face for warnings from the compiler."
   :group 'scion-mode-faces)
 
+(defface scion-filename-face
+  `((t (:inherit 'font-lock-comment-face)))
+  "Face for file name in compiler notes view."
+  :group 'scion-mode-faces)
+
 (defun scion-face-inheritance-possible-p ()
   "Return true if the :inherit face attribute is supported." 
   (assq :inherit custom-face-attributes))
@@ -1854,7 +1869,8 @@ If NO-POPUP is non-NIL, only show the buffer if it is already visible."
 
 (defun scion-tree-for-note (note)
   (make-scion-tree :item (format "%s:\n%s"
-				 (scion-note.filename note)
+				 (propertize (scion-note.filename note)
+					     'face 'scion-filename-face)
 				 (scion-note.message note))
 		   :plist (list 'note note)
 		   :print-fn scion-tree-printer))
@@ -2236,7 +2252,7 @@ forces it to be off.  NIL toggles the current state."
 	 (lambda (result)
 	   (setq scion-flycheck-is-running nil)
 	   (destructuring-bind (ok comp-rslt) result
-	     (if (eq ok :Right)
+	     (if (eq ok :ok)
 		 (scion-report-compilation-result comp-rslt
 						  (current-buffer))
 	       (scion-report-status "[?]")

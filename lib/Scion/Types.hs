@@ -21,7 +21,7 @@ import Scion.Types.ExtraInstances()
 
 import GHC
 import HscTypes
-import MonadUtils ( liftIO, MonadIO )
+import MonadUtils ( MonadIO )
 import Exception
 
 import Text.JSON
@@ -346,7 +346,7 @@ setWorkingDir home = do
 
 
 
-class (Show c, Eq c, JSON c) => IsComponent c where
+class (Show c, Eq c, JSON c, Typeable c) => IsComponent c where
   componentInit    :: c -> ScionM (Maybe String) --error msg
   componentTargets :: c -> ScionM [Target]
   componentOptions :: c -> ScionM [String]
@@ -361,7 +361,7 @@ instance Eq Component where
 instance Show Component where
   show (Component c) = show c
 
-data FileComp = FileComp FilePath deriving (Eq, Show)
+data FileComp = FileComp FilePath deriving (Eq, Show, Typeable)
 
 instance IsComponent FileComp where
   componentInit (FileComp f) = do

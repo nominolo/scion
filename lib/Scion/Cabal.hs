@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, ScopedTypeVariables, CPP #-}
+{-# LANGUAGE DeriveDataTypeable, ScopedTypeVariables, CPP, PatternGuards #-}
 -- |
 -- Module      : Scion.Cabal
 -- Copyright   : (c) Thomas Schilling 2008
@@ -70,7 +70,7 @@ instance Exception CannotOpenCabalProject where
 data CabalComponent
   = Library FilePath
   | Executable FilePath String
-  deriving (Eq, Show)
+  deriving (Eq, Show, Typeable)
 
 instance IsComponent CabalComponent where
 
