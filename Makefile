@@ -1,75 +1,31 @@
-.PHONY: default clean install-lib install-deps setup
+default: inplace
 
-default: all
-all: build
+TOP := $(shell pwd)
+DIST = $(HOME)/tmp/dist-devel/scion-0.4/
+HC ?= ghc
+RUNHC ?= runghc
 
-include config.mk
+#HC = ghc-6.12.1
+#RUNHC = runghc -f$(HC)
 
-# If not set in custom config.mk, use the default versions
-HC      ?= ghc
-PKG     ?= ghc-pkg
-HADDOCK ?= haddock
+boot:
+	mkdir -p $(DIST)
 
-DIST = dist
-DIST_LIB  = $(DIST)/lib
-DIST_SERVER = $(DIST)/server
-SETUP_DIST = setup-dist
-SETUP = $(SETUP_DIST)/Setup
+.PHONY: inplace
+inplace:
+	$(HC) --make -outputdir $(DIST) -isrc -package ghc Scion.Session
+	$(HC) --make -outputdir $(DIST) -isrc -package ghc Scion.Worker.Main
+	$(HC) --make -outputdir $(DIST) -isrc -package ghc src/Worker.hs -o $(DIST)/scion-worker
+#	cp src/Worker.hs $(DIST)/Worker.hs
+	echo "#!/bin/sh\n$(DIST)/scion-worker \$${1+\"\$$@\"}" > inplace/scion-worker
+	chmod +x inplace/scion-worker
+	echo "#!/bin/sh\n$(RUNHC) -i\"$(TOP)/src\" -package --ghc-arg=ghc -i\"$(DIST)\" \"$(TOP)/src/Server.hs\"" > inplace/scion-server
+	chmod +x inplace/scion-server
 
-DOTDOTSETUP = cabal
+.PHONY: install
+install:
+	cabal -v install --builddir=$(DIST)/cabal
 
-CABAL_INSTALL_OPTS += --ghc --with-compiler=$(HC) --with-hc-pkg=$(PKG)
-CABAL_FLAGS ?= 
-# -ftesting
-
-$(DIST)/setup-config: $(SETUP) scion.cabal $(DIST)
-	$(SETUP) configure -v --builddir=$(DIST) \
-	     --with-compiler=$(HC) --with-hc-pkg=$(PKG) \
-             --user $(CABAL_FLAGS) > $(DIST)/lib-config-log
-
-$(DIST)/build/libHSscion-0.1.a: $(SETUP) $(DIST)/setup-config $(wildcard lib/**/*.hs lib/**/**/*.hs server/**/*.hs)
-	@echo === Building scion ===
-	$(SETUP) build --builddir=$(DIST)
-
-$(DIST):
-	mkdir $(DIST)
-
-$(SETUP): Setup.hs $(SETUP_DIST)
-	$(HC) --make $< -o $@
-
-$(SETUP_DIST):
-	mkdir $@
-
-setup: $(SETUP)
-
-build: $(DIST)/build/libHSscion-0.1.a
-
-# TODO: dodgy
-install: $(DIST)/build/libHSscion-0.1.a
-	cabal install
-
-# test: build
-# 	echo main | $(HC) --interactive -package ghc -DDEBUG -isrc -idist/build tests/RunTests.hs
-# #	./dist/build/test_get_imports/test_get_imports $(GHC_PATH)/compiler dist-stage2 +RTS -s -RTS
-
-clean:
-	$(SETUP) clean --builddir=$(DIST) || rm -rf $(DIST)
-
-distclean: clean
-	rm -rf $(SETUP_DIST)
-
-# doc: configure
-# 	$(SETUP) haddock --with-haddock=$(HADDOCK)
-
-printvars:
-	@echo "UseInplaceGhc    = $(UseInplaceGhc)"
-	@echo "GHC_PATH         = $(GHC_PATH)"
-	@echo "HC               = $(HC)"
-	@echo "PKG              = $(PKG)"
-	@echo "HADDOCK          = $(HADDOCK)"
-	@echo "CABAL_INSTALL    = $(CABAL_INSTALL)"
-	@echo "        ..._OPTS = $(CABAL_INSTALL_OPTS)"
-	@echo "CABAL_FLAGS      = $(CABAL_FLAGS)"
-	@echo "---------------------------------------------------------------"
-	@echo "DIST_LIB     = $(DIST_LIB)"
-	@echo "SETUP_DIST   = $(SETUP_DIST)"
+.PHONY: test
+test:
+	runghc test/TestSuite.hs
