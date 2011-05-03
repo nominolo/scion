@@ -78,6 +78,7 @@ import System.PosixCompat.Files ( getFileStatus, modificationTime )
 logfile :: Handle
 logfile = unsafePerformIO $ do
             path <- getAppUserDataDirectory "scion"
+            createDirectoryIfMissing True path
             openFile (path </> "worker-log") AppendMode
 
 debugMsg :: MonadIO m => String -> m ()

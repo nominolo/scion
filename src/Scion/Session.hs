@@ -217,11 +217,12 @@ startWorker start_worker homedir conf = do
    close_all (inp, out, err, _) =
      hClose inp >> hClose out >> hClose err
    wait_for_READY h = do
-     l <- S.hGetLine h
-     if l == str_READY then return () else do
-       -- ignore other lines
-       putStrLn $ "Worker: " ++ show l
-       wait_for_READY h
+     handle (\(_e :: IOError) -> putStrLn "Could not start worker.") $ do
+       l <- S.hGetLine h
+       if l == str_READY then return () else do
+         -- ignore other lines
+         putStrLn $ "Worker: " ++ show l
+         wait_for_READY h
 
    str_READY = S.pack (map (fromIntegral . ord) "READY")
    printFromHandle hdl =

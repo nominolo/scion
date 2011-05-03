@@ -154,7 +154,7 @@ type WorkerStarter =
 defaultWorkerStarter :: String -> WorkerStarter
 defaultWorkerStarter workername homedir args = do
   worker <- do
-    bindir <- Info.getBinDir    
+    bindir <- Info.getBinDir
     has_inplace <- doesFileExist (bindir </> workername)
     if has_inplace then return (bindir </> workername)
      else do
@@ -164,6 +164,7 @@ defaultWorkerStarter workername homedir args = do
            throwIO $ CannotStartWorker $
              "Executable \"" ++ workername ++ "\" does not exist"
          Just w -> return w
+  --putStrLn $ "Starting worker process: " ++ worker
   runInteractiveProcess worker (homedir:args) Nothing Nothing
 
 data CannotStartWorker = CannotStartWorker String
