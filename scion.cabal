@@ -62,6 +62,7 @@ library
     Scion.Session,
     Scion.Types.Compiler,
     Scion.Types.Commands,
+    Scion.Types.Core,
     Scion.Types.Monad,
     Scion.Types.Note,
     Scion.Types.Session,

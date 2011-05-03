@@ -1,9 +1,14 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, BangPatterns, DeriveDataTypeable,
              MultiParamTypeClasses #-}
-module Scion.Types.Session where
+module Scion.Types.Session
+  ( module Scion.Types.Session
+  , module Scion.Types.Core
+  )
+where
 
 import           Scion.Utils.Convert
 import           Scion.Types.Note
+import           Scion.Types.Core
 
 import           Paths_scion as Info ( version, getBinDir )
 

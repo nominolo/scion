@@ -1,9 +1,11 @@
 -- | The types used by the worker (which talks to the GHC API.)
 module Scion.Types.Worker
   ( module Scion.Types.Worker
+  , module Scion.Types.Core
   , MonadIO(..), ExceptionMonad(..) )
 where
 
+import Scion.Types.Core
 import Scion.Types.Note ( Note )
 
 import Control.Applicative

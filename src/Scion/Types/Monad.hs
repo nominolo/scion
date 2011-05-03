@@ -2,12 +2,14 @@
 -- | Definitions concerning the
 module Scion.Types.Monad
   ( module Scion.Types.Monad,
+    module Scion.Types.Core,
     ExceptionMonad(..), MonadIO(..)
   )
 where
 
 import           Scion.Types.Compiler
 import           Scion.Types.Session
+import           Scion.Types.Core
 
 import           Control.Applicative
 import qualified Data.Map as M
@@ -137,6 +139,3 @@ instance ExceptionMonad ScionM where
   gblock (ScionM act) = ScionM $ \s -> gblock (act s)
   gunblock (ScionM act) = ScionM $ \s -> gunblock (act s)
 
-io :: MonadIO m => IO a -> m a
-io = liftIO
-{-# INLINE io #-}
