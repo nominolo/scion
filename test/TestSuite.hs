@@ -19,6 +19,14 @@ file_config001 p =
 file_config002 p =
   FileConfig (p </> "tests" </> "projects" </> "file001.hs") ["-Wall"]
 
+cabal_config001 p =
+  CabalConfig
+    { sc_name = "hello"
+    , sc_cabalFile = p </> "tests" </> "projects" </> "hello" </> "hello.cabal"
+    , sc_component = Library
+    , sc_configFlags = []
+    }
+
 tests =
   [ testCase "ping" $ runScion $ do
       withSession (file_config001 ".") $ \sid -> do
@@ -31,5 +39,9 @@ tests =
     testCase "exts" $ runScion $ do
       withSession (file_config001 ".") $ \sid -> do
         exts <- supportedLanguagesAndExtensions
-        io $ assertBool "There should be some supported extensions." (length exts > 0)
+        io $ assertBool "There should be some supported extensions." (length exts > 0),
+    testCase "cabal01" $ runScion $ do
+      withSession (cabal_config001 ".") $ \sid -> do
+        notes <- sessionNotes sid
+        io $ MS.size notes @?= 42  -- TODO: 
   ]
