@@ -1,4 +1,4 @@
-default: inplace
+default: install
 
 TOP := $(shell pwd)
 DIST = $(HOME)/tmp/dist-devel/scion-0.4/
