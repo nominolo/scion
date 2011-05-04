@@ -24,7 +24,7 @@ import Scion.Types.Monad
 --import Scion.Worker
 import Scion.Utils.Convert
 import Scion.Utils.IO
-import Control.Exception ( bracketOnError, throwIO, handle )
+import Scion.Cabal ( CabalException )
 
 import           Control.Applicative
 import           Control.Concurrent
@@ -37,6 +37,7 @@ import           Data.Maybe
 import           Data.Time.Clock ( getCurrentTime )
 import           Data.Time.Clock.POSIX ( posixSecondsToUTCTime )
 import           System.Directory ( doesFileExist, getTemporaryDirectory )
+import           System.Exit ( ExitCode(..) )
 import           System.FilePath ( dropFileName, (</>), takeFileName )
 import           System.IO
 import           System.PosixCompat.Files ( getFileStatus, modificationTime )
@@ -308,3 +309,12 @@ callWorker h request = do
     case ans_ of 
       Just ans -> return ans
       Nothing -> return (Error "callWorker: Could not parse answer")
+
+ignoreMostErrors :: (ExceptionMonad m, MonadIO m) =>
+                     m a -> m (Maybe a)
+ignoreMostErrors act = do
+  gcatches (act >>= return . Just)
+    [HandlerM $ \(ex :: CabalException) -> return Nothing,
+     HandlerM $ \(ex :: ExitCode) -> return Nothing,
+     HandlerM $ \(ex :: IOError) -> return Nothing]
+

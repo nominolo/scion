@@ -58,6 +58,7 @@ library
   hs-source-dirs:  src
   default-extensions: CPP, PatternGuards
   exposed-modules:
+    Scion.Cabal,
     Scion.Ghc,
     Scion.Session,
     Scion.Types.Compiler,

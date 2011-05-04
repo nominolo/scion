@@ -3,6 +3,7 @@ module Main ( main ) where
 import Scion.Types.Monad
 import Scion.Types.Session
 import Scion.Session
+import Scion.Cabal
 
 import Data.String
 import qualified Data.MultiSet as MS
@@ -27,6 +28,9 @@ cabal_config001 p =
     , sc_configFlags = []
     }
 
+cabal_file001 p =
+  p </> "tests" </> "projects" </> "hello" </> "hello.cabal"
+
 tests =
   [ testCase "ping" $ runScion $ do
       withSession (file_config001 ".") $ \sid -> do
@@ -40,7 +44,16 @@ tests =
       withSession (file_config001 ".") $ \sid -> do
         exts <- supportedLanguagesAndExtensions
         io $ assertBool "There should be some supported extensions." (length exts > 0),
+
     testCase "cabal01" $ runScion $ do
+      comps <- fileComponents (cabal_file001 ".")
+      io $ comps @?= [Executable "hello"],
+
+    testCase "cabal02" $ runScion $ do
+      comps <- ignoreMostErrors $ fileComponents ("./foobar.blab")
+      io $ comps @?= Nothing,
+
+    testCase "cabal10" $ runScion $ do
       withSession (cabal_config001 ".") $ \sid -> do
         notes <- sessionNotes sid
         io $ MS.size notes @?= 42  -- TODO: 
