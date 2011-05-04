@@ -91,6 +91,9 @@ data SessionConfig =
       -- ^ The library (@Nothing@) or an executable (@Just exeName@).
     , sc_configFlags :: [String]
       -- ^ Flags that would be passed to @cabal configure@.
+    , sc_buildDir :: Maybe FilePath
+      -- ^ The directory where temporary and binary files are put.  If
+      -- @Nothing@, a temporary directory will be chosen.
     }
   |
   -- | A configuration with no files.
@@ -120,14 +123,14 @@ data SessionState = SessionState
 instance Binary SessionConfig where
   put (FileConfig f fs) =
     putWord8 1 >> put f >> put fs
-  put (CabalConfig nm fp comp flags) =
-    putWord8 2 >> put nm >> put fp >> put comp >> put flags
+  put (CabalConfig nm fp comp flags odir) =
+    putWord8 2 >> put nm >> put fp >> put comp >> put flags >> put odir
   put (EmptyConfig fs) =
     putWord8 3 >> put fs
   get = do tag <- getWord8
            case tag of
              1 -> FileConfig <$> get <*> get
-             2 -> CabalConfig <$> get <*> get <*> get <*> get
+             2 -> CabalConfig <$> get <*> get <*> get <*> get <*> get
              3 -> EmptyConfig <$> get
 
 

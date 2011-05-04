@@ -24,8 +24,9 @@ cabal_config001 p =
   CabalConfig
     { sc_name = "hello"
     , sc_cabalFile = p </> "tests" </> "projects" </> "hello" </> "hello.cabal"
-    , sc_component = Library
+    , sc_component = Executable "hello"
     , sc_configFlags = []
+    , sc_buildDir = Nothing
     }
 
 cabal_file001 p =
@@ -60,5 +61,5 @@ tests =
     testCase "cabal10" $ runScion $ do
       withSession (cabal_config001 ".") $ \sid -> do
         notes <- sessionNotes sid
-        io $ MS.size notes @?= 42  -- TODO: 
+        io $ MS.size notes @?= 0
   ]

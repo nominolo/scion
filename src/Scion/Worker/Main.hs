@@ -27,10 +27,12 @@ import qualified Distribution.PackageDescription as C
 import qualified Distribution.PackageDescription.Parse as C
 import qualified Distribution.Verbosity as C
 import qualified Distribution.Text as C
+import qualified Distribution.Simple.GHC as C hiding ( configure )
 import qualified Distribution.Simple.Command as C
 import qualified Distribution.Simple.Setup as C
 import qualified Distribution.Simple.Program as C
 import qualified Distribution.Simple.LocalBuildInfo as C
+import qualified Distribution.Simple.Utils as C
 import qualified Data.MultiSet as MS
 
 import qualified Data.ByteString as S
@@ -39,6 +41,7 @@ import Data.Time.Clock
 import Data.List ( find )
 import Data.String ( fromString )
 import Control.Applicative
+import Control.Concurrent ( threadDelay )
 import Control.Exception
 import Data.IORef
 import System.Environment
@@ -88,7 +91,7 @@ debugMsg msg =
 
 workerMain :: Int -> IO ()
 workerMain n =
-  handle (\(e :: SomeException) -> debugMsg (show e)) $
+  handle (\(e :: SomeException) -> debugMsg (show e) >> threadDelay 2000000) $
     workerMain' n
 
 workerMain' :: Int -> IO ()
@@ -188,17 +191,31 @@ initWorker conf@CabalConfig{} debugMsg kont = do
   cf_exists <- doesFileExist cabal_file
   if not cf_exists then workerFail $ "Cabal file not found: " ++ cabal_file
    else do
-    (lbi, stamp) <- maybeConfigureCabal cabal_file (sc_configFlags conf)
-                      (scionDistDir (dropFileName cabal_file))
+    let Just odir = sc_buildDir conf
+    (lbi, stamp) <- maybeConfigureCabal cabal_file (sc_configFlags conf) odir
 
     let comp = sc_component conf
+    io $ print =<< getCurrentDirectory
+        
     case getComponentInfo lbi comp of
       Nothing -> workerFail $ "Component `" ++ show comp
                    ++ "' not found in " ++ cabal_file
       Just (lib_or_exe, clbi, bi) -> do
-        let targets | Left lib <- lib_or_exe
-              = map (ModuleTarget . convert) (C.libModules lib)
-            args = []  -- TODO:
+        targets <-
+          case lib_or_exe of
+            Left lib ->
+              return $
+                map (ModuleTarget . convert) (C.libModules lib)
+            Right exe -> do
+              let mods =
+                    map (ModuleTarget . convert) (C.exeModules exe)
+              -- Cabal allows specifying "main-is: foo.hs", however if
+              -- the real file actually is "src/foo.hs" then GHC won't
+              -- find it.  So we have to manually find it here.
+              main_file <- io $ C.findFile (C.hsSourceDirs bi) (C.modulePath exe)
+              return (FileTarget main_file : mods)
+                   
+        let args = map Ghc.noLoc (C.ghcOptions lbi bi clbi odir)
 
         initGhcSession targets args debugMsg kont
 

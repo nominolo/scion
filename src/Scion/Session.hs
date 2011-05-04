@@ -45,16 +45,18 @@ import           System.Process ( getProcessExitCode, terminateProcess )
 
 -- -------------------------------------------------------------------
 
+ensureFileExists :: FilePath -> ScionM ()
+ensureFileExists file = do
+  ok <- io $ doesFileExist  file
+  when (not ok) $ scionError $ "File does not exist: " ++ file
+
 -- | Create a new session for the given session config.
 --
 -- Starts a new worker and returns the associated session ID.
 createSession :: SessionConfig
               -> ScionM SessionId
 createSession sc0@FileConfig{ sc_fileName = file } = do
-  ok <- io $ doesFileExist  file
-  when (not ok) $
-    io $ throwIO $ userError $ 
-      "createSession: File does not exist: " ++ file
+  ensureFileExists file
  
   mod_time <- convert . modificationTime <$> io (getFileStatus file)
 
@@ -80,6 +82,41 @@ createSession sc0@FileConfig{ sc_fileName = file } = do
 
   registerSession sid sess0
   return sid
+
+createSession sc0@CabalConfig{ sc_cabalFile = file } = do
+  ensureFileExists file
+ 
+  mod_time <- convert . modificationTime <$> io (getFileStatus file)
+
+  starter <- getWorkerStarter
+  let working_dir = dropFileName file
+
+  sid <- genSessionId
+  
+  build_dir <- case sc_buildDir sc0 of
+                 Nothing -> do
+                   -- TODO: Atomically find and create temp dir.
+                   dir <- io $ getTemporaryDirectory
+                   return (dir </> show sid)
+                 Just d -> return d
+  let sc = sc0{ sc_buildDir = Just build_dir,
+                sc_cabalFile = takeFileName file -- TODO: use absolute path instead
+              }
+  (whdl, rslt, graph) <- startWorker starter working_dir sc
+
+  -- TODO: specify output directory to worker
+  let sess0 = SessionState
+        { sessionConfig = sc
+        , sessionConfigTimeStamp = mod_time
+        , sessionWorker = whdl
+        , sessionOutputDir = build_dir
+        , sessionModuleGraph = graph
+        , sessionLastCompilation = rslt
+        }
+
+  registerSession sid sess0
+  return sid
+  
 
 createSession sc@EmptyConfig{} = do
   starter <- getWorkerStarter

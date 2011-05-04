@@ -150,9 +150,11 @@ cabalSessionConfigs cabal_file = do
                 , sc_cabalFile = cabal_file
                 , sc_component = comp
                 , sc_configFlags = []
+                , sc_buildDir = Nothing
                 }
    library_name = takeBaseName cabal_file
 
    nameFromComponent Library = library_name
    nameFromComponent (Executable exe_name) =
      library_name ++ ":" ++ exe_name
+
