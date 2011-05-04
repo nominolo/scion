@@ -96,7 +96,7 @@ data SessionConfig =
   -- | A configuration with no files.
   EmptyConfig
     { sc_flags :: [String] }
-  deriving (Show)
+  deriving (Eq, Show)
 
 -- | The @SessionState@ contains the cached part of a worker's state.
 data SessionState = SessionState

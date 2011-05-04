@@ -53,6 +53,10 @@ tests =
       comps <- ignoreMostErrors $ fileComponents ("./foobar.blab")
       io $ comps @?= Nothing,
 
+    testCase "cabal03" $ runScion $ do
+      confs <- cabalSessionConfigs (cabal_file001 ".")
+      io $ map sc_name confs @?= ["hello:hello"],
+
     testCase "cabal10" $ runScion $ do
       withSession (cabal_config001 ".") $ \sid -> do
         notes <- sessionNotes sid

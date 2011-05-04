@@ -34,7 +34,7 @@ import           GHC.Paths ( ghc, ghc_pkg )
 import           System.Directory
 import           System.Exit ( ExitCode(..) )
 import           System.FilePath ( (</>), dropFileName, takeExtension,
-                                   dropExtension,(<.>) )
+                                   dropExtension,(<.>), takeBaseName )
 
 -- | Something went wrong inside Cabal.
 data CabalException = CabalException String
@@ -126,7 +126,7 @@ availableComponents pd =
       [ Executable (PD.exeName e)
       | e <- PD.executables pd ]
 
--- | List all possible components of the given file.
+-- | List all possible components of the @.cabal@ given file.
 --
 -- Some components might not be available depending on the way the
 -- program is configured.
@@ -138,8 +138,21 @@ fileComponents cabal_file = do
     gpd <- io $ PD.readPackageDescription V.silent cabal_file
     return (availableComponents (PD.flattenPackageDescription gpd))
 
--- | List all possible default session configs
+-- | List all possible default session configs from a given @.cabal@ file.
 cabalSessionConfigs :: (ExceptionMonad m, MonadIO m) => FilePath
                     -> m [SessionConfig]
 cabalSessionConfigs cabal_file = do
-  return []
+  comps <- fileComponents cabal_file
+  return (map componentToSessionConfig comps)
+ where
+   componentToSessionConfig comp =
+     CabalConfig{ sc_name = nameFromComponent comp
+                , sc_cabalFile = cabal_file
+                , sc_component = comp
+                , sc_configFlags = []
+                }
+   library_name = takeBaseName cabal_file
+
+   nameFromComponent Library = library_name
+   nameFromComponent (Executable exe_name) =
+     library_name ++ ":" ++ exe_name
