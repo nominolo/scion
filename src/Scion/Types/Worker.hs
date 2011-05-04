@@ -69,3 +69,21 @@ getAndClearNewNotes :: Worker [Note]
 getAndClearNewNotes = Worker $ \r -> liftIO $ do
   nn <- workerNewNotes <$> readIORef r
   atomicModifyIORef nn $ \ns -> ([], ns)
+
+newtype Verbosity = Verbosity Int
+  deriving (Eq, Ord)
+
+silent :: Verbosity
+silent = Verbosity 0
+
+normal :: Verbosity
+normal = Verbosity 1
+
+verbose :: Verbosity
+verbose = Verbosity 2
+
+deafening :: Verbosity
+deafening = Verbosity 3
+
+message :: Verbosity -> String -> Worker ()
+message _ msg = io $ hPutStrLn stderr msg
