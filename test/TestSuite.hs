@@ -5,12 +5,16 @@ import Scion.Types.Session
 import Scion.Session
 import Scion.Cabal
 
+import Control.Concurrent ( threadDelay )
 import Data.String
 import qualified Data.MultiSet as MS
 import Test.Framework
 import Test.Framework.Providers.HUnit
 import Test.HUnit
+import System.Directory
 import System.FilePath ( (</>) )
+import System.IO
+
 
 main = defaultMain tests
 
@@ -61,5 +65,31 @@ tests =
     testCase "cabal10" $ runScion $ do
       withSession (cabal_config001 ".") $ \sid -> do
         notes <- sessionNotes sid
-        io $ MS.size notes @?= 0
+        io $ MS.size notes @?= 0,
+
+    testCase "recomp01" test_recomp01 
+        
   ]
+
+-- Tests recompilation
+test_recomp01 = runScion $ do
+  (tmpfile, h) <- io $ do dir <- getTemporaryDirectory
+                          openTempFile dir "ScionTest.hs"
+  io $ hPutStr h contents0 >> hFlush h
+  (withSession (FileConfig tmpfile []) $ \sid -> do
+     notes <- sessionNotes sid
+     io $ MS.size notes @?= 1
+     io $ print notes
+     io $ threadDelay 1000000 -- make sure we get a different timestamp
+     io $ hSeek h AbsoluteSeek 0 >> hPutStr h contents1 >> hFlush h
+     fileModified sid tmpfile
+     notes2 <- sessionNotes sid
+     io $ MS.size notes2 @?= 0
+     io $ print notes2
+   )
+   `gfinally` io (hClose h)
+ where
+   contents0 = unlines ["module Main where",
+                        "main = putStrLn ['a' 'a']"]
+   contents1 = unlines ["module Main where",
+                        "main = putStrLn ['a','a']"]
