@@ -42,6 +42,12 @@ instance Show SessionId where
 firstSessionId :: SessionId
 firstSessionId = SessionId 1
 
+unsafeSessionIdToInt :: SessionId -> Int
+unsafeSessionIdToInt (SessionId n) = n
+
+unsafeSessionIdFromInt :: Int -> SessionId
+unsafeSessionIdFromInt = SessionId
+
 data Component = Library | Executable String
   deriving (Eq,Ord,Show)
 instance Binary Component where

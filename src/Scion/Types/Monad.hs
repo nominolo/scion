@@ -52,7 +52,7 @@ instance Monad ScionM where
   (ScionM ma) >>= fb = ScionM $ \s -> do
                          a <- ma s
                          unScionM (fb a) s
-  fail msg = error $ "FATAL: " ++ msg --dieHard msg
+  fail msg = ScionM $ \_ -> throwIO $ ScionException $ "FATAL: " ++ msg
 
 instance Functor ScionM where
   fmap f (ScionM ma) = ScionM (fmap f . ma)

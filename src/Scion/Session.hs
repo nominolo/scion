@@ -348,10 +348,15 @@ callWorker h request = do
       Nothing -> return (Error "callWorker: Could not parse answer")
 
 ignoreMostErrors :: (ExceptionMonad m, MonadIO m) =>
-                     m a -> m (Maybe a)
+                     m a -> m (Either String a)
 ignoreMostErrors act = do
-  gcatches (act >>= return . Just)
-    [HandlerM $ \(ex :: CabalException) -> return Nothing,
-     HandlerM $ \(ex :: ExitCode) -> return Nothing,
-     HandlerM $ \(ex :: IOError) -> return Nothing]
+  gcatches (act >>= return . Right)
+    [HandlerM $ \(ex :: CabalException) -> return (Left (show ex)),
+     HandlerM $ \(ex :: ExitCode) -> return (Left (show ex)),
+     HandlerM $ \(ex :: IOError) -> return (Left (show ex)),
+     HandlerM $ \(ex :: ScionException) -> return (Left (show ex)),
+     HandlerM $ \(ex :: PatternMatchFail) -> return (Left (show ex)),
+     HandlerM $ \(ex :: ErrorCall) -> return (Left (show ex)),
+     HandlerM $ \(ex :: RecConError) -> return (Left (show ex))
+    ]
 

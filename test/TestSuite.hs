@@ -56,7 +56,8 @@ tests =
 
     testCase "cabal02" $ runScion $ do
       comps <- ignoreMostErrors $ fileComponents ("./foobar.blab")
-      io $ comps @?= Nothing,
+      io $ assertBool "Should fail for non-existing file" $
+         case comps of Left _ -> True; Right _ -> False,
 
     testCase "cabal03" $ runScion $ do
       confs <- cabalSessionConfigs (cabal_file001 ".")
@@ -68,7 +69,6 @@ tests =
         io $ MS.size notes @?= 0,
 
     testCase "recomp01" test_recomp01 
-        
   ]
 
 -- Tests recompilation
