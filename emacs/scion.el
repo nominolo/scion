@@ -2364,7 +2364,7 @@ loaded."
   "Return list of components in CABAL-FILE.
 The result is a list where each element is either the symbol
 LIBRARY or (EXECUTABLE <name>)."
-  (let ((comps (scion-eval `(list-cabal-components :cabal-file ,cabal-file))))
+  (let ((comps (scion-eval `(list-cabal-components ,cabal-file))))
     comps))
 
 (defun scion-get-verbosity ()

@@ -1,17 +1,20 @@
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE OverloadedStrings, ScopedTypeVariables, BangPatterns #-}
+{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Main where
 
 import Scion.Types.Compiler ( Extension, extensionName )
 import Scion.Types.Monad hiding ( catch )
 import Scion.Types.Session hiding ( catch )
+import Scion.Cabal
 import Scion.Session
 
 import Control.Applicative
-import Control.Exception ( throwIO, handle, IOException )
+--import Control.Exception ( throwIO, handle, IOException )
 import Data.AttoLisp ( FromLisp(..), ToLisp(..) )
 import Data.Bits ( shiftL, (.|.) )
-import Data.Char ( chr )
+import Data.String
+--import Data.Char ( chr )
 import Network ( listenOn, PortID(..) )
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
 import Network.Socket.ByteString
@@ -54,16 +57,19 @@ serve (TcpIp auto nr) = do
   putStrLn $ "=== Listening on port: " ++ show realPort
   hFlush stdout
   let loop = do
-        handle (\(e :: IOException) -> do
+        handle (\(_e :: IOException) -> do
                    putStrLn "Connection terminated.  Waiting for next client."
                    loop) $ do
           (sock', _addr) <- accept sock
           keep_going <- mainLoop sock' Lisp
           if keep_going then loop else return ()
   loop
+serve StdInOut = do
+  putStrLn "Connection mode input/output not currently supported"
 
 -- | Attempt to listen on each port in the list in turn.
 listenOnOneOf :: [PortID] -> IO Socket
+listenOnOneOf [] = error "Could not find free port"
 listenOnOneOf (p:ps) =
   listenOn p `catch`
     (\(ex :: IOError) ->
@@ -82,15 +88,15 @@ mainLoop sock Lisp = runScion $ loop
          io $ putStr $ "==> [" ++ show len ++ "] "
          io $ B.putStrLn msg
          case parseRequest msg of
-           Left msg -> do
-             io $ putStrLn $ "ParseError: " ++ msg
+           Left err_msg -> do
+             io $ putStrLn $ "ParseError: " ++ err_msg
              io $ sendResponse sock invalidRequestId 
-                    (Error ("ParseError: " ++ msg))
+                    (Error ("ParseError: " ++ err_msg))
              loop
            Right (Request QuitServer _ _ reqId) -> do
              io $ sendResponse sock reqId (Ok RQuitting)
              return False
-           Right req@(Request cmd _ sessionId reqId) -> do
+           Right (Request cmd _ sessionId reqId) -> do
              -- TODO: Handle exceptions
              mb_resp <- ignoreMostErrors $ handleRequest cmd sessionId
              case mb_resp of
@@ -100,6 +106,9 @@ mainLoop sock Lisp = runScion $ loop
                Left err_msg -> do
                  io $ sendResponse sock reqId (Error err_msg)
                  loop
+mainLoop _sock Json = do
+  putStrLn "JSON is not yet supported"
+  return True
 
 sendResponse :: Socket -> RequestId -> Response -> IO ()
 sendResponse sock reqId resp =
@@ -121,7 +130,7 @@ encodeLen n =
 -- | Decode a 6 digit hexadecimal number.
 decodeLen :: B.ByteString -> Maybe Int
 decodeLen b | B.length b /= 6 = Nothing
-decodeLen b = go b (0 :: Int)
+decodeLen bs = go bs (0 :: Int)
  where
    go b !acc = case B.uncons b of
      Nothing -> Just acc
@@ -153,12 +162,14 @@ data ServerCommand
   = ConnectionInfo
   | ListSupportedLanguages
   | QuitServer
+  | ListAvailConfigs T.Text
   deriving Show
 
 data ServerResponse
   = RConnectionInfo Int -- protocol version
   | RSupportedLanguages [Extension]
   | RQuitting
+  | RFileConfigs [SessionConfig]
 
 data Response
   = Ok ServerResponse
@@ -178,7 +189,8 @@ instance FromLisp ServerCommand where
   parseLisp e =
     L.struct "connection-info" ConnectionInfo e <|>
     L.struct "list-supported-languages" ListSupportedLanguages e <|>
-    L.struct "quit" QuitServer e
+    L.struct "quit" QuitServer e <|>
+    L.struct "list-cabal-components" ListAvailConfigs e
 
 instance ToLisp Response where
   toLisp (Ok a)      = L.mkStruct ":ok" [toLisp a]
@@ -191,6 +203,20 @@ instance ToLisp ServerResponse where
             L.Symbol ":version", toLisp protoVersion]
   toLisp (RSupportedLanguages exts) = toLisp exts
   toLisp RQuitting = L.nil
+  toLisp (RFileConfigs confs) =
+    toLisp confs
+    
+instance ToLisp SessionConfig where
+  toLisp (FileConfig file flags) =
+    L.List [L.Symbol ":file", fromString file,
+            toLisp (map (toLisp . T.pack) flags)]
+  toLisp conf@CabalConfig{} =
+    case sc_component conf of
+      Library -> L.List [L.Symbol ":library"]
+      Executable e ->
+        L.List [L.Symbol ":executable", fromString e]
+  toLisp EmptyConfig{} = error "Cannot serialise EmptyConfig"
+    
 
 instance ToLisp SessionId where
   toLisp = toLisp . unsafeSessionIdToInt
@@ -217,7 +243,7 @@ encodeResponse reqId resp =
   L.encode (L.List [return_kw, toLisp resp, toLisp reqId])
  where
    return_kw = L.Symbol ":return"
-  
+ {- 
 test1 =
   case A.parseOnly L.lisp (S.pack "(list-supported-languages)") of
     Left msg -> putStrLn msg
@@ -225,7 +251,7 @@ test1 =
       case L.fromLisp lsp :: L.Result ServerCommand of
         L.Success c -> print c
         L.Error msg -> putStrLn msg
-
+-}
 -----------------------------------------------------------------------
 
 scionProtocolVersion :: Int
@@ -236,3 +262,8 @@ handleRequest ConnectionInfo _ = do
   return (RConnectionInfo scionProtocolVersion)
 handleRequest ListSupportedLanguages _ =
   RSupportedLanguages <$> supportedLanguagesAndExtensions
+handleRequest (ListAvailConfigs file) _ =
+  RFileConfigs <$> cabalSessionConfigs (T.unpack file)
+
+handleRequest QuitServer _ =
+  error "handleRequest: should not have reached this point"

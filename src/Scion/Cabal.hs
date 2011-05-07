@@ -130,7 +130,8 @@ availableComponents pd =
 --
 -- Some components might not be available depending on the way the
 -- program is configured.
-fileComponents :: (ExceptionMonad m, MonadIO m) => FilePath -> m [Component]
+fileComponents :: (ExceptionMonad m, MonadIO m) =>
+                  FilePath -> m [Component]
 fileComponents cabal_file = do
   ghandle (\(_ :: ExitCode) ->
                 io $ throwIO $ CabalException $ "Cannot open Cabal file: "
