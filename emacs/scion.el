@@ -2236,13 +2236,14 @@ forces it to be off.  NIL toggles the current state."
     (let ((filename (buffer-file-name)))
       (setq scion-flycheck-is-running t)
       (scion-report-status ":-/-")
-      (scion-eval-async `(background-typecheck-file :file ,filename)
+      (scion-eval-async `(file-modified ,filename)
 	 (lambda (result)
 	   (setq scion-flycheck-is-running nil)
-	   (destructuring-bind (ok comp-rslt) result
-	     (if (not (eq ok :json-false))
-		 (scion-report-compilation-result comp-rslt 
-						  (current-buffer))
+	   (destructuring-bind (ok notes) result
+	     (if ok
+                 (scion-report-compilation-result 
+                  (list :succeeded t :notes notes :duration 0.42)
+                  (current-buffer))
 	       (scion-report-status "[?]")))
 	   nil)))))
 

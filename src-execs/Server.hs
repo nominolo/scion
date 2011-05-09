@@ -168,6 +168,7 @@ data ServerCommand
   | QuitServer
   | ListAvailConfigs T.Text
   | CreateSession SessionConfig
+  | FileModified T.Text
   deriving Show
 
 data ServerResponse
@@ -176,6 +177,7 @@ data ServerResponse
   | RQuitting
   | RFileConfigs [SessionConfig]
   | RSessionCreated SessionId Bool Notes
+  | RFileModifiedResult Bool Notes
 
 data Response
   = Ok ServerResponse
@@ -198,6 +200,7 @@ instance FromLisp ServerCommand where
     L.struct "quit" QuitServer e <|>
     L.struct "list-cabal-components" ListAvailConfigs e <|>
     L.struct "create-session" CreateSession e <|>
+    L.struct "file-modified" FileModified e <|>
     (case e of
         L.List (L.Symbol nm:_) ->
           fail $ "Unknown server command: " ++ T.unpack nm
@@ -219,6 +222,8 @@ instance ToLisp ServerResponse where
     toLisp confs
   toLisp (RSessionCreated sid success notes) =
     L.List [toLisp sid, toLisp success, toLisp notes]
+  toLisp (RFileModifiedResult inGraph notes) =
+    L.List [toLisp inGraph, toLisp notes]
     
 instance ToLisp SessionConfig where
   toLisp (FileConfig file flags) =
@@ -322,6 +327,10 @@ handleRequest (CreateSession conf) _ = do
   sid <- createSession conf
   notes <- sessionNotes sid
   return (RSessionCreated sid (not (hasErrors notes)) notes)
+handleRequest (FileModified file) (Just sid) = do
+  fileModified sid (T.unpack file)
+  let fileInModuleGraph = True -- FIXME: find out
+  RFileModifiedResult fileInModuleGraph <$> sessionNotes sid
 
 handleRequest QuitServer _ =
   error "handleRequest: should not have reached this point"

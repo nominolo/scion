@@ -93,7 +93,14 @@ getSessionState sid = ScionM $ \r -> do
   gs <- readIORef r
   case M.lookup sid (gsSessions gs) of
     Just s -> return s
-    Nothing -> error $ "Not an active session: " ++ show sid
+    Nothing -> scionError $ "Not an active session: " ++ show sid
+
+doesSessionExist :: SessionId -> ScionM Bool
+doesSessionExist sid = ScionM $ \r -> do
+  gs <- readIORef r
+  case M.lookup sid (gsSessions gs) of
+    Just _  -> return True
+    Nothing -> return False
 
 -- | Unregister a 'SessionId'.  NOTE: Does not stop the worker.
 unregisterSession :: SessionId -> ScionM ()
