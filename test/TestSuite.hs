@@ -15,6 +15,11 @@ import System.Directory
 import System.FilePath ( (</>) )
 import System.IO
 
+run :: ScionM a -> IO a
+run act = 
+  runScion $ do
+    --setVerbosity deafening
+    act
 
 main = defaultMain tests
 
@@ -37,33 +42,33 @@ cabal_file001 p =
   p </> "tests" </> "projects" </> "hello" </> "hello.cabal"
 
 tests =
-  [ testCase "ping" $ runScion $ do
+  [ testCase "ping" $ run $ do
       withSession (file_config001 ".") $ \sid -> do
         ok <- ping sid
         io $ assertBool "Answer to ping must be pong." ok,
-    testCase "notes" $ runScion $ do
+    testCase "notes" $ run $ do
       withSession (file_config002 ".") $ \sid -> do
         notes <- sessionNotes sid
         io $ MS.size notes @?= 2,
-    testCase "exts" $ runScion $ do
+    testCase "exts" $ run $ do
       withSession (file_config001 ".") $ \sid -> do
         exts <- supportedLanguagesAndExtensions
         io $ assertBool "There should be some supported extensions." (length exts > 0),
 
-    testCase "cabal01" $ runScion $ do
+    testCase "cabal01" $ run $ do
       comps <- fileComponents (cabal_file001 ".")
       io $ comps @?= [Executable "hello"],
 
-    testCase "cabal02" $ runScion $ do
+    testCase "cabal02" $ run $ do
       comps <- ignoreMostErrors $ fileComponents ("./foobar.blab")
       io $ assertBool "Should fail for non-existing file" $
          case comps of Left _ -> True; Right _ -> False,
 
-    testCase "cabal03" $ runScion $ do
+    testCase "cabal03" $ run $ do
       confs <- cabalSessionConfigs (cabal_file001 ".")
       io $ map sc_name confs @?= ["hello:hello"],
 
-    testCase "cabal10" $ runScion $ do
+    testCase "cabal10" $ run $ do
       withSession (cabal_config001 ".") $ \sid -> do
         notes <- sessionNotes sid
         io $ MS.size notes @?= 0,
@@ -72,7 +77,7 @@ tests =
   ]
 
 -- Tests recompilation
-test_recomp01 = runScion $ do
+test_recomp01 = run $ do
   (tmpfile, h) <- io $ do dir <- getTemporaryDirectory
                           openTempFile dir "ScionTest.hs"
   io $ hPutStr h contents0 >> hFlush h
