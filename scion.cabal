@@ -53,7 +53,8 @@ library
     bytestring   >= 0.9 && < 0.10,
     binary       >= 0.5 && < 0.6,
     old-locale   >= 1.0 && < 1.1,
-    network      >= 2.3 && < 2.4
+    network      >= 2.3 && < 2.4,
+    temporary    == 1.1.*
 
   hs-source-dirs:  src
   default-extensions: CPP, PatternGuards

@@ -9,6 +9,7 @@ import Scion.Types.Core
 import Scion.Types.Note ( Note )
 
 import Control.Applicative
+import Control.Monad ( when )
 import Data.IORef
 import System.IO
 import Distribution.Simple.LocalBuildInfo
@@ -23,7 +24,7 @@ newtype Worker a
 data WorkerState = WorkerState
   { workerLBI       :: Maybe LocalBuildInfo
   , workerLogHandle :: Maybe Handle
-  , workerLogLevel  :: Int
+  , workerLogLevel  :: Verbosity
   , workerNewNotes  :: IORef [Note]
   }
 
@@ -31,7 +32,7 @@ mkWorkerState :: IORef [Note] -> IO (IORef WorkerState)
 mkWorkerState r = newIORef $ WorkerState
   { workerLBI = Nothing
   , workerLogHandle = Nothing
-  , workerLogLevel = 0
+  , workerLogLevel = normal
   , workerNewNotes = r}
 
 instance Functor Worker where
@@ -70,20 +71,10 @@ getAndClearNewNotes = Worker $ \r -> liftIO $ do
   nn <- workerNewNotes <$> readIORef r
   atomicModifyIORef nn $ \ns -> ([], ns)
 
-newtype Verbosity = Verbosity Int
-  deriving (Eq, Ord)
-
-silent :: Verbosity
-silent = Verbosity 0
-
-normal :: Verbosity
-normal = Verbosity 1
-
-verbose :: Verbosity
-verbose = Verbosity 2
-
-deafening :: Verbosity
-deafening = Verbosity 3
-
-message :: Verbosity -> String -> Worker ()
-message _ msg = io $ hPutStrLn stderr msg
+instance LogMonad Worker where
+  setVerbosity v = Worker $ \r ->
+    io (atomicModifyIORef r (\ws -> (ws{ workerLogLevel = v }, ())))
+  getVerbosity = Worker $ \r -> workerLogLevel <$> io (readIORef r)
+  message verb msg = do
+    v <- getVerbosity
+    when (verb <= v) $ io $ hPutStrLn stderr msg >> hFlush stderr

@@ -78,7 +78,9 @@ listenOnOneOf (p:ps) =
       if null ps then throwIO ex else listenOnOneOf ps)
 
 mainLoop :: Socket -> WireFormat -> IO KeepGoing
-mainLoop sock Lisp = runScion $ loop
+mainLoop sock Lisp = runScion $ do
+   setVerbosity deafening
+   loop
  where
    loop = do
      hdr <- io $ recv sock 6

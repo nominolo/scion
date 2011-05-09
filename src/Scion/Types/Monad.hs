@@ -12,11 +12,13 @@ import           Scion.Types.Session
 import           Scion.Types.Core
 
 import           Control.Applicative
+import           Control.Monad ( when )
 import qualified Data.Map as M
 import qualified Data.Text as T
 import           Data.IORef
 import           MonadUtils -- from GHC
 import           Exception  -- from GHC
+import           System.IO ( hFlush, stdout )
 
 -- * The Scion Monad and Session State
 
@@ -24,8 +26,9 @@ data GlobalState = GlobalState
   { gsSessions :: M.Map SessionId SessionState
   , gsNextSessionId :: !SessionId
   , gsWorkerStarter :: WorkerStarter
-  , gsLogLevel :: Int
+  , gsLogLevel :: Verbosity
   , gsExtensions :: Maybe [Extension]
+  , gsCleanupTodos :: [IO ()]  -- in reversed order
   }
 
 mkGlobalState :: IO (IORef GlobalState)
@@ -33,8 +36,9 @@ mkGlobalState = newIORef
   GlobalState { gsSessions = M.empty
               , gsNextSessionId = firstSessionId
               , gsWorkerStarter = defaultWorkerStarter "scion-worker"
-              , gsLogLevel = 0
+              , gsLogLevel = normal
               , gsExtensions = Nothing
+              , gsCleanupTodos = []
               }
 
 -- | The 'ScionM' monad.  It contains the state to manage multiple
@@ -45,7 +49,10 @@ newtype ScionM a
 runScion :: ScionM a -> IO a
 runScion m = do
   ref <- mkGlobalState
-  unScionM m ref
+  unScionM m ref `finally`
+    (cleanup =<< (reverse . gsCleanupTodos <$> readIORef ref))
+ where
+   cleanup = mapM_ (\c -> c `onException` return ())
 
 instance Monad ScionM where
   return x = ScionM $ \_ -> return x
@@ -64,9 +71,6 @@ instance Applicative ScionM where
 
 liftScionM :: IO a -> ScionM a
 liftScionM m = ScionM $ \_ -> m
-
-getLogLevel :: ScionM Int
-getLogLevel = ScionM $ \r -> gsLogLevel <$> readIORef r
 
 genSessionId :: ScionM SessionId
 genSessionId = ScionM $ \ref ->
@@ -139,3 +143,15 @@ instance ExceptionMonad ScionM where
   gblock (ScionM act) = ScionM $ \s -> gblock (act s)
   gunblock (ScionM act) = ScionM $ \s -> gunblock (act s)
 
+instance LogMonad ScionM where
+  setVerbosity v = ScionM $ \r -> 
+    atomicModifyIORef r (\gs -> (gs{ gsLogLevel = v }, ()))
+  getVerbosity = ScionM $ \r -> gsLogLevel <$> readIORef r
+  message verb msg = do
+    v <- getVerbosity
+    when (verb <= v) $ io $ putStrLn msg >> hFlush stdout
+
+addCleanupTodo :: IO () -> ScionM ()
+addCleanupTodo cleanup = ScionM $ \r ->
+  atomicModifyIORef r $ \gs ->
+    (gs{ gsCleanupTodos = cleanup : gsCleanupTodos gs }, ())

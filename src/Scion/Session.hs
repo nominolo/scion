@@ -36,10 +36,12 @@ import           Data.Char ( ord )
 import           Data.Maybe
 import           Data.Time.Clock ( getCurrentTime )
 import           Data.Time.Clock.POSIX ( posixSecondsToUTCTime )
-import           System.Directory ( doesFileExist, getTemporaryDirectory )
+import           System.Directory ( doesFileExist, getTemporaryDirectory,
+                                    removeDirectoryRecursive )
 import           System.Exit ( ExitCode(..) )
 import           System.FilePath ( dropFileName, (</>), takeFileName )
 import           System.IO
+import           System.IO.Temp ( createTempDirectory )
 import           System.PosixCompat.Files ( getFileStatus, modificationTime )
 import           System.Process ( getProcessExitCode, terminateProcess )
 
@@ -95,16 +97,17 @@ createSession sc0@CabalConfig{ sc_cabalFile = file } = do
   
   build_dir <- case sc_buildDir sc0 of
                  Nothing -> do
-                   -- TODO: Atomically find and create temp dir.
-                   dir <- io $ getTemporaryDirectory
-                   return (dir </> show sid)
+                   tmp <- io getTemporaryDirectory
+                   dir <- io $ createTempDirectory tmp "scion-dist"
+                   addCleanupTodo (removeDirectoryRecursive dir)
+                   return dir
                  Just d -> return d
+
   let sc = sc0{ sc_buildDir = Just build_dir,
                 sc_cabalFile = takeFileName file -- TODO: use absolute path instead
               }
   (whdl, rslt, graph) <- startWorker starter working_dir sc
 
-  -- TODO: specify output directory to worker
   let sess0 = SessionState
         { sessionConfig = sc
         , sessionConfigTimeStamp = mod_time
@@ -224,14 +227,14 @@ startWorker :: WorkerStarter
             -> SessionConfig
             -> ScionM (WorkerHandle, CompilationResult, [ModuleSummary])
 startWorker start_worker homedir conf = do
-  loglvl <- getLogLevel
+  verb <- getVerbosity
   io $ bracketOnError
     (start_worker homedir [])
     close_all $
      \(inp, out, err, proc) -> do
        hSetBinaryMode inp True
        hSetBinaryMode out True
-       if loglvl > 2 then forkIO (printFromHandle err) else return undefined
+       if verb >= deafening then forkIO (printFromHandle err) else return undefined
        -- Wait for worker to start up.
        wait_for_READY out
 
