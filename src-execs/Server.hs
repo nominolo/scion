@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Main where
 
+import Scion.Types.Note
 import Scion.Types.Compiler ( Extension, extensionName )
 import Scion.Types.Monad hiding ( catch )
 import Scion.Types.Session hiding ( catch )
@@ -26,6 +27,7 @@ import qualified Data.Attoparsec as A
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Char8 as S ( pack )
+import qualified Data.MultiSet as MS
 import qualified Data.Text as T
 
 data ConnectionMode
@@ -163,6 +165,7 @@ data ServerCommand
   | ListSupportedLanguages
   | QuitServer
   | ListAvailConfigs T.Text
+  | CreateSession SessionConfig
   deriving Show
 
 data ServerResponse
@@ -170,6 +173,7 @@ data ServerResponse
   | RSupportedLanguages [Extension]
   | RQuitting
   | RFileConfigs [SessionConfig]
+  | RSessionCreated SessionId Bool Notes
 
 data Response
   = Ok ServerResponse
@@ -190,7 +194,13 @@ instance FromLisp ServerCommand where
     L.struct "connection-info" ConnectionInfo e <|>
     L.struct "list-supported-languages" ListSupportedLanguages e <|>
     L.struct "quit" QuitServer e <|>
-    L.struct "list-cabal-components" ListAvailConfigs e
+    L.struct "list-cabal-components" ListAvailConfigs e <|>
+    L.struct "create-session" CreateSession e <|>
+    (case e of
+        L.List (L.Symbol nm:_) ->
+          fail $ "Unknown server command: " ++ T.unpack nm
+        _ ->
+          fail "Invalid command syntax")
 
 instance ToLisp Response where
   toLisp (Ok a)      = L.mkStruct ":ok" [toLisp a]
@@ -205,6 +215,8 @@ instance ToLisp ServerResponse where
   toLisp RQuitting = L.nil
   toLisp (RFileConfigs confs) =
     toLisp confs
+  toLisp (RSessionCreated sid success notes) =
+    L.List [toLisp sid, toLisp success, toLisp notes]
     
 instance ToLisp SessionConfig where
   toLisp (FileConfig file flags) =
@@ -212,11 +224,26 @@ instance ToLisp SessionConfig where
             toLisp (map (toLisp . T.pack) flags)]
   toLisp conf@CabalConfig{} =
     case sc_component conf of
-      Library -> L.List [L.Symbol ":library"]
+      Library -> L.List [L.Symbol ":library",
+                         toLisp (T.pack (sc_cabalFile conf))]
       Executable e ->
-        L.List [L.Symbol ":executable", fromString e]
+        L.List [L.Symbol ":executable", fromString e,
+                toLisp (T.pack (sc_cabalFile conf))]
   toLisp EmptyConfig{} = error "Cannot serialise EmptyConfig"
-    
+
+instance FromLisp SessionConfig where
+  parseLisp e =
+    L.struct ":library" mkLibrary e <|>
+    L.struct ":executable" mkExecutable e <|>
+    L.struct ":file" (\f -> FileConfig (T.unpack f) []) e
+   where
+     mkLibrary :: T.Text -> SessionConfig
+     mkLibrary cabalFile = componentToSessionConfig (T.unpack cabalFile) Library
+     
+     mkExecutable :: T.Text -> T.Text -> SessionConfig
+     mkExecutable exeName cabalFile =
+       componentToSessionConfig (T.unpack cabalFile)
+                                (Executable (T.unpack exeName))
 
 instance ToLisp SessionId where
   toLisp = toLisp . unsafeSessionIdToInt
@@ -226,6 +253,31 @@ instance FromLisp SessionId where
 
 instance ToLisp Extension where
   toLisp = toLisp . extensionName
+
+instance ToLisp a => ToLisp (MS.MultiSet a) where
+  toLisp = toLisp . MS.toList
+
+instance ToLisp Note where
+  toLisp (Note knd loc msg) =
+    L.mkStruct "note" [toLisp knd, toLisp loc, toLisp msg]
+
+instance ToLisp NoteKind where
+  toLisp ErrorNote = L.Symbol ":error"
+  toLisp WarningNote = L.Symbol ":warning"
+  toLisp InfoNote = L.Symbol ":info"
+  toLisp OtherNote = L.Symbol ":other"
+
+instance ToLisp Location where
+  toLisp loc | not (isValidLoc loc) =
+    L.mkStruct ":no-loc" [toLisp (T.pack (noLocText loc))]
+  toLisp loc | (src, sl, sc, el, ec) <- viewLoc loc =
+    L.mkStruct ":loc" (toLisp src : map toLisp [sl, sc, el, ec])
+
+instance ToLisp LocSource where
+  toLisp (FileSrc path) =
+    L.mkStruct ":file" [toLisp (T.pack (toFilePath path))]
+  toLisp (OtherSrc txt) =
+    L.mkStruct ":other" [toLisp (T.pack txt)]
 
 --instance From
 
@@ -264,6 +316,10 @@ handleRequest ListSupportedLanguages _ =
   RSupportedLanguages <$> supportedLanguagesAndExtensions
 handleRequest (ListAvailConfigs file) _ =
   RFileConfigs <$> cabalSessionConfigs (T.unpack file)
+handleRequest (CreateSession conf) _ = do
+  sid <- createSession conf
+  notes <- sessionNotes sid
+  return (RSessionCreated sid (not (hasErrors notes)) notes)
 
 handleRequest QuitServer _ =
   error "handleRequest: should not have reached this point"

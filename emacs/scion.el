@@ -1561,38 +1561,48 @@ PREDICATE is executed in the buffer to test."
 ;;; See Scion server JSON instances for details.
 
 (defun scion-note.message (note)
-  (plist-get note :message))
+  (destructure-case note
+    ((note kind loc message)
+     message)))
+
+(defun scion-note.location (note)
+  (destructure-case note
+    ((note kind loc message) loc)))
 
 (defun scion-note.filename (note)
-  (let ((loc (scion-note.location note)))
-    (plist-get loc :file)))
+  (destructure-case (scion-note.location note)
+    ((:loc src . region)
+     (destructure-case src
+       ((:file name) name)
+       ((:other txt) nil)))
+    ((:no-loc txt) nil)))
+
+(defun scion-note.range (note)
+  (destructure-case (scion-note.location note)
+    ((:loc src . range) range)
+    ((:no-loc txt) nil)))
 
 (defun scion-note.line (note)
-  (when-let (region (plist-get (scion-note.location note) :region))
+  (when-let (region (scion-note.range note))
     (destructuring-bind (sl sc el ec) region
       sl)))
 
 (defun scion-note.col (note)
-  (when-let (region (plist-get (scion-note.location note) :region))
+  (when-let (region (scion-note.range note))
     (destructuring-bind (sl sc el ec) region
       sc)))
 
 (defun scion-note.region (note buffer)
-  (when-let (region (plist-get (scion-note.location note) :region))
+  (when-let (region (scion-note.range note))
     (let ((filename (scion-note.filename note)))
       (when (equal (buffer-file-name buffer) filename)
 	(destructuring-bind (sl sc el ec) region
 	  (scion-location-to-region sl sc el ec buffer))))))
 
 (defun scion-note.severity (note)
-  (let ((k (plist-get note :kind)))
-    (cond 
-     ((string= k "warning") :warning)
-     ((string= k "error") :error)
-     (t :other))))
-
-(defun scion-note.location (note)
-  (plist-get note :location))
+  (destructure-case note
+    ((note severity loc msg)
+     severity)))
 
 (defun scion-location-to-region (start-line start-col end-line end-col
 				 &optional buffer)
@@ -2286,7 +2296,10 @@ loaded."
     (error "Invalid component"))
 
    ((scion-cabal-component-p comp)
-    (let* ((curr-cabal-file (scion-eval '(current-cabal-file)))
+    (scion-load-component% comp)
+    ;; TODO: Reintegrate this code
+    (ignore
+     '(let* ((curr-cabal-file (scion-eval '(current-cabal-file)))
 	   ;; (current-component (scion-eval '(current-component))
 	   (root-dir (scion-cabal-root-dir))
 	   (new-cabal-file (ignore-errors (scion-cabal-file root-dir))))
@@ -2307,16 +2320,24 @@ loaded."
 	      (lambda (x)
 		(setq scion-project-root-dir root-dir)
 		(message (format "Cabal project loaded: %s" x))
-		(scion-load-component% comp))))))))
+		(scion-load-component% comp)))))))))
 
    ((eq (car comp) :file)
     (scion-load-component% comp))))
 
 (defun scion-load-component% (comp)
   (message "Loading %s..." (scion-format-component comp))
-  (scion-eval-async `(load :component ,comp)
+  (scion-eval-async `(create-session ,comp)
     (lambda (result)
-      (scion-report-compilation-result result))))
+      (scion-complete-load-component result)
+      ;; (scion-report-compilation-result result)
+      )))
+
+(defun scion-complete-load-component (result)
+  (destructuring-bind (session-id success notes) result
+    (setq scion-current-thread session-id)
+    (scion-report-compilation-result
+     (list :succeeded success :notes notes :duration 0.42))))
 
 (defun scion-cabal-component-p (comp)
   (cond

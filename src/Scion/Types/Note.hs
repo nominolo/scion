@@ -6,7 +6,7 @@ module Scion.Types.Note
     -- ** Absolute FilePaths
     AbsFilePath(toFilePath), mkAbsFilePath,
     -- * Notes
-    Note(..), NoteKind(..), Notes
+    Note(..), NoteKind(..), Notes, hasErrors
     -- ** Converting from GHC Notes
   )
 where
@@ -42,6 +42,10 @@ instance Binary NoteKind where
   get = toEnum . fromIntegral <$> getWord8
 
 type Notes = MS.MultiSet Note
+
+hasErrors :: Notes -> Bool
+hasErrors notes =
+  not $ null [ () | Note{ noteKind = ErrorNote } <- MS.toList notes ]
 
 -- | Represents a 'FilePath' which we know is absolute.
 --

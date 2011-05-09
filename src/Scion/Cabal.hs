@@ -144,18 +144,20 @@ cabalSessionConfigs :: (ExceptionMonad m, MonadIO m) => FilePath
                     -> m [SessionConfig]
 cabalSessionConfigs cabal_file = do
   comps <- fileComponents cabal_file
-  return (map componentToSessionConfig comps)
- where
-   componentToSessionConfig comp =
+  return (map (componentToSessionConfig cabal_file) comps)
+
+-- | Create the default configuration for a Cabal file and component.
+componentToSessionConfig :: FilePath -> Component -> SessionConfig
+componentToSessionConfig cabal_file comp =
      CabalConfig{ sc_name = nameFromComponent comp
                 , sc_cabalFile = cabal_file
                 , sc_component = comp
                 , sc_configFlags = []
                 , sc_buildDir = Nothing
                 }
+ where
    library_name = takeBaseName cabal_file
 
    nameFromComponent Library = library_name
    nameFromComponent (Executable exe_name) =
      library_name ++ ":" ++ exe_name
-
