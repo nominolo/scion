@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE CPP, MultiParamTypeClasses #-}
 module Scion.Ghc
   ( -- * Converting from GHC error messages
     ghcSpanToLocation, ghcErrMsgToNote, ghcWarnMsgToNote,
@@ -36,9 +36,9 @@ ghcSpanToLocation baseDir sp
   | Ghc.isGoodSrcSpan sp =
       mkLocation mkLocFile
                  (Ghc.srcSpanStartLine sp)
-                 (Ghc.srcSpanStartCol sp)
+                 (ghcColToScionCol $ Ghc.srcSpanStartCol sp)
                  (Ghc.srcSpanEndLine sp)
-                 (Ghc.srcSpanEndCol sp)
+                 (ghcColToScionCol $ Ghc.srcSpanEndCol sp)
   | otherwise =
       mkNoLoc (Ghc.showSDoc (Ghc.ppr sp))
  where
@@ -122,3 +122,17 @@ targetToGhcTarget (FileTarget path) =
 
 instance Convert ModuleName Ghc.ModuleName where
   convert (ModuleName s) = Ghc.mkModuleName (T.unpack s)
+
+ghcColToScionCol :: Int -> Int
+#if __GLASGOW_HASKELL__ < 700
+ghcColToScionCol c=c -- GHC 6.x starts at 0 for columns
+#else
+ghcColToScionCol c=c-1 -- GHC 7 starts at 1 for columns
+#endif
+
+scionColToGhcCol :: Int -> Int
+#if __GLASGOW_HASKELL__ < 700
+scionColToGhcCol c=c -- GHC 6.x starts at 0 for columns
+#else
+scionColToGhcCol c=c+1 -- GHC 7 starts at 1 for columns
+#endif
