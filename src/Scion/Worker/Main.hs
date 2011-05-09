@@ -16,12 +16,13 @@ import Scion.Ghc
 import qualified GHC as Ghc
 import qualified HscTypes as Ghc
 import DynFlags as Ghc
-import GHC.Paths ( libdir )
+import GHC.Paths ( libdir, ghc, ghc_pkg )
 import qualified ErrUtils as Ghc
 import Outputable ( ppr, showSDoc, withPprStyle, SDoc )
 import qualified Outputable as O
 import Exception ( gcatch )
 
+import qualified Distribution.Compiler as C
 import qualified Distribution.Simple.Configure as C
 import qualified Distribution.PackageDescription as C
 import qualified Distribution.PackageDescription.Parse as C
@@ -316,6 +317,7 @@ maybeConfigureCabal cabal_file config_flags odir = do
       is_old <- checkPersistBuildConfigOutdated odir cabal_file
       if is_old then conf else do
         t <- getModificationTime (C.localBuildInfoFile odir)
+        debugMsg "Project already configured"
         return (lbi, t)
  where
    conf = configureCabal cabal_file config_flags odir
@@ -352,6 +354,8 @@ configureCabal cabal_file0 config_flags odir = do
   -- .cabal file
   setCurrentDirectory (dropFileName cabal_file)
 
+  debugMsg $ "Configuring Cabal project: " ++ show cabal_file
+
   -- 3. Convince Cabal to parse a @configure ...stuff..@ command line.
   gen_pkg_descr <- C.readPackageDescription C.normal cabal_file
   cf0 <- case C.commandsRun confCmd commands config_flags of
@@ -359,10 +363,20 @@ configureCabal cabal_file0 config_flags odir = do
            -- TODO: Better error messages.
            _ -> throwIO $ userError "Could not parse config flags."
 
+  --debugMsg $ "GHC: " ++ show ghc ++ " " ++ show ghc_pkg
+  
   -- 4. Now we do Cabal's configuration step.
   -- TODO: We should probably specify the version of GHC more tightly.
   let conf_flags =
-        cf0{ C.configDistPref = C.toFlag odir }
+        cf0{ C.configDistPref = C.toFlag odir,
+             -- Make sure we use the exact same GHC version that we
+             -- linked against
+             C.configHcPath = C.toFlag ghc,
+             C.configHcPkg = C.toFlag ghc_pkg,
+             C.configHcFlavor = C.toFlag C.GHC
+           }
+  debugMsg $ "ConfigFlags: " ++ show conf_flags
+
   lcl_build_info <- C.configure (gen_pkg_descr, C.emptyHookedBuildInfo)
                                 conf_flags
 
