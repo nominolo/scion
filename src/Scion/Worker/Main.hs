@@ -94,7 +94,9 @@ debugMsg msg =
 
 workerMain :: Int -> IO ()
 workerMain n =
-  handle (\(e :: SomeException) -> debugMsg (show e) >> threadDelay 2000000) $
+  handle (\(e :: SomeException) -> do
+            debugMsg ("Worker quit: " ++ show e)
+            threadDelay 2000000) $
     workerMain' n
 
 workerMain' :: Int -> IO ()
@@ -131,17 +133,21 @@ workerMain' n = do
       debugMsg $ "OK: " ++ show sess_conf
       --let sess_conf = FileConfig {sc_fileName = "tests/projects/file001.hs", sc_flags = []}
       initWorker sess_conf debugMsg (main_loop inp out)
+        `gcatch` (\(e :: SomeException) ->
+                    sendMessageToHandle out (Left (show e) :: Ans0))
       return ()
     Nothing -> do
       debugMsg "ERROR"
       return ()
+
+type Ans0 = Either String (CompilationResult, [ModuleSummary])
 
 main_loop :: Handle -> Handle
           -> CompilationResult -> Worker ()
 main_loop inp out rslt0 = do
 --  initWorkerLogging debug
   graph <- moduleGraph
-  liftIO $ sendMessageToHandle out (rslt0, graph)
+  liftIO $ sendMessageToHandle out (Right (rslt0, graph) :: Ans0)
 --  liftIO $ sendMessageToHandle out "STARTUP_OK"
   loop
   --cleanupWorker

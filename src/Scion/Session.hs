@@ -245,7 +245,9 @@ startWorker start_worker homedir conf = do
          Nothing -> do
            threadDelay 2000000
            throwIO $ CannotStartWorker "Wrong worker or worker version"
-         Just (rslt :: CompilationResult, graph :: [ModuleSummary]) ->
+         Just (Left msg) -> do
+           scionError $ "Worker error: " ++ msg
+         Just (Right (rslt :: CompilationResult, graph :: [ModuleSummary])) ->
            return 
              (WorkerHandle { workerStdin = inp
                            , workerStdout = out
