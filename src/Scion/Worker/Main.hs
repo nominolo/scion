@@ -24,6 +24,8 @@ import Exception ( gcatch )
 
 import qualified Distribution.Compiler as C
 import qualified Distribution.Simple.Configure as C
+import qualified Distribution.Simple.Build as C
+import qualified Distribution.Simple.PreProcess as C
 import qualified Distribution.PackageDescription as C
 import qualified Distribution.PackageDescription.Parse as C
 import qualified Distribution.Verbosity as C
@@ -373,7 +375,8 @@ configureCabal cabal_file0 config_flags odir = do
              -- linked against
              C.configHcPath = C.toFlag ghc,
              C.configHcPkg = C.toFlag ghc_pkg,
-             C.configHcFlavor = C.toFlag C.GHC
+             C.configHcFlavor = C.toFlag C.GHC,
+             C.configUserInstall = C.toFlag True
            }
   debugMsg $ "ConfigFlags: " ++ show conf_flags
 
@@ -382,6 +385,9 @@ configureCabal cabal_file0 config_flags odir = do
 
   -- 5. Always write the result
   C.writePersistBuildConfig odir lcl_build_info
+
+  C.initialBuildSteps odir (C.localPkgDescr lcl_build_info) lcl_build_info
+                      C.normal C.knownSuffixHandlers
 
   -- Create timestamp *after* writing the file.  Thus if we later
   -- check if the file is up to date using this timestamp, it is
