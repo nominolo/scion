@@ -14,13 +14,10 @@ import Scion.Worker.Commands
 import Scion.Ghc
 
 import qualified GHC as Ghc
-import qualified HscTypes as Ghc
 import DynFlags as Ghc
 import GHC.Paths ( libdir, ghc, ghc_pkg )
-import qualified ErrUtils as Ghc
 import Outputable ( ppr, showSDoc, withPprStyle, SDoc )
 import qualified Outputable as O
-import Exception ( gcatch )
 
 import qualified Distribution.Compiler as C
 import qualified Distribution.Simple.Configure as C
@@ -29,23 +26,19 @@ import qualified Distribution.Simple.PreProcess as C
 import qualified Distribution.PackageDescription as C
 import qualified Distribution.PackageDescription.Parse as C
 import qualified Distribution.Verbosity as C
-import qualified Distribution.Text as C
 import qualified Distribution.Simple.GHC as C hiding ( configure )
 import qualified Distribution.Simple.Command as C
 import qualified Distribution.Simple.Setup as C
 import qualified Distribution.Simple.Program as C
 import qualified Distribution.Simple.LocalBuildInfo as C
 import qualified Distribution.Simple.Utils as C
-import qualified Data.MultiSet as MS
 
-import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C
 import Data.Time.Clock
 import Data.List ( find )
 import Data.String ( fromString )
 import Control.Applicative
 import Control.Concurrent ( threadDelay )
-import Control.Exception
 import Data.IORef
 import System.Environment
 import System.FilePath
@@ -100,7 +93,7 @@ workerMain n =
     workerMain' n
 
 workerMain' :: Int -> IO ()
-workerMain' n = do
+workerMain' _n = do
   -- 1. We will use stdin/stdout to communicate with the server.
   -- stderr will be used for logging.
   let inp = stdin
@@ -170,30 +163,23 @@ workerFail msg =
   liftIO (hPutStrLn stderr msg >> hFlush stderr) >>
   error msg
 
--- | Return the build directory based on the path of the package.
---
--- TODO: Use global configuration file.
-scionDistDir :: FilePath -> FilePath
-scionDistDir f = f </> ".dist-scion"
-
-
 -- | Start up a worker for the given session config.
 initWorker :: SessionConfig
            -> (String -> IO ())
            -> (CompilationResult -> Worker a)  -- ^ The continuation (the main worker loop).
            -> IO a
 
-initWorker EmptyConfig{ sc_flags = args0 } debugMsg kont = do
+initWorker EmptyConfig{ sc_flags = args0 } _debugMsg kont = do
   let args1 = map (Ghc.mkGeneralLocated ("<config:no-location>")) args0
   initGhcSession [] args1 debugMsg kont
 
-initWorker FileConfig{ sc_fileName = file0, sc_flags = args0 } debugMsg kont = do
+initWorker FileConfig{ sc_fileName = file0, sc_flags = args0 } _debugMsg kont = do
   let args1 = map (Ghc.mkGeneralLocated ("<config:" ++ file0 ++ ">")) args0
   file <- (</> file0) <$> getCurrentDirectory
   debugMsg "Calling initGhcSession"
   initGhcSession [FileTarget file] args1 debugMsg kont
 
-initWorker conf@CabalConfig{} debugMsg kont = do
+initWorker conf@CabalConfig{} _debugMsg kont = do
   -- TODO: read or create local build info in order to get to the
   -- command line arguments.  Then do same stuff as below.
   cabal_file <- (</> sc_cabalFile conf) <$> getCurrentDirectory
@@ -201,7 +187,7 @@ initWorker conf@CabalConfig{} debugMsg kont = do
   if not cf_exists then workerFail $ "Cabal file not found: " ++ cabal_file
    else do
     let Just odir = sc_buildDir conf
-    (lbi, stamp) <- maybeConfigureCabal cabal_file (sc_configFlags conf) odir
+    (lbi, _stamp) <- maybeConfigureCabal cabal_file (sc_configFlags conf) odir
 
     let comp = sc_component conf
     io $ print =<< getCurrentDirectory
@@ -233,7 +219,7 @@ initWorker conf@CabalConfig{} debugMsg kont = do
 initGhcSession :: [Target] -> [Ghc.Located String] 
                -> (String -> IO ())
                -> (CompilationResult -> Worker a) -> IO a
-initGhcSession targets args1 debugMsg kont = do
+initGhcSession targets args1 _debugMsg kont = do
   -- TODO: check whether file exists
   debugMsg $ "GHC Args: " ++ show (map Ghc.unLoc args1)
 
