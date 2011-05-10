@@ -14,6 +14,7 @@ import Control.Applicative
 --import Control.Exception ( throwIO, handle, IOException )
 import Data.AttoLisp ( FromLisp(..), ToLisp(..) )
 import Data.Bits ( shiftL, (.|.) )
+import Data.Monoid
 import Data.String
 --import Data.Char ( chr )
 import Network ( listenOn, PortID(..) )
@@ -335,7 +336,8 @@ handleRequest (FileModified file0) Nothing = do
   let file = T.unpack file0
   ss <- fileSessions file
   case ss of
-    [] -> scionError "File not part of any session"
+    [] ->
+      return $ RFileModifiedResult False mempty
     sid:_ -> do
       fileModified sid file
       RFileModifiedResult True <$> sessionNotes sid
