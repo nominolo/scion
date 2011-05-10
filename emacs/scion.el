@@ -1789,7 +1789,8 @@ The overlay has several properties:
 	  (progn
 	    (find-file-other-window file)
 	    (setq buff (find-buffer-visiting file))))
-	(goto-line (scion-note.line note))
+	(goto-char (point-min))
+	(forward-line (1- (scion-note.line note)))
 	(move-to-column (scion-note.col note))
 	(let ((r (scion-note.region note buff)))
 	  (with-current-buffer buff
