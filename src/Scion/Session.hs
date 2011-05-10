@@ -29,7 +29,7 @@ import Scion.Cabal ( CabalException )
 import           Control.Applicative
 import           Control.Concurrent
 import           Control.Exception ( throwIO )
-import           Control.Monad ( when, unless, forever )
+import           Control.Monad ( when, unless, forever, filterM )
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 import           Data.Char ( ord )
@@ -39,7 +39,7 @@ import           Data.Time.Clock.POSIX ( posixSecondsToUTCTime )
 import           System.Directory ( doesFileExist, getTemporaryDirectory,
                                     removeDirectoryRecursive )
 import           System.Exit ( ExitCode(..) )
-import           System.FilePath ( dropFileName, (</>), takeFileName )
+import           System.FilePath ( dropFileName, (</>), takeFileName, makeRelative )
 import           System.IO
 import           System.IO.Temp ( createTempDirectory )
 import           System.PosixCompat.Files ( getFileStatus, modificationTime )
@@ -47,6 +47,7 @@ import           System.Process ( getProcessExitCode, terminateProcess )
 
 -- -------------------------------------------------------------------
 
+-- | Throw a 'ScionException' if the file does not exist.
 ensureFileExists :: FilePath -> ScionM ()
 ensureFileExists file = do
   ok <- io $ doesFileExist  file
@@ -80,6 +81,7 @@ createSession sc0@FileConfig{ sc_fileName = file } = do
         , sessionOutputDir = outdir
         , sessionModuleGraph = graph
         , sessionLastCompilation = rslt
+        , sessionHomeDir = working_dir
         }
 
   registerSession sid sess0
@@ -115,6 +117,7 @@ createSession sc0@CabalConfig{ sc_cabalFile = file } = do
         , sessionOutputDir = build_dir
         , sessionModuleGraph = graph
         , sessionLastCompilation = rslt
+        , sessionHomeDir = working_dir
         }
 
   registerSession sid sess0
@@ -137,6 +140,7 @@ createSession sc@EmptyConfig{} = do
         , sessionOutputDir = outdir
         , sessionModuleGraph = graph
         , sessionLastCompilation = rslt
+        , sessionHomeDir = working_dir
         }
 
   registerSession sid sess0
@@ -161,6 +165,9 @@ withSession sconf k = do
 sessionNotes :: SessionId -> ScionM Notes
 sessionNotes sid = do
   compilationNotes . sessionLastCompilation <$> getSessionState sid
+
+sessionModules :: SessionId -> ScionM [ModuleSummary]
+sessionModules sid = sessionModuleGraph <$> getSessionState sid
 
 supportedLanguagesAndExtensions :: ScionM [Extension]
 supportedLanguagesAndExtensions = do
@@ -365,3 +372,13 @@ ignoreMostErrors act = do
      HandlerM $ \(ex :: RecConError) -> return (Left (show ex))
     ]
 
+fileSessions :: FilePath -> ScionM [SessionId]
+fileSessions path = do 
+  filterM (fileInSession path) =<< activeSessions
+
+fileInSession :: FilePath -> SessionId -> ScionM Bool
+fileInSession path0 sid = do
+  home <- sessionHomeDir <$> getSessionState sid
+  let path = makeRelative home path0
+  mods <- sessionModules sid
+  return $ not $ null [ m | m <- mods, ms_location m == path ]

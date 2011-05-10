@@ -124,6 +124,8 @@ data SessionState = SessionState
     -- caches to speed things up.
   , sessionModuleGraph :: [ModuleSummary]
   , sessionLastCompilation :: CompilationResult
+  , sessionHomeDir :: FilePath
+    -- ^ All file paths are relative to this directory.
   } deriving (Show)
 
 instance Binary SessionConfig where
@@ -217,7 +219,8 @@ data ModuleSummary = ModuleSummary
 
 instance Show ModuleSummary where
   show ms =
-    "<summary:" ++ show (ms_module ms) ++ ">"
+    "<summary:" ++ show (ms_module ms) ++ "," ++
+    ms_location ms ++ ">"
 
 instance Binary ModuleSummary where
   put (ModuleSummary mdl ft imps loc) =

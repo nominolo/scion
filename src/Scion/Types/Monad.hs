@@ -102,6 +102,10 @@ doesSessionExist sid = ScionM $ \r -> do
     Just _  -> return True
     Nothing -> return False
 
+activeSessions :: ScionM [SessionId]
+activeSessions = ScionM $ \r -> do
+  M.keys . gsSessions <$> readIORef r
+
 -- | Unregister a 'SessionId'.  NOTE: Does not stop the worker.
 unregisterSession :: SessionId -> ScionM ()
 unregisterSession sid = ScionM $ \r ->
