@@ -2,7 +2,7 @@
 module Scion.Ghc
   ( -- * Converting from GHC error messages
     ghcSpanToLocation, ghcErrMsgToNote, ghcWarnMsgToNote,
-    ghcMessagesToNotes
+    ghcMessagesToNotes, scionColToGhcCol
   )
 where
 
