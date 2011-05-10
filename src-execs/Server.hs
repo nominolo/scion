@@ -331,6 +331,14 @@ handleRequest (FileModified file) (Just sid) = do
   fileModified sid (T.unpack file)
   let fileInModuleGraph = True -- FIXME: find out
   RFileModifiedResult fileInModuleGraph <$> sessionNotes sid
+handleRequest (FileModified file0) Nothing = do
+  let file = T.unpack file0
+  ss <- fileSessions file
+  case ss of
+    [] -> scionError "File not part of any session"
+    sid:_ -> do
+      fileModified sid file
+      RFileModifiedResult True <$> sessionNotes sid
 
 handleRequest QuitServer _ =
   error "handleRequest: should not have reached this point"
