@@ -2335,7 +2335,7 @@ loaded."
       )))
 
 (defun scion-complete-load-component (result)
-  (destructuring-bind (session-id success notes) result
+  (destructuring-bind (session-id success notes graph) result
     (setq scion-current-thread session-id)
     (scion-report-compilation-result
      (list :succeeded success :notes notes :duration 0.42))))

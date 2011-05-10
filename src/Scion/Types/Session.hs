@@ -193,6 +193,9 @@ instance Exception CannotStartWorker
 newtype ModuleName = ModuleName T.Text
   deriving (Eq, Ord)
 
+moduleNametoText :: ModuleName -> T.Text
+moduleNametoText (ModuleName t) = t
+
 instance IsString ModuleName where
   fromString = ModuleName . fromString
 

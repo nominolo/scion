@@ -177,7 +177,7 @@ data ServerResponse
   | RSupportedLanguages [Extension]
   | RQuitting
   | RFileConfigs [SessionConfig]
-  | RSessionCreated SessionId Bool Notes
+  | RSessionCreated SessionId Bool Notes [ModuleSummary]
   | RFileModifiedResult Bool Notes
 
 data Response
@@ -221,8 +221,8 @@ instance ToLisp ServerResponse where
   toLisp RQuitting = L.nil
   toLisp (RFileConfigs confs) =
     toLisp confs
-  toLisp (RSessionCreated sid success notes) =
-    L.List [toLisp sid, toLisp success, toLisp notes]
+  toLisp (RSessionCreated sid success notes graph) =
+    L.List [toLisp sid, toLisp success, toLisp notes, toLisp graph]
   toLisp (RFileModifiedResult inGraph notes) =
     L.List [toLisp inGraph, toLisp notes]
     
@@ -287,6 +287,14 @@ instance ToLisp LocSource where
   toLisp (OtherSrc txt) =
     L.mkStruct ":other" [toLisp (T.pack txt)]
 
+instance ToLisp ModuleSummary where
+  toLisp modsum =
+    L.mkStruct "modsum" [toLisp (ms_module modsum),
+                         toLisp (T.pack $ ms_location modsum)]
+
+instance ToLisp ModuleName where
+  toLisp modname = toLisp (moduleNametoText modname)
+
 --instance From
 
 parseRequest :: B.ByteString -> Either String Request
@@ -327,7 +335,8 @@ handleRequest (ListAvailConfigs file) _ =
 handleRequest (CreateSession conf) _ = do
   sid <- createSession conf
   notes <- sessionNotes sid
-  return (RSessionCreated sid (not (hasErrors notes)) notes)
+  mods <- sessionModules sid
+  return (RSessionCreated sid (not (hasErrors notes)) notes mods)
 handleRequest (FileModified file) (Just sid) = do
   fileModified sid (T.unpack file)
   let fileInModuleGraph = True -- FIXME: find out
