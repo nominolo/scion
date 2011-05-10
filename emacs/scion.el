@@ -1984,7 +1984,7 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
 		(when (< 0 (+ nwarnings nerrors))
 		  (scion-list-compiler-notes notes)))
 	    (scion-update-compilater-notes-buffer))
-	  (scion-report-status (format ":%d/%d" nerrors nwarnings))
+	  (scion-report-status (format "%d/%d" nerrors nwarnings))
 	  nil)))))
 
 (defun scion-update-compilater-notes-buffer ()
@@ -2236,7 +2236,7 @@ forces it to be off.  NIL toggles the current state."
   (when (scion-connected-p)
     (let ((filename (buffer-file-name)))
       (setq scion-flycheck-is-running t)
-      (scion-report-status ":-/-")
+      (scion-report-status "-/-")
       (scion-eval-async `(file-modified ,filename)
 	 (lambda (result)
 	   (setq scion-flycheck-is-running nil)
@@ -2252,7 +2252,7 @@ forces it to be off.  NIL toggles the current state."
  (defvar scion-mode-line-notes nil))
 
 (defun scion-report-status (status)
-  (let ((stats-str (concat " Scion" status)))
+  (let ((stats-str (concat " " status)))
     (setq scion-mode-line stats-str)
     (force-mode-line-update)))
 
