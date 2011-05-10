@@ -84,13 +84,13 @@ test_recomp01 = run $ do
   (withSession (FileConfig tmpfile []) $ \sid -> do
      notes <- sessionNotes sid
      io $ MS.size notes @?= 1
-     io $ print notes
+     --io $ print notes
      io $ threadDelay 1000000 -- make sure we get a different timestamp
      io $ hSeek h AbsoluteSeek 0 >> hPutStr h contents1 >> hFlush h
      fileModified sid tmpfile
      notes2 <- sessionNotes sid
      io $ MS.size notes2 @?= 0
-     io $ print notes2
+     --io $ print notes2
    )
    `gfinally` io (hClose h)
  where
