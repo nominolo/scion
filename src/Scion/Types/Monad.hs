@@ -2,8 +2,7 @@
 -- | Definitions concerning the
 module Scion.Types.Monad
   ( module Scion.Types.Monad,
-    module Scion.Types.Core,
-    ExceptionMonad(..), MonadIO(..)
+    module Scion.Types.Core
   )
 where
 

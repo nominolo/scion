@@ -2,7 +2,7 @@
 module Scion.Types.Worker
   ( module Scion.Types.Worker
   , module Scion.Types.Core
-  , MonadIO(..), ExceptionMonad(..) )
+  )
 where
 
 import Scion.Types.Core

@@ -270,10 +270,10 @@ initGhcSession targets args1 debugMsg kont = do
             case severity of
               --Ghc.SevOutput -> debugMsg $ "OUT: " ++ msg_text loc sty msg
               Ghc.SevWarning -> do
-                debugMsg $ "WARN: " ++ msg_text loc sty msg
+                --debugMsg $ "WARN: " ++ msg_text loc sty msg
                 addNote WarningNote loc (withPprStyle sty msg)
               Ghc.SevError   -> do
-                debugMsg $ "ERR: " ++ msg_text loc sty msg
+                --debugMsg $ "ERR: " ++ msg_text loc sty msg
                 addNote ErrorNote loc (withPprStyle sty msg)
               Ghc.SevInfo    -> debugMsg $ "INFO: " ++ msg_text loc sty msg
               Ghc.SevFatal   -> debugMsg $ "FATAL: " ++ msg_text loc sty msg
