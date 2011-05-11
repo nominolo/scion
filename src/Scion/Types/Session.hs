@@ -10,12 +10,11 @@ import           Scion.Utils.Convert
 import           Scion.Types.Note
 import           Scion.Types.Core
 
-import           Paths_scion as Info ( version, getBinDir )
+import           Paths_scion as Info ( getBinDir )
 
 import           Control.Applicative
-import           Control.Exception ( Exception, throwIO )
 import           Data.Binary
-import           Data.List ( intersperse, intercalate )
+import           Data.List ( intercalate )
 import           Data.Monoid
 import qualified Data.MultiSet as MS
 import           Data.String ( IsString(fromString) )

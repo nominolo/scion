@@ -92,7 +92,7 @@ load how_much = do
   _ <- getAndClearNewNotes
 
   (res, time_diff)
-    <- withMeasuredTime $ \stop_timer -> do
+    <- withMeasuredTime $ \_stop_timer -> do
          Ghc.load how_much --WithLogger (my_logger msgs) how_much
            `gcatch` (\(e :: Ghc.SourceError) -> do
                       Ghc.printExceptionAndWarnings e
