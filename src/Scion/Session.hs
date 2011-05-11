@@ -37,7 +37,7 @@ import           Data.Maybe
 import           Data.Time.Clock ( getCurrentTime )
 import           Data.Time.Clock.POSIX ( posixSecondsToUTCTime )
 import           System.Directory ( doesFileExist, getTemporaryDirectory,
-                                    removeDirectoryRecursive )
+                                    removeDirectoryRecursive, canonicalizePath )
 import           System.Exit ( ExitCode(..) )
 import           System.FilePath ( dropFileName, (</>), takeFileName, makeRelative )
 import           System.IO
@@ -379,6 +379,6 @@ fileSessions path = do
 fileInSession :: FilePath -> SessionId -> ScionM Bool
 fileInSession path0 sid = do
   home <- sessionHomeDir <$> getSessionState sid
-  let path = makeRelative home path0
+  path <- io $ canonicalizePath $ home </> path0
   mods <- sessionModules sid
   return $ not $ null [ m | m <- mods, ms_location m == path ]

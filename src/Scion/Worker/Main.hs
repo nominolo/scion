@@ -238,10 +238,10 @@ initGhcSession targets args1 _debugMsg kont = do
       dflags0 <- Ghc.getSessionDynFlags
       
       notes_ref <- liftIO $ newIORef []
-      base_dir <- liftIO $ getCurrentDirectory
+      base_dir <- liftIO $ canonicalizePath =<< getCurrentDirectory
       
       let addNote :: NoteKind -> Ghc.SrcSpan -> SDoc -> IO ()
-          addNote nkind loc msg = 
+          addNote nkind loc msg =
             let note = Note { noteKind = nkind
                             , noteLoc = ghcSpanToLocation base_dir loc
                             , noteMessage = fromString (showSDoc msg) } in

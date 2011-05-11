@@ -2,7 +2,7 @@
 module Scion.Ghc
   ( -- * Converting from GHC error messages
     ghcSpanToLocation, ghcErrMsgToNote, ghcWarnMsgToNote,
-    ghcMessagesToNotes, scionColToGhcCol
+    ghcMessagesToNotes, scionColToGhcCol, fromGhcModSummary
   )
 where
 
@@ -22,6 +22,7 @@ import qualified Data.MultiSet as MS
 import qualified Data.Text as T
 
 import           Data.String ( fromString )
+import           System.Directory ( canonicalizePath )
 
 -- * Converting from Ghc types.
 
@@ -81,9 +82,12 @@ ghcMessagesToNotes base_dir (warns, errs) =
   where
     map_bag2ms f = MS.fromList . map f . Bag.bagToList
 
-fromGhcModSummary :: Ghc.ModSummary -> ModuleSummary
-fromGhcModSummary ms =
-  ModuleSummary 
+fromGhcModSummary :: MonadIO m => Ghc.ModSummary -> m ModuleSummary
+fromGhcModSummary ms = do
+  path <- case Ghc.ml_hs_file (Ghc.ms_location ms) of
+             Just fp -> io $ canonicalizePath fp
+             Nothing -> error "Module has no location"
+  return $ ModuleSummary 
     { ms_module = convert (Ghc.moduleName (Ghc.ms_mod ms))
     , ms_fileType = case Ghc.ms_hsc_src ms of
          Ghc.HsSrcFile -> HaskellFile
@@ -91,14 +95,8 @@ fromGhcModSummary ms =
     , ms_imports =
          map (convert . Ghc.unLoc
                 . Ghc.ideclName . Ghc.unLoc) (Ghc.ms_imps ms)
-    , ms_location = 
-           case Ghc.ml_hs_file (Ghc.ms_location ms) of
-             Just fp -> fp
-             Nothing -> error "Module has no location"
+    , ms_location = path
     }
-
-instance Convert Ghc.ModSummary ModuleSummary where
-  convert = fromGhcModSummary
 
 instance Convert Ghc.ModuleName ModuleName where
   convert m = fromString (Ghc.moduleNameString m)

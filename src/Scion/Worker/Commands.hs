@@ -5,8 +5,7 @@ import Scion.Types.Compiler
 import Scion.Types.Worker
 import Scion.Types.Commands as C
 import Scion.Types.Session
-import Scion.Utils.Convert
-import Scion.Ghc
+import Scion.Ghc( fromGhcModSummary )
 
 import qualified GHC as Ghc
 import qualified DynFlags as Ghc
@@ -129,4 +128,4 @@ load how_much = do
 
 moduleGraph :: Worker [ModuleSummary]
 moduleGraph = do
-  map convert <$> Ghc.getModuleGraph
+  mapM fromGhcModSummary =<< Ghc.getModuleGraph
