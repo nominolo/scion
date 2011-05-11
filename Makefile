@@ -1,7 +1,12 @@
 default: install
 
+# Create a file config.mk to customise some of these options.  This
+# can be useful for example to compile with the HEAD branch of GHC.
+# See config.mk.sample for an example.
+-include config.mk
+
 TOP := $(shell pwd)
-DIST = $(HOME)/tmp/dist-devel/scion-0.4/
+DIST ?= dist
 HC ?= ghc
 RUNHC ?= runghc
 
@@ -24,7 +29,7 @@ inplace:
 
 .PHONY: install
 install:
-	cabal -v install --builddir=$(DIST)/cabal
+	cabal -v install --builddir=$(DIST)/cabal --with-compiler=$(HC)
 
 .PHONY: test
 test:
