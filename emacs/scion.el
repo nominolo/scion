@@ -284,6 +284,7 @@ This is used for labels spanning multiple lines."
 (defun scion-tree-toggle (tree)
   "Toggle the visibility of TREE's children."
   (with-struct (scion-tree. collapsed-p start-mark end-mark prefix) tree
+    (goto-char start-mark)
     (setf collapsed-p (not collapsed-p))
     (scion-tree-delete tree)
     (insert-before-markers " ") ; move parent's end-mark
