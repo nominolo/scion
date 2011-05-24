@@ -2,7 +2,7 @@ module Scion.Types.Compiler where
 
 import           Control.Applicative
 import           Data.Binary
-import           Data.Binary.Get
+import           Data.Binary.Get()
 import           Data.Binary.Put
 import           Data.String ( IsString(fromString) )
 import qualified Data.Text as T

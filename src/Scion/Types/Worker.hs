@@ -50,7 +50,7 @@ instance Monad Worker where
     unWorker (k a) r
 
 instance MonadIO Worker where
-  liftIO io = Worker $ \_ -> liftIO io
+  liftIO act = Worker $ \_ -> liftIO act
 
 instance ExceptionMonad Worker where
   gcatch (Worker act) handler =

@@ -16,7 +16,6 @@ import Scion.Types.Worker
 
 import           Data.Maybe ( isJust )
 import           Data.Typeable ( Typeable )
-import           Control.Exception ( throwIO, Exception )
 import           Control.Monad ( when )
 import           Distribution.PackageDescription.Parse
 import           Distribution.Simple.Build ( initialBuildSteps )
@@ -33,8 +32,7 @@ import qualified Distribution.Verbosity as V ( normal, deafening, silent )
 import           GHC.Paths ( ghc, ghc_pkg )
 import           System.Directory
 import           System.Exit ( ExitCode(..) )
-import           System.FilePath ( (</>), dropFileName, takeExtension,
-                                   dropExtension,(<.>), takeBaseName )
+import           System.FilePath ( dropFileName, takeBaseName )
 
 -- | Something went wrong inside Cabal.
 data CabalException = CabalException String
