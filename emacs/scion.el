@@ -2336,10 +2336,12 @@ loaded."
       )))
 
 (defun scion-complete-load-component (result)
-  (destructuring-bind (session-id success notes graph) result
-    (setq scion-current-thread session-id)
+  (destructuring-bind (session-id home-dir notes graph) result
+    (push (list session-id home-dir graph (scion-make-notes notes))
+          scion-sessions)
+    (setq scion-current-session session-id)
     (scion-report-compilation-result
-     (list :succeeded success :notes notes :duration 0.42))))
+     (list :succeeded t :notes notes :duration 0.42))))
 
 (defun scion-cabal-component-p (comp)
   (cond

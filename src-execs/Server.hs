@@ -177,7 +177,7 @@ data ServerResponse
   | RSupportedLanguages [Extension]
   | RQuitting
   | RFileConfigs [SessionConfig]
-  | RSessionCreated SessionId Bool Notes [ModuleSummary]
+  | RSessionCreated SessionId FilePath Notes [ModuleSummary]
   | RFileModifiedResult Bool Notes
 
 data Response
@@ -221,8 +221,8 @@ instance ToLisp ServerResponse where
   toLisp RQuitting = L.nil
   toLisp (RFileConfigs confs) =
     toLisp confs
-  toLisp (RSessionCreated sid success notes graph) =
-    L.List [toLisp sid, toLisp success, toLisp notes, toLisp graph]
+  toLisp (RSessionCreated sid root_path notes graph) =
+    L.List [toLisp sid, toLisp (T.pack root_path), toLisp notes, toLisp graph]
   toLisp (RFileModifiedResult inGraph notes) =
     L.List [toLisp inGraph, toLisp notes]
     
@@ -336,7 +336,8 @@ handleRequest (CreateSession conf) _ = do
   sid <- createSession conf
   notes <- sessionNotes sid
   mods <- sessionModules sid
-  return (RSessionCreated sid (not (hasErrors notes)) notes mods)
+  home <- sessionHomeDir <$> getSessionState sid
+  return (RSessionCreated sid home notes mods)
 handleRequest (FileModified file) (Just sid) = do
   fileModified sid (T.unpack file)
   let fileInModuleGraph = True -- FIXME: find out
