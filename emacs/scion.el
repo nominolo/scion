@@ -302,6 +302,10 @@ This is used for labels spanning multiple lines."
 (defvar scion-last-compilation-result nil
   "The result of the most recently issued compilation.")
 
+(defvar scion-opening-session nil
+  "This variable is set temporarily when opening a file
+to indicate which session the file should obtain.")
+
 
 (make-variable-buffer-local
  (defvar scion-modeline-string nil))
@@ -316,7 +320,9 @@ Scion: Smart Haskell mode.
   '((" " 'self-insert-command))
   (setq scion-modeline-string (scion-modeline-string))
   (when scion-last-compilation-result
-    (scion-highlight-notes (scion-compiler-notes) (current-buffer))))
+    (scion-highlight-notes (scion-compiler-notes) (current-buffer)))
+  (when scion-opening-session
+    (setq scion-current-session scion-opening-session)))
 
 (define-key scion-mode-map " " 'self-insert-command)
 
@@ -1190,7 +1196,8 @@ deal with that."
   "Stop the server we are currently connected to."
   (interactive)
   (scion-eval '(quit))
-  (scion-disconnect))
+  (scion-disconnect)
+  (scion-set-buffer-sessions nil))
 
 ;; (defun scion-send-sigint ()
 ;;   (interactive)
@@ -1781,11 +1788,12 @@ The overlay has several properties:
   (interactive)
   (let* ((tree (scion-tree-at-point))
          (note (plist-get (scion-tree.plist tree) 'note))
+	 (session-id (plist-get (scion-tree.plist tree) 'session-id))
          (inhibit-read-only t))
     (cond ((not (scion-tree-leaf-p tree))
            (scion-tree-toggle tree))
           (t
-           (scion-show-source-location note t)))))
+           (scion-show-source-location note t session-id)))))
 
 (defun scion-list-sessions (sessions &optional no-popup)
   "Show all sessions and compiler notes in a tree view
@@ -1825,7 +1833,7 @@ If NO-POPUP is non-NIL, only show the buffer if it is already visible."
 (defun scion-session-to-tree (session)
   (destructuring-bind (session-id home-dir graph notes) session
     (let ((file-nodes (mapcar (lambda (n)
-                                (scion-tree-for-graph-node n notes home-dir))
+                                (scion-tree-for-graph-node n notes session-id home-dir))
 			      graph)))
       (make-scion-tree :item (format "Session #%d" session-id)
 		       :collapsed-p nil
@@ -1843,13 +1851,14 @@ If NO-POPUP is non-NIL, only show the buffer if it is already visible."
 	  rel))
     path))
 
-(defun scion-tree-for-graph-node (node notes &optional home-dir)
+(defun scion-tree-for-graph-node (node notes &optional session-id home-dir)
   (cond
    ((eq (car node) 'modsum)
     (destructuring-bind (module-name filename) (cdr node)
       (let* ((file-notes
               (reverse
-               (mapcar #'scion-note-to-tree (gethash filename notes nil))))
+               (mapcar (lambda (note) (scion-note-to-tree note session-id))
+		       (gethash filename notes nil))))
              (num-notes (length file-notes)))
         (make-scion-tree :item (concat
                                 (propertize (format "%s" module-name)
@@ -1863,10 +1872,10 @@ If NO-POPUP is non-NIL, only show the buffer if it is already visible."
                          :collapsed-p (/= num-notes 1)))))
    (t (error "Unknown graph node type."))))
 
-(defun scion-note-to-tree (note)
+(defun scion-note-to-tree (note &optional session-id)
   (make-scion-tree :item (scion-note.message note)
                    :collapsed-p nil
-                   :plist (list 'note note)))
+                   :plist (list 'note note 'session-id session-id)))
 
 ;;;---------------------------------------------------------------------------
 ;;; The buffer that shows the compiler notes
@@ -1908,15 +1917,17 @@ If NO-POPUP is non-NIL, only show the buffer if it is already visible."
   (interactive)
   (let* ((tree (scion-tree-at-point))
          (note (plist-get (scion-tree.plist tree) 'note))
+	 (session-id (plist-get (scion-tree.plist tree) 'session-id))
          (inhibit-read-only t))
     (cond ((not (scion-tree-leaf-p tree))
            (scion-tree-toggle tree))
           (t
-           (scion-show-source-location note t)))))
+           (scion-show-source-location note t session-id)))))
 
-(defun scion-show-source-location (note &optional no-highlight-p)
+(defun scion-show-source-location (note &optional no-highlight-p session-id)
   (save-selected-window   ; show the location, but don't hijack focus.
-    (scion-goto-source-location note)
+    (let ((scion-opening-session session-id))
+      (scion-goto-source-location note))
     ;(unless no-highlight-p (sldb-highlight-sexp))
     ;(scion-show-buffer-position (point))
     ))
@@ -1934,11 +1945,11 @@ If NO-POPUP is non-NIL, only show the buffer if it is already visible."
 	    (progn
 	      (find-file-other-window file)
 	      (setq buff (find-buffer-visiting file))))
-	  (goto-char (point-min))
-	  (forward-line (1- (scion-note.line note)))
-	  (move-to-column (scion-note.col note))
-	  (let ((r (scion-note.region note buff)))
-	    (with-current-buffer buff
+	  (with-current-buffer buff
+	    (goto-char (point-min))
+	    (forward-line (1- (scion-note.line note)))
+	    (move-to-column (scion-note.col note))
+	    (let ((r (scion-note.region note buff)))
 	      (scion-flash-region (car r) (cadr r) 0.5))))))))
 
 (defun scion-list-compiler-notes (notes &optional no-popup)
@@ -2125,6 +2136,7 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
 	  (scion-highlight-notes notes buf)
 	  (if (not buf)
 	      (progn
+		(scion-update-session-view)
 		(scion-show-note-counts successp nwarnings nerrors duration)
 		(when (< 0 (+ nwarnings nerrors))
                   (scion-list-sessions scion-sessions)))
@@ -2138,7 +2150,9 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
   ;; XXX: background typechecking currently does not keep notes from
   ;; other files
   (when (get-buffer "*Scion Sessions*")
-    (scion-list-compiler-notes (scion-compiler-notes) t)))
+    (scion-list-sessions scion-sessions)
+    ;; (scion-list-compiler-notes (scion-compiler-notes) t)
+    ))
     
 ;;     ((:ok warns)
 ;;      (setq scion-last-compilation-result
@@ -2401,6 +2415,44 @@ forces it to be off.  NIL toggles the current state."
     (setq scion-mode-line stats-str)
     (force-mode-line-update)))
 
+(defun scion-graph-node.file (node)
+  (case (car node)
+    (modsum
+     (destructuring-bind (module-name filename) (cdr node)
+       filename))
+    (t (error "Not a graph node: %s" node))))
+
+(defun scion-session.session-id (session)
+  (destructuring-bind (%session-id home-dir graph notes) session
+    %session-id))
+
+(defun scion-session.graph (session)
+  (destructuring-bind (session-id home-dir graph notes) session
+    graph))
+
+(defun scion-set-buffer-sessions (session)
+  "Set the session id for each scion-enabled buffer.
+
+If SESSION is nil, clears all buffer session."
+  (let ((buffers (scion-filter-buffers (lambda () scion-mode))))
+    (dolist (buffer buffers)
+      (with-current-buffer buffer
+	(if (null session)
+	    (setq scion-current-session nil)
+	  (let ((session-id (scion-session.session-id session)))
+	    (princ (format "set buffer session: %s %s" buffer session-id))
+	    (when (and (null scion-current-session)
+		       (scion-is-buffer-in-session-p buffer session))
+	      (setq scion-current-session session-id))))))))
+
+(defun scion-is-buffer-in-session-p (buffer session)
+  (let ((fname (buffer-file-name buffer)))
+    (when fname
+      (let ((graph (scion-session.graph session)))
+	(find-if (lambda (n)
+		   (string= fname (scion-graph-node.file n)))
+		 graph)))))
+
 ;;;---------------------------------------------------------------------------
 ;;;; To be sorted
 
@@ -2482,11 +2534,11 @@ loaded."
 
 (defun scion-complete-load-component (result)
   (destructuring-bind (session-id home-dir notes graph) result
-    (push (list session-id home-dir graph (scion-make-notes notes))
-          scion-sessions)
-    (setq scion-current-session session-id)
-    (scion-report-compilation-result
-     (list :succeeded t :notes notes :duration 0.42))))
+    (let ((session (list session-id home-dir graph (scion-make-notes notes))))
+      (push session scion-sessions)
+      (scion-set-buffer-sessions session)
+      (scion-report-compilation-result
+       (list :succeeded t :notes notes :duration 0.42)))))
 
 (defun scion-cabal-component-p (comp)
   (cond
