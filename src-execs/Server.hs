@@ -3,6 +3,9 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Main where
 
+import System.Environment (getArgs)
+import Text.JSON (JSValue, decodeStrict, encodeStrict, showJSON, readJSON)
+import qualified Text.JSON as JSON
 import Scion.Types.Note
 import Scion.Types.Compiler ( Extension, extensionName )
 import Scion.Types.Monad hiding ( catch )
@@ -31,6 +34,9 @@ import qualified Data.ByteString.Char8 as S ( pack )
 import qualified Data.MultiSet as MS
 import qualified Data.Text as T
 
+import ServerTypes
+import ProtocolJSON
+
 data ConnectionMode
   = TcpIp AutoSearchPorts PortNumber
   | StdInOut
@@ -47,28 +53,33 @@ type KeepGoing = Bool
 
 main :: IO ()
 main = do
-  serve (TcpIp True 4040)
+  args <- getArgs
+  case args of
+    [] -> serve Lisp (TcpIp True 4040)
+    ["-json"] -> serve Json (TcpIp True 4040)
+    as -> error $ "unexpected args: " ++ show as
 
-serve :: ConnectionMode -> IO ()
-serve (TcpIp auto nr) = do
+serve :: WireFormat -> ConnectionMode -> IO ()
+serve wireFormat (TcpIp auto nr) = do
   sock <- if auto then
             listenOnOneOf (map PortNumber [nr .. 0xffff])
           else
             listenOn (PortNumber nr)
   realPort <- socketPort sock
   -- This output is important, it's expected by Emacs.
+  hSetBuffering stdout LineBuffering
   putStrLn $ "=== Listening on port: " ++ show realPort
-  hFlush stdout
+  hFlush stdout -- required because line buffering has been set?
   let loop = do
         handle (\(_e :: IOException) -> do
                    putStrLn "Connection terminated.  Waiting for next client."
                    loop) $ do
           (sock', _addr) <- accept sock
-          keep_going <- mainLoop sock' Lisp
+          keep_going <- mainLoop sock' wireFormat
           if keep_going then loop else return ()
   loop
-serve StdInOut = do
-  putStrLn "Connection mode input/output not currently supported"
+serve _ StdInOut = do
+  error "Connection mode input/output not currently supported"
 
 -- | Attempt to listen on each port in the list in turn.
 listenOnOneOf :: [PortID] -> IO Socket
@@ -111,9 +122,32 @@ mainLoop sock Lisp = runScion $ do
                Left err_msg -> do
                  io $ sendResponse sock reqId (Error err_msg)
                  loop
-mainLoop _sock Json = do
-  putStrLn "JSON is not yet supported"
-  return True
+mainLoop _sock Json = runScion $ do
+    -- json used by Vim backend
+    io $ putStrLn $ "starting json loop"
+    h <- io $ socketToHandle _sock ReadWriteMode
+    io $ hSetBuffering h LineBuffering
+    loop h
+    return True
+  where loop :: Handle -> ScionM ()
+        loop h = do
+            line <- io $ hGetLine h
+            io $ putStrLn $ "debug: got request :" ++ line
+            reply :: JSValue <- case decodeStrict line of
+              JSON.Error s -> return $ showJSON $ (Left ("JSON decoding error: " ++ s ++ "\n" ++ jsonSamples) :: Either String String)
+              JSON.Ok (mbSessionId, cmd) -> do
+                server_response <- ignoreMostErrors $ handleRequest cmd mbSessionId
+                return $ showJSON $ server_response
+
+            let s = encodeStrict reply
+            io $ putStrLn $ "debug: replying :" ++ s
+            io $ hPutStrLn h s
+            loop h
+        jsonSamples = concatMap enc
+                                [ (Nothing, ConnectionInfo)
+                                , (Just (SessionId 2), ListAvailConfigs (T.pack "file.cabal"))
+                                ]
+            where enc = ( ++ "\n") . encodeStrict
 
 sendResponse :: Socket -> RequestId -> Response -> IO ()
 sendResponse sock reqId resp =
@@ -162,23 +196,6 @@ data Request
   = Request ServerCommand (Maybe T.Text) (Maybe SessionId) RequestId
   deriving Show
 
--- Extend this to support new commands
-data ServerCommand
-  = ConnectionInfo
-  | ListSupportedLanguages
-  | QuitServer
-  | ListAvailConfigs T.Text
-  | CreateSession SessionConfig
-  | FileModified T.Text
-  deriving Show
-
-data ServerResponse
-  = RConnectionInfo Int -- protocol version
-  | RSupportedLanguages [Extension]
-  | RQuitting
-  | RFileConfigs [SessionConfig]
-  | RSessionCreated SessionId Bool Notes [ModuleSummary]
-  | RFileModifiedResult Bool Notes
 
 data Response
   = Ok ServerResponse
