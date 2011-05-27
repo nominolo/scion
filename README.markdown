@@ -210,79 +210,8 @@ To find out the version use:
     :py import sys
     :py print sys.version
 
-Add the following to your `~/.vimrc` (or only `~/.gvimrc` if you have
-different Vim versions).  If Vim should start the Scion server itself
-(recommended):
-
-    " recommended: vim spawns a scion instance itself:
-    let g:scion_connection_setting = [ 'scion', "<path/to/scion-server>"]
-    
-Note that there may be problems using "~" in the path, so better
-specify the absolute path.
-
-If you want to connect to a running instance of the server via TCP,
-add (where `4005` is the port number used by the scion server):
-
-    " use socket or TCP/IP connection instead:
-    let g:scion_connection_setting = [ 'socket',  ["localhost", 4005] ]
-
-Add the following independently of which connection mode you prefer:
-
-    set runtimepath+=<home>/.cabal/share/scion-<version>/vim_runtime_path/
-
-Depending on your Vim config you will need to add the following lines
-as well:
-
-    :filetype plugin on
-    :source <home>/.cabal/share/scion-<version>/vim_runtime_path/plugin/haskell_scion.vim
-
-You store certain settings in a configuration file.  (Note: This
-feature is currently experimental and details may change in future
-Scion releases.)  To generate an initial configuration file run
-
-    :WriteSampleConfigScion
-
-Keep only these lines:
-
-    {"type":"build-configuration", "dist-dir":"dist-scion", "extra-args": []}
-    {"scion-default-cabal-config":"dist-scion"}
-
-## Usage
-
-To load a component (a Cabal library or executable, or just a single
-file) use one of:
-
-    :LoadComponentScion library
-    :LoadComponentScion executable:cabal_executable_name
-    :LoadComponentScion file:cabal_executable_name
-    :LoadComponentScion
-
-The last one is a shortcut for `file:<this buf>`.  You can use completion.
-
-At this point you should already get some compilation errors.  After
-modifying the file, use
-
-    :BackgroundTypecheckFileScion
-
-to re-typecheck just the current file.
-
-If the file typechecks you can move the cursor onto an identifier and
-use the command
-
-    :ThingAtPointScion
-
-You should see something like this, which is the (instantiated) type
-of the identifier at the point:
-
-      {'Just': 'print :: [Char] -> IO ()'}
-    
-Have a look at `vim_runtime_path/ftplugin/haskell.vim` to see a list of all
-commands which are implemented yet.
-    
-`BackgroundTypecheckFileScion` should be called automatically after
-buf write.  If you don't like this set `g:dont_check_on_buf_write` or
-overwrite `g:haskell_qf_hook` to change open/close quickfix and jump to
-first *error* behaviour.
+Then get github.com/MarcWeber/scion-backend-vim. Best way to do so is using
+vim-addon-manager.
 
 Discussion
 ==========
