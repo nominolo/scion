@@ -26,6 +26,7 @@ import           Data.Typeable ( Typeable )
 import qualified Distribution.ModuleName as DM
 import           System.Directory ( findExecutable, doesFileExist )
 import           System.FilePath ( (</>) )
+import           System.FilePath.Canonical
 import           System.IO ( Handle )
 import           System.Locale ( defaultTimeLocale )
 import           System.Process ( ProcessHandle, runInteractiveProcess )
@@ -104,7 +105,19 @@ data SessionConfig =
   -- | A configuration with no files.
   EmptyConfig
     { sc_flags :: [String] }
-  deriving (Eq, Show)
+  deriving (Show)
+
+instance Eq SessionConfig where
+  c1@FileConfig{} == c2@FileConfig{} =
+    sc_fileName c1 == sc_fileName c2 && sc_flags c1 == sc_flags c2
+  c1@CabalConfig{} == c2@CabalConfig{} =
+    sc_name c1 == sc_name c2 &&
+    sc_cabalFile c1 == sc_cabalFile c2 &&
+    sc_component c1 == sc_component c2 &&
+    sc_configFlags c1 == sc_configFlags c2
+    -- Ignore buildDir when testing for equality
+  c1@EmptyConfig{} == c2@EmptyConfig{} = sc_flags c1 == sc_flags c2
+  _ == _ = False
 
 -- | The @SessionState@ contains the cached part of a worker's state.
 data SessionState = SessionState
@@ -123,7 +136,7 @@ data SessionState = SessionState
     -- caches to speed things up.
   , sessionModuleGraph :: [ModuleSummary]
   , sessionLastCompilation :: CompilationResult
-  , sessionHomeDir :: FilePath
+  , sessionHomeDir :: CanonicalFilePath
     -- ^ All file paths are relative to this directory.
   } deriving (Show)
 
@@ -216,18 +229,22 @@ data ModuleSummary = ModuleSummary
   { ms_module   :: ModuleName
   , ms_fileType :: HsFileType
   , ms_imports  :: [ModuleName]
-  , ms_location :: FilePath
+  , ms_location :: CanonicalFilePath
   } deriving Eq
 
 instance Show ModuleSummary where
   show ms =
     "<summary:" ++ show (ms_module ms) ++ "," ++
-    ms_location ms ++ ">"
+    show (ms_location ms) ++ ">"
 
 instance Binary ModuleSummary where
   put (ModuleSummary mdl ft imps loc) =
     put mdl >> put ft >> put imps >> put loc
   get = ModuleSummary <$> get <*> get <*> get <*> get
+
+instance Binary CanonicalFilePath where
+  put cfp = put (originalFilePath cfp) >> put (canonicalFilePath cfp)
+  get = unsafeCanonicalise <$> get <*> get
 
 data HsFileType 
   = HaskellFile

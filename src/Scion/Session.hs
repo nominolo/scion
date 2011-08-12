@@ -32,18 +32,23 @@ import           Control.Exception ( throwIO )
 import           Control.Monad ( when, unless, forever, filterM )
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
+import qualified Data.Map as M
 import           Data.Char ( ord )
 import           Data.Maybe
 import           Data.Time.Clock ( getCurrentTime )
 import           Data.Time.Clock.POSIX ( posixSecondsToUTCTime )
 import           System.Directory ( doesFileExist, getTemporaryDirectory,
-                                    removeDirectoryRecursive, canonicalizePath )
+                                    removeDirectoryRecursive )
 import           System.Exit ( ExitCode(..) )
-import           System.FilePath ( dropFileName, (</>), takeFileName, makeRelative )
+import           System.FilePath ( dropFileName, (</>), takeFileName,
+                                   makeRelative, takeDirectory )
+import           System.FilePath.Canonical
 import           System.IO
 import           System.IO.Temp ( createTempDirectory )
 import           System.PosixCompat.Files ( getFileStatus, modificationTime )
 import           System.Process ( getProcessExitCode, terminateProcess )
+
+import Debug.Trace
 
 -- -------------------------------------------------------------------
 
@@ -64,10 +69,11 @@ createSession sc0@FileConfig{ sc_fileName = file } = do
   mod_time <- convert . modificationTime <$> io (getFileStatus file)
 
   starter <- getWorkerStarter
-  let working_dir = dropFileName file
-      sc = sc0{ sc_fileName = takeFileName file }
+  working_dir <- io $ canonical $ dropFileName file
+  let sc = sc0{ sc_fileName = takeFileName file }
 
-  (whdl, rslt, graph) <- startWorker starter working_dir sc
+  (whdl, rslt, graph) 
+    <- startWorker starter (canonicalFilePath working_dir) sc
 
   outdir0 <- io $ getTemporaryDirectory
   sid <- genSessionId
@@ -93,7 +99,7 @@ createSession sc0@CabalConfig{ sc_cabalFile = file } = do
   mod_time <- convert . modificationTime <$> io (getFileStatus file)
 
   starter <- getWorkerStarter
-  let working_dir = dropFileName file
+  working_dir <- io $ canonical $ dropFileName file
 
   sid <- genSessionId
   
@@ -108,7 +114,8 @@ createSession sc0@CabalConfig{ sc_cabalFile = file } = do
   let sc = sc0{ sc_buildDir = Just build_dir,
                 sc_cabalFile = takeFileName file -- TODO: use absolute path instead
               }
-  (whdl, rslt, graph) <- startWorker starter working_dir sc
+  (whdl, rslt, graph)
+    <- startWorker starter (canonicalFilePath working_dir) sc
 
   let sess0 = SessionState
         { sessionConfig = sc
@@ -126,8 +133,9 @@ createSession sc0@CabalConfig{ sc_cabalFile = file } = do
 
 createSession sc@EmptyConfig{} = do
   starter <- getWorkerStarter
-  working_dir <- io $ getTemporaryDirectory
-  (whdl, rslt, graph) <- startWorker starter working_dir sc
+  working_dir <- io $ canonical =<< getTemporaryDirectory
+  (whdl, rslt, graph)
+    <- startWorker starter (canonicalFilePath working_dir) sc
   outdir0 <- io $ getTemporaryDirectory
   sid <- genSessionId
   let outdir = outdir0 </> show sid
@@ -372,6 +380,8 @@ ignoreMostErrors act = do
      HandlerM $ \(ex :: RecConError) -> return (Left (show ex))
     ]
 
+
+-- | Find the (active) sessions that the given file is part of.
 fileSessions :: FilePath -> ScionM [SessionId]
 fileSessions path = do 
   filterM (fileInSession path) =<< activeSessions
@@ -379,6 +389,33 @@ fileSessions path = do
 fileInSession :: FilePath -> SessionId -> ScionM Bool
 fileInSession path0 sid = do
   home <- sessionHomeDir <$> getSessionState sid
-  path <- io $ canonicalizePath $ home </> path0
+  path <- io $ canonical $ canonicalFilePath home </> path0
   mods <- sessionModules sid
   return $ not $ null [ m | m <- mods, ms_location m == path ]
+
+-- | Find a session for the given configuration (if any).
+--
+-- This uses linear search, so the assumption is that there won't be
+-- too many sessions active at any one time.
+--
+-- Note that no normalisation of any flags specified inside the
+-- session occurs.  So searching for an existing session with possibly
+-- different flag assignments will fail.
+sessionForConfig :: SessionConfig -> ScionM (Maybe SessionId)
+sessionForConfig conf_ = do
+  sessions <- activeSessionsFull
+  let (conf, path_) = normaliseConf conf_
+  path <- io $ canonical path_
+  --message silent $ "Sessions: " ++ show conf ++ "\n" ++
+  --        show (map (sessionConfig . snd) (M.toList sessions))
+  case [ sid | (sid, s) <- M.toList sessions
+             , sessionConfig s == conf &&
+               (if path_ /= "" then path == sessionHomeDir s else True) ]
+   of [] -> return Nothing
+      (sid:_) -> return (Just sid)
+ where
+   normaliseConf c@FileConfig{ sc_fileName = f } =
+     (c{ sc_fileName = takeFileName f }, takeDirectory f)
+   normaliseConf c@CabalConfig{ sc_cabalFile = f } =
+     (c{ sc_cabalFile = takeFileName f }, takeDirectory f)
+   normaliseConf c = (c, "")

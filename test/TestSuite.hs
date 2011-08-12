@@ -73,7 +73,12 @@ tests =
         notes <- sessionNotes sid
         io $ MS.size notes @?= 0,
 
-    testCase "recomp01" test_recomp01 
+    testCase "recomp01" test_recomp01,
+
+    testCase "findConfig01" $ run $ do
+      withSession (cabal_config001 ".") $ \sid -> do
+        sid' <- sessionForConfig (cabal_config001 ".")
+        io $ sid' @?= Just sid
   ]
 
 -- Tests recompilation

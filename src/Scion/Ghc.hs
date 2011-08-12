@@ -22,7 +22,7 @@ import qualified Data.MultiSet as MS
 import qualified Data.Text as T
 
 import           Data.String ( fromString )
-import           System.Directory ( canonicalizePath )
+import           System.FilePath.Canonical
 
 -- * Converting from Ghc types.
 
@@ -84,8 +84,8 @@ ghcMessagesToNotes base_dir (warns, errs) =
 
 fromGhcModSummary :: MonadIO m => Ghc.ModSummary -> m ModuleSummary
 fromGhcModSummary ms = do
-  path <- case Ghc.ml_hs_file (Ghc.ms_location ms) of
-             Just fp -> io $ canonicalizePath fp
+  cpath <- case Ghc.ml_hs_file (Ghc.ms_location ms) of
+             Just fp -> io $ canonical fp
              Nothing -> error "Module has no location"
   return $ ModuleSummary 
     { ms_module = convert (Ghc.moduleName (Ghc.ms_mod ms))
@@ -95,7 +95,7 @@ fromGhcModSummary ms = do
     , ms_imports =
          map (convert . Ghc.unLoc
                 . Ghc.ideclName . Ghc.unLoc) (Ghc.ms_imps ms)
-    , ms_location = path
+    , ms_location = cpath
     }
 
 instance Convert Ghc.ModuleName ModuleName where

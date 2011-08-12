@@ -46,6 +46,7 @@ import System.IO
 import System.IO.Unsafe ( unsafePerformIO )
 import System.Directory hiding ( getModificationTime )
 import System.PosixCompat.Files ( getFileStatus, modificationTime )
+import System.FilePath.Canonical
 
 ------------------------------------------------------------------------
 --
@@ -238,7 +239,8 @@ initGhcSession targets args1 _debugMsg kont = do
       dflags0 <- Ghc.getSessionDynFlags
       
       notes_ref <- liftIO $ newIORef []
-      base_dir <- liftIO $ canonicalizePath =<< getCurrentDirectory
+      base_dir <- liftIO $ canonicalFilePath <$>
+                    (canonical =<< getCurrentDirectory)
       
       let addNote :: NoteKind -> Ghc.SrcSpan -> SDoc -> IO ()
           addNote nkind loc msg =

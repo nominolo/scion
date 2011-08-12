@@ -193,8 +193,9 @@ You might prefer `ido-completing-read' to the default, but that
 leads to problems on some versions of Emacs which are so severe
 that Emacs needs to be restarted. (You have been warned!)")
 
-(defun scion-completing-read (prompt collection &optional predicate require-match
-				     initial-input hist def inherit-input-method)
+(defun scion-completing-read (prompt collection 
+                              &optional predicate require-match
+                              initial-input hist def inherit-input-method)
   (if (eq scion-completing-read-function 'ido-completing-read)
       ;; ido-completing-read does not support the last argument.  What
       ;; a mess.
@@ -1197,7 +1198,8 @@ deal with that."
   (interactive)
   (scion-eval '(quit))
   (scion-disconnect)
-  (scion-set-buffer-sessions nil))
+  (scion-set-buffer-sessions nil)
+  (setq scion-sessions nil))
 
 ;; (defun scion-send-sigint ()
 ;;   (interactive)
@@ -2533,12 +2535,15 @@ loaded."
       )))
 
 (defun scion-complete-load-component (result)
-  (destructuring-bind (session-id home-dir notes graph) result
-    (let ((session (list session-id home-dir graph (scion-make-notes notes))))
-      (push session scion-sessions)
-      (scion-set-buffer-sessions session)
-      (scion-report-compilation-result
-       (list :succeeded t :notes notes :duration 0.42)))))
+  (destructuring-bind (new-session-p session-id home-dir notes graph) result
+    (if new-session-p
+        (let ((session (list session-id home-dir graph
+                             (scion-make-notes notes))))
+          (push session scion-sessions)
+          (scion-set-buffer-sessions session)
+          (scion-report-compilation-result
+           (list :succeeded t :notes notes :duration 0.42)))
+      (message "Component already loaded as session #%s" session-id))))
 
 (defun scion-cabal-component-p (comp)
   (cond

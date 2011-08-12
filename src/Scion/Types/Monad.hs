@@ -1,5 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, BangPatterns #-}
--- | Definitions concerning the
+-- | Definitions concerning the 'ScionM' monad.
 module Scion.Types.Monad
   ( module Scion.Types.Monad,
     module Scion.Types.Core
@@ -104,6 +104,9 @@ doesSessionExist sid = ScionM $ \r -> do
 activeSessions :: ScionM [SessionId]
 activeSessions = ScionM $ \r -> do
   M.keys . gsSessions <$> readIORef r
+
+activeSessionsFull :: ScionM (M.Map SessionId SessionState)
+activeSessionsFull = ScionM $ \r -> gsSessions <$> readIORef r
 
 -- | Unregister a 'SessionId'.  NOTE: Does not stop the worker.
 unregisterSession :: SessionId -> ScionM ()

@@ -14,6 +14,7 @@ import Control.Applicative
 --import Control.Exception ( throwIO, handle, IOException )
 import Data.AttoLisp ( FromLisp(..), ToLisp(..) )
 import Data.Bits ( shiftL, (.|.) )
+import Data.Maybe ( isNothing )
 import Data.Monoid
 import Data.String
 --import Data.Char ( chr )
@@ -22,6 +23,7 @@ import Network.Socket hiding (send, sendTo, recv, recvFrom)
 import Network.Socket.ByteString
 import Numeric ( showHex )
 import System.IO
+import System.FilePath.Canonical
 import qualified Network.Socket.ByteString.Lazy as NL
 import qualified Data.AttoLisp as L
 import qualified Data.Attoparsec as A
@@ -177,8 +179,10 @@ data ServerResponse
   | RSupportedLanguages [Extension]
   | RQuitting
   | RFileConfigs [SessionConfig]
-  | RSessionCreated SessionId FilePath Notes [ModuleSummary]
+  | RSessionCreated IsNewSession SessionId FilePath Notes [ModuleSummary]
   | RFileModifiedResult Bool Notes
+
+type IsNewSession = Bool
 
 data Response
   = Ok ServerResponse
@@ -221,8 +225,8 @@ instance ToLisp ServerResponse where
   toLisp RQuitting = L.nil
   toLisp (RFileConfigs confs) =
     toLisp confs
-  toLisp (RSessionCreated sid root_path notes graph) =
-    L.List [toLisp sid, toLisp (T.pack root_path), toLisp notes, toLisp graph]
+  toLisp (RSessionCreated ex sid root_path notes graph) =
+    L.List [toLisp ex, toLisp sid, toLisp (T.pack root_path), toLisp notes, toLisp graph]
   toLisp (RFileModifiedResult inGraph notes) =
     L.List [toLisp inGraph, toLisp notes]
     
@@ -289,8 +293,9 @@ instance ToLisp LocSource where
 
 instance ToLisp ModuleSummary where
   toLisp modsum =
-    L.mkStruct "modsum" [toLisp (ms_module modsum),
-                         toLisp (T.pack $ ms_location modsum)]
+    L.mkStruct "modsum"
+       [toLisp (ms_module modsum),
+        toLisp (T.pack $ canonicalFilePath $ ms_location modsum)]
 
 instance ToLisp ModuleName where
   toLisp modname = toLisp (moduleNametoText modname)
@@ -333,11 +338,15 @@ handleRequest ListSupportedLanguages _ =
 handleRequest (ListAvailConfigs file) _ =
   RFileConfigs <$> cabalSessionConfigs (T.unpack file)
 handleRequest (CreateSession conf) _ = do
-  sid <- createSession conf
+  existing <- sessionForConfig conf
+  sid <- case existing of
+           Nothing   -> createSession conf
+           Just sid_ -> return sid_
   notes <- sessionNotes sid
   mods <- sessionModules sid
   home <- sessionHomeDir <$> getSessionState sid
-  return (RSessionCreated sid home notes mods)
+  return (RSessionCreated (isNothing existing) sid
+                          (canonicalFilePath home) notes mods)
 handleRequest (FileModified file) (Just sid) = do
   fileModified sid (T.unpack file)
   let fileInModuleGraph = True -- FIXME: find out
@@ -351,6 +360,13 @@ handleRequest (FileModified file0) Nothing = do
     sid:_ -> do
       fileModified sid file
       RFileModifiedResult True <$> sessionNotes sid
+
+--handleRequest (FileModififedInMemory filename newcontents) (Just sid) = do
+  -- 1. Put newcontents into a file, add that file to the module graph
+  -- import Foo.Bar
+  -- src/Foo/Bar.hs  old version
+  -- /tmp/scion/Foo/Bar.hs
+--  error "unimplmented"
 
 handleRequest QuitServer _ =
   error "handleRequest: should not have reached this point"

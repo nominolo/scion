@@ -8,7 +8,7 @@ default: install
 TOP := $(shell pwd)
 DIST ?= dist
 HC ?= ghc
-RUNHC ?= runghc
+RUNHC ?= runghc -f $(HC)
 
 #HC = ghc-6.12.1
 #RUNHC = runghc -f$(HC)
@@ -29,8 +29,12 @@ inplace:
 
 .PHONY: install
 install:
-	cabal -v install --builddir=$(DIST)/cabal --with-compiler=$(HC)
+	time cabal -v install --builddir=$(DIST)/cabal --with-compiler=$(HC)
 
 .PHONY: test
 test:
-	runghc test/TestSuite.hs
+	$(RUNHC) test/TestSuite.hs
+
+.PHONY: docs
+docs:
+	cabal -v haddock --builddir=$(DIST)/cabal
