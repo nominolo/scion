@@ -24,7 +24,6 @@
 
 (eval-and-compile
   (require 'cl)
-  (require 'json)
   (unless (fboundp 'define-minor-mode)
     (require 'easy-mmode)
     (defalias 'define-minor-mode 'easy-mmode-define-minor-mode)))
@@ -86,10 +85,7 @@ This applies to the *inferior-lisp* buffer and the network connections."
 
 (make-variable-buffer-local
  (defvar scion-modeline-string nil
-   "The string that should be displayed in the modeline if
-`scion-extended-modeline' is true, and which indicates the
-current connection, package and state of a Lisp buffer.
-The string is periodically updated by an idle timer."))
+   "The string that should be displayed in the modeline."))
 
 ;;;---------------------------------------------------------------------------
 
@@ -102,6 +98,8 @@ evaluate BODY.
 \(fn (VAR VALUE) &rest BODY)"
   `(let ((,var ,value))
      (when ,var ,@body)))
+
+(put 'when-let 'lisp-indent-function 1)
 
 (defmacro destructure-case (value &rest patterns)
   "Dispatch VALUE to one of PATTERNS.
@@ -195,8 +193,9 @@ You might prefer `ido-completing-read' to the default, but that
 leads to problems on some versions of Emacs which are so severe
 that Emacs needs to be restarted. (You have been warned!)")
 
-(defun scion-completing-read (prompt collection &optional predicate require-match
-				     initial-input hist def inherit-input-method)
+(defun scion-completing-read (prompt collection 
+                              &optional predicate require-match
+                              initial-input hist def inherit-input-method)
   (if (eq scion-completing-read-function 'ido-completing-read)
       ;; ido-completing-read does not support the last argument.  What
       ;; a mess.
@@ -226,10 +225,13 @@ that Emacs needs to be restarted. (You have been warned!)")
 (defun scion-tree-default-printer (tree)
   (princ (scion-tree.item tree) (current-buffer)))
 
+(defun scion-tree-text-printer (tree)
+  (insert (scion-tree.item tree)))
+
 (defun scion-tree-decoration (tree)
   (cond ((scion-tree-leaf-p tree) "-- ")
-	((scion-tree.collapsed-p tree) "[+] ")
-	(t "-+  ")))
+	((scion-tree.collapsed-p tree) "-* ")
+	(t "-+ ")))
 
 (defun scion-tree-insert-list (list prefix)
   "Insert a list of trees."
@@ -283,6 +285,7 @@ This is used for labels spanning multiple lines."
 (defun scion-tree-toggle (tree)
   "Toggle the visibility of TREE's children."
   (with-struct (scion-tree. collapsed-p start-mark end-mark prefix) tree
+    (goto-char start-mark)
     (setf collapsed-p (not collapsed-p))
     (scion-tree-delete tree)
     (insert-before-markers " ") ; move parent's end-mark
@@ -300,22 +303,58 @@ This is used for labels spanning multiple lines."
 (defvar scion-last-compilation-result nil
   "The result of the most recently issued compilation.")
 
+(defvar scion-opening-session nil
+  "This variable is set temporarily when opening a file
+to indicate which session the file should obtain.")
+
 
 (make-variable-buffer-local
- (defvar scion-mode-line " Scion"))
+ (defvar scion-modeline-string nil))
 
 (define-minor-mode scion-mode
   "\\<scion-mode-map>\
 Scion: Smart Haskell mode.
 \\{scion-mode-map}"
   nil
-  scion-mode-line
+  nil
   ;; Fake binding to coax `define-minor-mode' to create the keymap
   '((" " 'self-insert-command))
+  (setq scion-modeline-string (scion-modeline-string))
   (when scion-last-compilation-result
-    (scion-highlight-notes (scion-compiler-notes) (current-buffer))))
+    (scion-highlight-notes (scion-compiler-notes) (current-buffer)))
+  (when scion-opening-session
+    (setq scion-current-session scion-opening-session)))
 
 (define-key scion-mode-map " " 'self-insert-command)
+
+
+(add-to-list 'minor-mode-alist
+             `(scion-mode ,(if (featurep 'xemacs)
+                               'scion-modeline-string
+                             '(:eval (scion-modeline-string)))))
+
+(defun scion-modeline-state-string (conn session)
+  (when scion-last-compilation-result
+    (destructuring-bind (tag successp notes duration nwarnings nerrors)
+        scion-last-compilation-result
+      (format "%d/%d" nerrors nwarnings))))
+
+(defun scion-modeline-string ()
+  "Return the string to display in the modeline.
+
+The string \"Scion\" is only shown if no connection is active, otherwise
+some info about the current session is shown."
+  (let ((conn (scion-current-connection)))
+    (if (not conn)
+        (and scion-mode " Scion")
+      (let ((session scion-current-session))
+        (if (not session)
+            " [?]"
+          (concat
+           "["
+           (format "#%d:" session)
+           (scion-modeline-state-string conn session)
+           "]"))))))
 
 ;; dummy definitions for the compiler
 (defvar scion-net-coding-system)
@@ -533,10 +572,8 @@ See also `scion-net-valid-coding-systems'.")
   "Send a SEXP to Lisp over the socket PROC.
 This is the lowest level of communication. The sexp will be READ and
 EVAL'd by Lisp."
-  (let* ((json-object-type 'plist)
-	 (json-key-type 'keyword)
-	 (json-array-type 'list)
-	 (string (concat (json-encode sexp) "\n"))
+  (let* ((msg (concat (scion-prin1-to-string sexp) "\n"))
+	 (string (concat (scion-net-encode-length (length msg)) msg))
 	 ;; (string (concat (scion-net-encode-length (length msg)) msg))
          (coding-system (cdr (process-coding-system proc))))
     (scion-log-event sexp)
@@ -559,6 +596,7 @@ EVAL'd by Lisp."
 
 (defun scion-net-close (process &optional debug)
   (setq scion-net-processes (remove process scion-net-processes))
+  (setq scion-sessions nil)
   (when (eq process scion-default-connection)
     (setq scion-default-connection nil))
   (cond (debug         
@@ -606,8 +644,8 @@ EVAL'd by Lisp."
 (defun scion-net-have-input-p ()
   "Return true if a complete message is available."
   (goto-char (point-min))
-  ;; A message is terminated by a newline.
-  (search-forward "\n" nil t))
+  (and (>= (buffer-size) 6)
+       (>= (- (buffer-size) 6) (scion-net-decode-length))))
 
 (defun scion-run-when-idle (function &rest args)
   "Call FUNCTION as soon as Emacs is idle."
@@ -626,15 +664,14 @@ EVAL'd by Lisp."
 (defun scion-net-read ()
   "Read a message from the network buffer."
   (goto-char (point-min))
-  (let ((json-object-type 'plist)
-	(json-key-type 'keyword)
-	(json-array-type 'list))
-    (let* ((start (point))
-	   (message (json-read))
-	   (end (min (1+ (point)) (point-max))))
-      ;; TODO: handle errors somehow
-      (delete-region start end)
-      message)))
+  (let* ((length (scion-net-decode-length))
+         (start (+ 6 (point)))
+         (end (+ start length)))
+    (assert (plusp length))
+    (prog1 (save-restriction
+             (narrow-to-region start end)
+             (read (current-buffer)))
+      (delete-region (point-min) end))))
 
 (defun scion-net-decode-length ()
   "Read a 24-bit hex-encoded integer from buffer."
@@ -890,14 +927,13 @@ Bound in the connection's process-buffer.")
   ;; function may be called from a timer, and if we setup the REPL
   ;; from a timer then it mysteriously uses the wrong keymap for the
   ;; first command.
-  (scion-eval-async '("connection-info")
+  (scion-eval-async '(connection-info)
                     (scion-curry #'scion-set-connection-info proc)))
 
 (defun scion-set-connection-info (connection info)
   "Initialize CONNECTION with INFO received from Lisp."
   (let ((scion-dispatching-connection connection))
-    (destructuring-bind (&key pid version
-                              &allow-other-keys) info
+    (destructuring-bind (&key pid version &allow-other-keys) info
       (scion-check-version version connection)
       (setf (scion-pid) pid
 	    (scion-connection-name) (format "%d" pid)))
@@ -905,7 +941,7 @@ Bound in the connection's process-buffer.")
       (run-hooks 'scion-connected-hook))
     (message "Connected.")))
 
-(defvar scion-protocol-version 1)
+(defvar scion-protocol-version 2)
 
 (defun scion-check-version (version conn)
   (or (equal version scion-protocol-version)
@@ -972,50 +1008,39 @@ Can return nil if there's no process object for the connection."
 ;;;;; Emacs Lisp programming interface
 ;;;
 ;;; The programming interface for writing Emacs commands is based on
-;;; remote procedure calls (RPCs). The basic operation is to ask Lisp
-;;; to apply a named Lisp function to some arguments, then to do
-;;; something with the result.
+;;; remote procedure calls (RPCs). The basic operation is to ask the
+;;; scion-server which links against the Scion API to perform some
+;;; command and eventually return a result.
 ;;;
 ;;; Requests can be either synchronous (blocking) or asynchronous
 ;;; (with the result passed to a callback/continuation function).  If
-;;; an error occurs during the request then the debugger is entered
-;;; before the result arrives -- for synchronous evaluations this
-;;; requires a recursive edit.
+;;; an error occurs during the request then an error message is
+;;; printed.
 ;;;
 ;;; You should use asynchronous evaluations (`scion-eval-async') for
 ;;; most things. Reserve synchronous evaluations (`scion-eval') for
 ;;; the cases where blocking Emacs is really appropriate (like
-;;; completion) and that shouldn't trigger errors (e.g. not evaluate
-;;; user-entered code).
+;;; completion) and that shouldn't trigger errors.
 ;;;
-;;; We have the concept of the "current Lisp package". RPC requests
-;;; always say what package the user is making them from and the Lisp
-;;; side binds that package to *BUFFER-PACKAGE* to use as it sees
-;;; fit. The current package is defined as the buffer-local value of
-;;; `scion-buffer-package' if set, and otherwise the package named by
-;;; the nearest IN-PACKAGE as found by text search (first backwards,
-;;; then forwards).
+;;; We have the concept of the "current Scion session". Most RPC
+;;; requests always say what session they operate in.  A session
+;;; comprises a set of files (and modules) and compiler flags.  A
+;;; buffer can only be considered member of one session at any time.
+;;; The buffer-local value of `scion-current-session' contains the id
+;;; (an integer) of the current session or NIL if the module is not
+;;; part of any session.
 ;;;
-;;; Similarly we have the concept of the current thread, i.e. which
-;;; thread in the Lisp process should handle the request. The current
-;;; thread is determined solely by the buffer-local value of
-;;; `scion-current-thread'. This is usually bound to t meaning "no
-;;; particular thread", but can also be used to nominate a specific
-;;; thread. The REPL and the debugger both use this feature to deal
-;;; with specific threads.
+;;; The global variable `scion-sessions' contains a list of all
+;;; possible sessions.
+
+(defvar scion-sessions nil
+  "Contains an alist of all active sessions.")
 
 (make-variable-buffer-local
- (defvar scion-current-thread t
-   "The id of the current thread on the Lisp side.  
-t means the \"current\" thread;
-:repl-thread the thread that executes REPL requests;
-fixnum a specific thread."))
-
-(make-variable-buffer-local
- (defvar scion-buffer-package nil
-   "The Lisp package associated with the current buffer.
-This is set only in buffers bound to specific packages."))
-
+ (defvar scion-current-session nil
+   "The id of the current session on the Haskell side.
+nil means no session.
+fixnum a specific session."))
 
 (defun scion-current-package ()
   nil)
@@ -1047,10 +1072,9 @@ This is set only in buffers bound to specific packages."))
 
 (defmacro* scion-rex ((&rest saved-vars)
                       (sexp &optional 
-                            (package '(scion-current-package))
-                            (thread 'scion-current-thread))
+                            (session 'scion-current-session))
                       &rest continuations)
-  "(scion-rex (VAR ...) (SEXP &optional PACKAGE THREAD) CLAUSES ...)
+  "(scion-rex (VAR ...) (SEXP &optional SESSION) CLAUSES ...)
 
 Remote EXecute SEXP.
 
@@ -1070,20 +1094,16 @@ asynchronously.
 
 Note: don't use backquote syntax for SEXP, because Emacs20 cannot
 deal with that."
-  (let ((result (gensym))
-	(gsexp (gensym)))
+  (let ((result (gensym)))
     `(lexical-let ,(loop for var in saved-vars
                          collect (etypecase var
                                    (symbol (list var var))
                                    (cons var)))
-       (let ((,gsexp ,sexp))
-	 (scion-dispatch-event 
-	  (list :method (car ,gsexp)
-		:params (cdr ,gsexp)
-		:package ,package
-		:continuation (lambda (,result)
-				(destructure-case ,result
-				  ,@continuations))))))))
+       (scion-dispatch-event 
+	(list :emacs-rex ,sexp nil ,session
+	      (lambda (,result)
+		(destructure-case ,result
+		  ,@continuations)))))))
 
 (defun scion-eval (sexp &optional package)
   "Evaluate EXPR on the Scion server and return the result."
@@ -1150,41 +1170,24 @@ deal with that."
 (defun scion-dispatch-event (event &optional process)
   (let ((scion-dispatching-connection (or process (scion-connection))))
     (or (run-hook-with-args-until-success 'scion-event-hooks event)
-	(destructuring-bind (&key method error (result nil result-p) params id
-				  continuation package
-				  &allow-other-keys)
-	    event
-	  (cond
-	   ((and method)
-	    ;; we're trying to send a message
-	    (when (and (scion-use-sigint-for-interrupt) (scion-busy-p))
+	(destructure-case event
+	  ((:emacs-rex form package session-id continuation)
+	   (when (and (scion-use-sigint-for-interrupt) (scion-busy-p))
 	      (scion-display-oneliner "; pipelined request... %S" form))
-	    (let ((id (incf (scion-continuation-counter))))
-	      (push (cons id continuation) (scion-rex-continuations))
-	      (scion-send `(:method ,method
-			    :params ,params
-			    :id ,id))))
-	   ((and (or error result-p) id)
-	    (let ((value nil))
-	      (if error
-		  (destructuring-bind (&key name message) error
-		    (if (string= name "MalformedRequest")
-			(progn
-			  (scion-with-popup-buffer ("*Scion Error*")
-			    (princ (format "Invalid protocol message:\n%s"
-					   event))
-			    (goto-char (point-min)))
-			  (error "Invalid protocol message"))
-		      (setq value (list :error message))))
-		(setq value (list :ok result)))
-	      
-	      ;; we're receiving the result of a remote call
-	      (let ((rec (assq id (scion-rex-continuations))))
-		(cond (rec (setf (scion-rex-continuations)
-				 (remove rec (scion-rex-continuations)))
-			   (funcall (cdr rec) value))
-		    (t
-		     (error "Unexpected reply: %S %S" id value)))))))))))
+	   (let ((id (incf (scion-continuation-counter))))
+	     (scion-send `(:emacs-rex ,form ,package ,session-id ,id))
+	     (push (cons id continuation)
+		   (scion-rex-continuations))
+	     ;; TODO: recompute mode lines to show pending status
+	     ))
+	  ((:return value id)
+	   (let ((rec (assq id (scion-rex-continuations))))
+	     (cond (rec (setf (scion-rex-continuations)
+			      (remove rec (scion-rex-continuations)))
+			;; TODO: recompute mode lines
+			(funcall (cdr rec) value))
+		   (t
+		    (error "Unexpected reply: %S %S" id value)))))))))
 
 (defun scion-send (sexp)
   "Send SEXP directly over the wire on the current connection."
@@ -1194,7 +1197,16 @@ deal with that."
   "Stop the server we are currently connected to."
   (interactive)
   (scion-eval '(quit))
-  (scion-disconnect))
+  (scion-disconnect)
+  (scion-set-buffer-sessions nil)
+  (setq scion-sessions nil))
+
+;; (defun scion-send-sigint ()
+;;   (interactive)
+;;   (ignore-errors
+;;     (let ((server-buffer (get-buffer "*scion-server*")))
+;;       (dele)))
+;;   (signal-process ()))
 
 (defun scion-use-sigint-for-interrupt (&optional connection)
   nil)
@@ -1577,38 +1589,48 @@ PREDICATE is executed in the buffer to test."
 ;;; See Scion server JSON instances for details.
 
 (defun scion-note.message (note)
-  (plist-get note :message))
+  (destructure-case note
+    ((note kind loc message)
+     message)))
+
+(defun scion-note.location (note)
+  (destructure-case note
+    ((note kind loc message) loc)))
 
 (defun scion-note.filename (note)
-  (let ((loc (scion-note.location note)))
-    (plist-get loc :file)))
+  (destructure-case (scion-note.location note)
+    ((:loc src . region)
+     (destructure-case src
+       ((:file name) name)
+       ((:other txt) nil)))
+    ((:no-loc txt) nil)))
+
+(defun scion-note.range (note)
+  (destructure-case (scion-note.location note)
+    ((:loc src . range) range)
+    ((:no-loc txt) nil)))
 
 (defun scion-note.line (note)
-  (when-let (region (plist-get (scion-note.location note) :region))
+  (when-let (region (scion-note.range note))
     (destructuring-bind (sl sc el ec) region
       sl)))
 
 (defun scion-note.col (note)
-  (when-let (region (plist-get (scion-note.location note) :region))
+  (when-let (region (scion-note.range note))
     (destructuring-bind (sl sc el ec) region
       sc)))
 
 (defun scion-note.region (note buffer)
-  (when-let (region (plist-get (scion-note.location note) :region))
+  (when-let (region (scion-note.range note))
     (let ((filename (scion-note.filename note)))
       (when (equal (buffer-file-name buffer) filename)
 	(destructuring-bind (sl sc el ec) region
 	  (scion-location-to-region sl sc el ec buffer))))))
 
 (defun scion-note.severity (note)
-  (let ((k (plist-get note :kind)))
-    (cond 
-     ((string= k "warning") :warning)
-     ((string= k "error") :error)
-     (t :other))))
-
-(defun scion-note.location (note)
-  (plist-get note :location))
+  (destructure-case note
+    ((note severity loc msg)
+     severity)))
 
 (defun scion-location-to-region (start-line start-col end-line end-col
 				 &optional buffer)
@@ -1730,6 +1752,133 @@ The overlay has several properties:
 	  (when note
 	    (return note)))))))
 
+
+;;;---------------------------------------------------------------------------
+;;; The buffer that shows all active sessions and compiler notes
+(defvar scion-session-view-mode-map)
+
+(define-derived-mode scion-session-view-mode fundamental-mode
+  "Scion Sessions"
+  "\\<scion-session-view-mode-map>\
+\\{scion-session-view-mode-map}
+\\{scion-popup-bufffer-mode-map}
+")
+
+(scion-define-keys scion-session-view-mode-map
+  ((kbd "RET") 'scion-session-view-default-action-or-show-details)
+  ([return] 'scion-session-view-default-action-or-show-details)
+  ([mouse-2] 'scion-session-view-default-action-or-show-details/mouse)
+  ((kbd "q") 'scion-popup-buffer-quit-function))
+
+(defun scion-session-view-default-action-or-show-details/mouse (event)
+  "Invoke the action pointed at by the mouse, or show details."
+  (interactive "e")
+  (destructuring-bind (mouse-2 (w pos &rest _) &rest __) event
+    (save-excursion
+      (goto-char pos)
+      (let ((fn (get-text-property (point)
+                                   'scion-session-view-default-action)))
+	(if fn (funcall fn) (scion-session-view-show-details))))))
+
+(defun scion-session-view-default-action-or-show-details ()
+  "Invoke the action at point, or show details."
+  (interactive)
+  (let ((fn (get-text-property (point) 'scion-session-view-default-action)))
+    (if fn (funcall fn) (scion-session-view-show-details))))
+
+(defun scion-session-view-show-details ()
+  (interactive)
+  (let* ((tree (scion-tree-at-point))
+         (note (plist-get (scion-tree.plist tree) 'note))
+	 (session-id (plist-get (scion-tree.plist tree) 'session-id))
+         (inhibit-read-only t))
+    (cond ((not (scion-tree-leaf-p tree))
+           (scion-tree-toggle tree))
+          (t
+           (scion-show-source-location note t session-id)))))
+
+(defun scion-list-sessions (sessions &optional no-popup)
+  "Show all sessions and compiler notes in a tree view
+
+If NO-POPUP is non-NIL, only show the buffer if it is already visible."
+  (interactive (list scion-sessions))
+  (labels ((fill-out-buffer ()
+             (erase-buffer)
+             (scion-session-view-mode)
+             (when (null sessions)
+               (insert "[No active sessions]"))
+             (let ((collapsed-p))
+               (dolist (tree (mapcar #'scion-session-to-tree sessions))
+                 (when (scion-tree.collapsed-p tree)
+                   (setf collapsed-p t))
+                 (scion-tree-insert tree "")
+                 (insert "\n"))
+               (goto-char (point-min)))))
+    (with-temp-message "Preparing compiler note tree..."
+      (if no-popup
+	  (with-current-buffer (get-buffer-create "*Scion Sessions*")
+	    (setq buffer-read-only nil)
+	    (fill-out-buffer)
+	    (setq buffer-read-only t))
+	(scion-with-popup-buffer ("*Scion Sessions*")
+	  (fill-out-buffer))))))
+
+;; (defun scion-notes-to-files (notes)
+;;   "Turn list of notes into a hashtable mapping filenames to notes."
+;;   (let ((file->notes (scion-makehash #'string=)))
+;;     (loop for note in notes do
+;;           (progn
+;;             (unless (file-name-absolute-p (scion-note.filename note))
+;;               (error "Note filename not absolute: %s" note))
+;;             (
+
+(defun scion-session-to-tree (session)
+  (destructuring-bind (session-id home-dir graph notes) session
+    (let ((file-nodes (mapcar (lambda (n)
+                                (scion-tree-for-graph-node n notes session-id home-dir))
+			      graph)))
+      (make-scion-tree :item (format "Session #%d" session-id)
+		       :collapsed-p nil
+		       :kids (list (make-scion-tree :item "Modules/Files"
+						    :collapsed-p nil
+						    :kids file-nodes))))))
+
+(defun scion-format-path-name (path root-dir)
+  "Like `file-relative-name' but keep absolute path if need be."
+  (if root-dir
+      (let ((rel (file-relative-name path root-dir)))
+	(if (and (> (length rel) 5)
+		 (string= "../.." (substring rel 0 5)))
+	    path
+	  rel))
+    path))
+
+(defun scion-tree-for-graph-node (node notes &optional session-id home-dir)
+  (cond
+   ((eq (car node) 'modsum)
+    (destructuring-bind (module-name filename) (cdr node)
+      (let* ((file-notes
+              (reverse
+               (mapcar (lambda (note) (scion-note-to-tree note session-id))
+		       (gethash filename notes nil))))
+             (num-notes (length file-notes)))
+        (make-scion-tree :item (concat
+                                (propertize (format "%s" module-name)
+                                            'face 'bold
+                                            'font-lock-face 'bold)
+                                (when (> num-notes 0)
+                                  (format " [%d]" num-notes))
+                                (format " (%s)" (scion-format-path-name filename home-dir)))
+                         :kids file-notes
+                         :print-fn #'scion-tree-text-printer
+                         :collapsed-p (/= num-notes 1)))))
+   (t (error "Unknown graph node type."))))
+
+(defun scion-note-to-tree (note &optional session-id)
+  (make-scion-tree :item (scion-note.message note)
+                   :collapsed-p nil
+                   :plist (list 'note note 'session-id session-id)))
+
 ;;;---------------------------------------------------------------------------
 ;;; The buffer that shows the compiler notes
 
@@ -1770,36 +1919,40 @@ The overlay has several properties:
   (interactive)
   (let* ((tree (scion-tree-at-point))
          (note (plist-get (scion-tree.plist tree) 'note))
+	 (session-id (plist-get (scion-tree.plist tree) 'session-id))
          (inhibit-read-only t))
     (cond ((not (scion-tree-leaf-p tree))
            (scion-tree-toggle tree))
           (t
-           (scion-show-source-location note t)))))
+           (scion-show-source-location note t session-id)))))
 
-(defun scion-show-source-location (note &optional no-highlight-p)
+(defun scion-show-source-location (note &optional no-highlight-p session-id)
   (save-selected-window   ; show the location, but don't hijack focus.
-    (scion-goto-source-location note)
+    (let ((scion-opening-session session-id))
+      (scion-goto-source-location note))
     ;(unless no-highlight-p (sldb-highlight-sexp))
     ;(scion-show-buffer-position (point))
     ))
 
 (defun scion-goto-source-location (note)
   (let ((file (scion-note.filename note)))
-    (when file
-      (let ((buff (find-buffer-visiting file)))
-	(if buff
-	    (let ((buff-window (get-buffer-window buff)))
-	      (if buff-window
-		  (select-window buff-window)
-		(display-buffer buff)))
-	  (progn
-	    (find-file-other-window file)
-	    (setq buff (find-buffer-visiting file))))
-	(goto-line (scion-note.line note))
-	(move-to-column (scion-note.col note))
-	(let ((r (scion-note.region note buff)))
+    (save-excursion
+      (when file
+	(let ((buff (find-buffer-visiting file)))
+	  (if buff
+	      (let ((buff-window (get-buffer-window buff)))
+		(if buff-window
+		    (select-window buff-window)
+		  (display-buffer buff)))
+	    (progn
+	      (find-file-other-window file)
+	      (setq buff (find-buffer-visiting file))))
 	  (with-current-buffer buff
-	    (scion-flash-region (car r) (cadr r) 0.5)))))))
+	    (goto-char (point-min))
+	    (forward-line (1- (scion-note.line note)))
+	    (move-to-column (scion-note.col note))
+	    (let ((r (scion-note.region note buff)))
+	      (scion-flash-region (car r) (cadr r) 0.5))))))))
 
 (defun scion-list-compiler-notes (notes &optional no-popup)
   "Show the compiler notes NOTES in tree view.
@@ -1976,29 +2129,32 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
 (defun scion-report-compilation-result (result &optional buf)
   (destructuring-bind (&key succeeded notes duration) result
     (let ((tag 'compilation-result)
-	  (successp (if (eq succeeded json-false) nil t)))
+	  (successp succeeded))
       (multiple-value-bind (nwarnings nerrors)
 	  (scion-count-notes notes)
 	(let ((notes (scion-make-notes notes)))
 	  (setq scion-last-compilation-result
-		(list tag successp notes duration))
+		(list tag successp notes duration nwarnings nerrors))
 	  (scion-highlight-notes notes buf)
 	  (if (not buf)
 	      (progn
+		(scion-update-session-view)
 		(scion-show-note-counts successp nwarnings nerrors duration)
 		(when (< 0 (+ nwarnings nerrors))
-		  (scion-list-compiler-notes notes)))
-	    (scion-update-compilater-notes-buffer))
-	  (scion-report-status (format ":%d/%d" nerrors nwarnings))
+                  (scion-list-sessions scion-sessions)))
+	    (scion-update-session-view))
+	  (scion-report-status (format "%d/%d" nerrors nwarnings))
 	  nil)))))
 
-(defun scion-update-compilater-notes-buffer ()
+(defun scion-update-session-view ()
   "Update the contents of the compilation notes buffer if it is open somewhere."
   (interactive)
   ;; XXX: background typechecking currently does not keep notes from
   ;; other files
-  (when (get-buffer "*SCION Compiler-Notes*")
-    (scion-list-compiler-notes (scion-compiler-notes) t)))
+  (when (get-buffer "*Scion Sessions*")
+    (scion-list-sessions scion-sessions)
+    ;; (scion-list-compiler-notes (scion-compiler-notes) t)
+    ))
     
 ;;     ((:ok warns)
 ;;      (setq scion-last-compilation-result
@@ -2241,14 +2397,15 @@ forces it to be off.  NIL toggles the current state."
   (when (scion-connected-p)
     (let ((filename (buffer-file-name)))
       (setq scion-flycheck-is-running t)
-      (scion-report-status ":-/-")
-      (scion-eval-async `(background-typecheck-file :file ,filename)
+      (scion-report-status "-/-")
+      (scion-eval-async `(file-modified ,filename)
 	 (lambda (result)
 	   (setq scion-flycheck-is-running nil)
-	   (destructuring-bind (ok comp-rslt) result
-	     (if (not (eq ok :json-false))
-		 (scion-report-compilation-result comp-rslt 
-						  (current-buffer))
+	   (destructuring-bind (ok notes) result
+	     (if ok
+                 (scion-report-compilation-result 
+                  (list :succeeded t :notes notes :duration 0.42)
+                  (current-buffer))
 	       (scion-report-status "[?]")))
 	   nil)))))
 
@@ -2256,9 +2413,47 @@ forces it to be off.  NIL toggles the current state."
  (defvar scion-mode-line-notes nil))
 
 (defun scion-report-status (status)
-  (let ((stats-str (concat " Scion" status)))
+  (let ((stats-str (concat " " status)))
     (setq scion-mode-line stats-str)
     (force-mode-line-update)))
+
+(defun scion-graph-node.file (node)
+  (case (car node)
+    (modsum
+     (destructuring-bind (module-name filename) (cdr node)
+       filename))
+    (t (error "Not a graph node: %s" node))))
+
+(defun scion-session.session-id (session)
+  (destructuring-bind (%session-id home-dir graph notes) session
+    %session-id))
+
+(defun scion-session.graph (session)
+  (destructuring-bind (session-id home-dir graph notes) session
+    graph))
+
+(defun scion-set-buffer-sessions (session)
+  "Set the session id for each scion-enabled buffer.
+
+If SESSION is nil, clears all buffer session."
+  (let ((buffers (scion-filter-buffers (lambda () scion-mode))))
+    (dolist (buffer buffers)
+      (with-current-buffer buffer
+	(if (null session)
+	    (setq scion-current-session nil)
+	  (let ((session-id (scion-session.session-id session)))
+	    (princ (format "set buffer session: %s %s" buffer session-id))
+	    (when (and (null scion-current-session)
+		       (scion-is-buffer-in-session-p buffer session))
+	      (setq scion-current-session session-id))))))))
+
+(defun scion-is-buffer-in-session-p (buffer session)
+  (let ((fname (buffer-file-name buffer)))
+    (when fname
+      (let ((graph (scion-session.graph session)))
+	(find-if (lambda (n)
+		   (string= fname (scion-graph-node.file n)))
+		 graph)))))
 
 ;;;---------------------------------------------------------------------------
 ;;;; To be sorted
@@ -2302,7 +2497,10 @@ loaded."
     (error "Invalid component"))
 
    ((scion-cabal-component-p comp)
-    (let* ((curr-cabal-file (scion-eval '(current-cabal-file)))
+    (scion-load-component% comp)
+    ;; TODO: Reintegrate this code
+    (ignore
+     '(let* ((curr-cabal-file (scion-eval '(current-cabal-file)))
 	   ;; (current-component (scion-eval '(current-component))
 	   (root-dir (scion-cabal-root-dir))
 	   (new-cabal-file (ignore-errors (scion-cabal-file root-dir))))
@@ -2323,16 +2521,29 @@ loaded."
 	      (lambda (x)
 		(setq scion-project-root-dir root-dir)
 		(message (format "Cabal project loaded: %s" x))
-		(scion-load-component% comp))))))))
+		(scion-load-component% comp)))))))))
 
    ((eq (car comp) :file)
     (scion-load-component% comp))))
 
 (defun scion-load-component% (comp)
   (message "Loading %s..." (scion-format-component comp))
-  (scion-eval-async `(load :component ,comp)
+  (scion-eval-async `(create-session ,comp)
     (lambda (result)
-      (scion-report-compilation-result result))))
+      (scion-complete-load-component result)
+      ;; (scion-report-compilation-result result)
+      )))
+
+(defun scion-complete-load-component (result)
+  (destructuring-bind (new-session-p session-id home-dir notes graph) result
+    (if new-session-p
+        (let ((session (list session-id home-dir graph
+                             (scion-make-notes notes))))
+          (push session scion-sessions)
+          (scion-set-buffer-sessions session)
+          (scion-report-compilation-result
+           (list :succeeded t :notes notes :duration 0.42)))
+      (message "Component already loaded as session #%s" session-id))))
 
 (defun scion-cabal-component-p (comp)
   (cond
@@ -2380,7 +2591,7 @@ loaded."
   "Return list of components in CABAL-FILE.
 The result is a list where each element is either the symbol
 LIBRARY or (EXECUTABLE <name>)."
-  (let ((comps (scion-eval `(list-cabal-components :cabal-file ,cabal-file))))
+  (let ((comps (scion-eval `(list-cabal-components ,cabal-file))))
     comps))
 
 (defun scion-get-verbosity ()
