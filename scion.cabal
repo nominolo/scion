@@ -31,9 +31,9 @@ extra-source-files: README.markdown
 --  description: Enable Debugging things like QuickCheck properties, etc.
 --  default: False
 
---flag server
---  description: Install the scion-server.
---  default: True
+flag server
+  description: Build the Scion server.
+  default: True
 
 library
   default-language: Haskell2010
@@ -97,6 +97,8 @@ executable scion-worker
     base         >= 4.2 && < 4.5
 
 executable scion-server
+  if !flag(server)
+    buildable: False
   main-is: Server.hs
   hs-source-dirs: src-execs
   default-language: Haskell2010
