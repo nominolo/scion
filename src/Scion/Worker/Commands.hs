@@ -95,7 +95,7 @@ load how_much = do
     <- withMeasuredTime $ \_stop_timer -> do
          Ghc.load how_much --WithLogger (my_logger msgs) how_much
            `gcatch` (\(e :: Ghc.SourceError) -> do
-                      Ghc.printExceptionAndWarnings e
+                      Ghc.printException e
                       return Ghc.Failed
                     ) --handle_error msgs e)
 
@@ -116,6 +116,7 @@ load how_much = do
 
  where
    --my_logger :: IORef Messages -> Maybe Ghc.SourceError -> Worker ()
+   {-
    my_logger msgs err = do
      let errs = case err of
            Nothing -> emptyBag
@@ -125,6 +126,7 @@ load how_much = do
      liftIO $ modifyIORef msgs (`mappend` Messages warns errs)
 --     return Ghc.Failed
      return ()
+   -}
 
 moduleGraph :: Worker [ModuleSummary]
 moduleGraph = do

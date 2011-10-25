@@ -20,11 +20,10 @@ import           Control.Monad ( when )
 import           Distribution.PackageDescription.Parse
 import           Distribution.Simple.Build ( initialBuildSteps )
 import           Distribution.Simple.Configure
-import           Distribution.Simple.LocalBuildInfo hiding ( libdir )
+import           Distribution.Simple.LocalBuildInfo hiding ( Component, libdir )
 import qualified Distribution.PackageDescription as PD
 import qualified Distribution.PackageDescription.Parse as PD
 import qualified Distribution.PackageDescription.Configuration as PD
-import           Distribution.Simple.PreProcess ( knownSuffixHandlers )
 import           Distribution.Simple.Program
 import           Distribution.Simple.Setup ( defaultConfigFlags,
                                              ConfigFlags(..), Flag(..) )
@@ -115,8 +114,8 @@ configureCabalProject conf@CabalConfig{} build_dir = do
                           config_flags
          writePersistBuildConfig build_dir lbi
          initialBuildSteps build_dir (localPkgDescr lbi) lbi V.normal
-                           knownSuffixHandlers
          return lbi
+configureCabalProject _ _ = fail "configureCabalProject: invalid config type"
 
 availableComponents :: PD.PackageDescription -> [Component]
 availableComponents pd =

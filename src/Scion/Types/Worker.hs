@@ -14,9 +14,6 @@ import Data.IORef
 import System.IO
 import Distribution.Simple.LocalBuildInfo
 import GHC       ( Ghc, GhcMonad(..) )
-import HscTypes  ( WarnLogMonad(..) )
-import MonadUtils ( MonadIO, liftIO )
-import Exception ( ExceptionMonad(..) )
 
 newtype Worker a
   = Worker { unWorker :: IORef WorkerState -> Ghc a }
@@ -57,10 +54,6 @@ instance ExceptionMonad Worker where
     Worker $ \r -> act r `gcatch` (\e -> unWorker (handler e) r)
   gblock (Worker act) = Worker $ \r -> gblock (act r)
   gunblock (Worker act) = Worker $ \r -> gunblock (act r)
-
-instance WarnLogMonad Worker where
-  setWarnings ws = Worker $ \_ -> setWarnings ws
-  getWarnings = Worker $ \_ -> getWarnings
 
 instance GhcMonad Worker where
   getSession = Worker (\_ -> getSession)

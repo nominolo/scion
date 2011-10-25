@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP, MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Scion.Ghc
   ( -- * Converting from GHC error messages
     ghcSpanToLocation, ghcErrMsgToNote, ghcWarnMsgToNote,
@@ -33,20 +34,20 @@ import           System.FilePath.Canonical
 ghcSpanToLocation :: FilePath -- ^ Base directory
                   -> Ghc.SrcSpan
                   -> Location
-ghcSpanToLocation baseDir sp
+ghcSpanToLocation baseDir sp@(Ghc.RealSrcSpan rsp)
   | Ghc.isGoodSrcSpan sp =
       mkLocation mkLocFile
-                 (Ghc.srcSpanStartLine sp)
-                 (ghcColToScionCol $ Ghc.srcSpanStartCol sp)
-                 (Ghc.srcSpanEndLine sp)
-                 (ghcColToScionCol $ Ghc.srcSpanEndCol sp)
-  | otherwise =
-      mkNoLoc (Ghc.showSDoc (Ghc.ppr sp))
+                 (Ghc.srcSpanStartLine rsp)
+                 (ghcColToScionCol $ Ghc.srcSpanStartCol rsp)
+                 (Ghc.srcSpanEndLine rsp)
+                 (ghcColToScionCol $ Ghc.srcSpanEndCol rsp)
  where
    mkLocFile =
-       case Ghc.unpackFS (Ghc.srcSpanFile sp) of
+       case Ghc.unpackFS (Ghc.srcSpanFile rsp) of
          s@('<':_) -> OtherSrc s
          p -> FileSrc $ mkAbsFilePath baseDir p
+ghcSpanToLocation _baseDir sp =
+  mkNoLoc (Ghc.showSDoc (Ghc.ppr sp))
 
 ghcErrMsgToNote :: FilePath -> Ghc.ErrMsg -> Note
 ghcErrMsgToNote = ghcMsgToNote ErrorNote
@@ -92,6 +93,7 @@ fromGhcModSummary ms = do
     , ms_fileType = case Ghc.ms_hsc_src ms of
          Ghc.HsSrcFile -> HaskellFile
          Ghc.HsBootFile -> HaskellBootFile
+         Ghc.ExtCoreFile -> ExternalCoreFile
     , ms_imports =
          map (convert . Ghc.unLoc
                 . Ghc.ideclName . Ghc.unLoc) (Ghc.ms_imps ms)
@@ -115,6 +117,11 @@ targetToGhcTarget (FileTarget path) =
   -- TODO: make sure paths are absolute or relative to a known directory
   Ghc.Target { Ghc.targetId = Ghc.TargetFile path Nothing
              , Ghc.targetAllowObjCode = True
+             , Ghc.targetContents = Nothing
+             }
+targetToGhcTarget (CabalTarget path) =
+  Ghc.Target { Ghc.targetId = Ghc.TargetFile path Nothing
+             , Ghc.targetAllowObjCode = False
              , Ghc.targetContents = Nothing
              }
 

@@ -22,7 +22,6 @@ import qualified Outputable as O
 import qualified Distribution.Compiler as C
 import qualified Distribution.Simple.Configure as C
 import qualified Distribution.Simple.Build as C
-import qualified Distribution.Simple.PreProcess as C
 import qualified Distribution.PackageDescription as C
 import qualified Distribution.PackageDescription.Parse as C
 import qualified Distribution.Verbosity as C
@@ -225,7 +224,7 @@ initGhcSession targets args1 _debugMsg kont = do
   debugMsg $ "GHC Args: " ++ show (map Ghc.unLoc args1)
 
   -- handles Ctrl-C and GHC panics and suchlike
-  Ghc.defaultErrorHandler Ghc.defaultDynFlags $ do
+  Ghc.defaultErrorHandler Ghc.defaultLogAction $ do
 
     -- 1. Initialise all the static flags
     debugMsg "Parsing static flags"
@@ -381,7 +380,7 @@ configureCabal cabal_file0 config_flags odir = do
   C.writePersistBuildConfig odir lcl_build_info
 
   C.initialBuildSteps odir (C.localPkgDescr lcl_build_info) lcl_build_info
-                      C.normal C.knownSuffixHandlers
+                      C.normal
 
   -- Create timestamp *after* writing the file.  Thus if we later
   -- check if the file is up to date using this timestamp, it is

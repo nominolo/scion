@@ -39,6 +39,7 @@ instance Binary Command where
       3 -> pure Quit
       4 -> pure Reload
       5 -> pure Extensions
+      _ -> fail "Binary Command get: tag error"
 
 instance Binary Answer where
   put Pong             = putWord16le 1
@@ -55,3 +56,4 @@ instance Binary Answer where
       3 -> Error <$> get
       4 -> pure Quitting
       5 -> AvailExtensions <$> get
+      _ -> fail "Binary Answer get: tag error"

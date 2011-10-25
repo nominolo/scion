@@ -120,6 +120,7 @@ instance Binary Location where
     case tag of
       1 -> LocNone <$> get
       2 -> mkLocation <$> get <*> get <*> get <*> get <*> get
+      _ -> fail "Binary Location get: tag error"
 
 -- | The \"source\" of a location.
 data LocSource
@@ -137,6 +138,7 @@ instance Binary LocSource where
            case tag of
              1 -> FileSrc <$> get
              2 -> OtherSrc <$> get
+             _ -> fail "Binary LocSource get: tag error"
 
 instance Ord Location where compare = cmpLoc
 
