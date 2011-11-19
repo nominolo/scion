@@ -112,3 +112,4 @@ executable scion-server
     network      >= 2.3     && < 2.4,
     text         >= 0.11    && < 0.12,
     canonical-filepath == 1.0.*
+  ghc-options: -fcontext-stack=30
