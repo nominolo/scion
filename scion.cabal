@@ -105,7 +105,7 @@ executable scion-server
   build-depends:
     scion,
     atto-lisp    >= 0.2     && < 0.3,
-    attoparsec   >= 0.8.5.1 && < 0.9,
+    attoparsec   >= 0.8.5.1 && < 0.10,
     base         >= 4.2     && < 4.5,
     bytestring   >= 0.9     && < 0.10,
     multiset     >= 0.1     && < 0.3,
