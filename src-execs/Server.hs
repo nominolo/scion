@@ -31,7 +31,7 @@ import qualified Data.Attoparsec as A
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Char8 as S ( pack, putStrLn )
-import qualified Data.ByteString.Lazy.Char8 as L
+import qualified Data.ByteString.Lazy.Char8 as L ( putStrLn )
 import qualified Data.MultiSet as MS
 import qualified Data.Text as T
 

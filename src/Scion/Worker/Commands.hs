@@ -118,20 +118,6 @@ load how_much = do
 
   return comp_rslt
 
- where
-   --my_logger :: IORef Messages -> Maybe Ghc.SourceError -> Worker ()
-   {-
-   my_logger msgs err = do
-     let errs = case err of
-           Nothing -> emptyBag
-           Just exc -> Ghc.srcErrorMessages exc
-     warns <- Ghc.getWarnings
-     Ghc.clearWarnings
-     liftIO $ modifyIORef msgs (`mappend` Messages warns errs)
---     return Ghc.Failed
-     return ()
-   -}
-
 moduleGraph :: Worker [ModuleSummary]
 moduleGraph = do
   mapM fromGhcModSummary =<< Ghc.getModuleGraph
