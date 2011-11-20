@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- | The types used by the worker (which talks to the GHC API.)
 module Scion.Types.Worker
   ( module Scion.Types.Worker
@@ -14,9 +15,11 @@ import Data.IORef
 import System.IO
 import Distribution.Simple.LocalBuildInfo
 import GHC       ( Ghc, GhcMonad(..) )
+#if __GLASGOW_HASKELL__ < 702
 import HscTypes  ( WarnLogMonad(..) )
 import MonadUtils ( MonadIO, liftIO )
 import Exception ( ExceptionMonad(..) )
+#endif
 
 newtype Worker a
   = Worker { unWorker :: IORef WorkerState -> Ghc a }
@@ -58,9 +61,11 @@ instance ExceptionMonad Worker where
   gblock (Worker act) = Worker $ \r -> gblock (act r)
   gunblock (Worker act) = Worker $ \r -> gunblock (act r)
 
+#if __GLASGOW_HASKELL__ < 702
 instance WarnLogMonad Worker where
   setWarnings ws = Worker $ \_ -> setWarnings ws
   getWarnings = Worker $ \_ -> getWarnings
+#endif
 
 instance GhcMonad Worker where
   getSession = Worker (\_ -> getSession)

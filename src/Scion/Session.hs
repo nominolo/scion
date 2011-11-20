@@ -28,7 +28,6 @@ import Scion.Cabal ( CabalException )
 
 import           Control.Applicative
 import           Control.Concurrent
-import           Control.Exception ( throwIO )
 import           Control.Monad ( when, unless, forever, filterM )
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
@@ -36,19 +35,16 @@ import qualified Data.Map as M
 import           Data.Char ( ord )
 import           Data.Maybe
 import           Data.Time.Clock ( getCurrentTime )
-import           Data.Time.Clock.POSIX ( posixSecondsToUTCTime )
 import           System.Directory ( doesFileExist, getTemporaryDirectory,
                                     removeDirectoryRecursive )
 import           System.Exit ( ExitCode(..) )
 import           System.FilePath ( dropFileName, (</>), takeFileName,
-                                   makeRelative, takeDirectory )
+                                   takeDirectory )
 import           System.FilePath.Canonical
 import           System.IO
 import           System.IO.Temp ( createTempDirectory )
 import           System.PosixCompat.Files ( getFileStatus, modificationTime )
 import           System.Process ( getProcessExitCode, terminateProcess )
-
-import Debug.Trace
 
 -- -------------------------------------------------------------------
 
@@ -187,14 +183,15 @@ supportedLanguagesAndExtensions = do
         wh <- sessionWorker <$> getSessionState sid
         (ans, _) <- io $ callWorker wh Extensions
         case ans of
-          AvailExtensions exts -> do
-            setExtensions exts
-            return exts
+          AvailExtensions exts' -> do
+            setExtensions exts'
+            return exts'
+          _ -> fail "supportedLanguagesAndExtensions: invalid answer"
 
 -- | Notify the worker that a file has changed.  The worker will then
 -- update its internal state.
 fileModified :: SessionId -> FilePath -> ScionM ()
-fileModified sid path = do
+fileModified sid _path = do
   -- TODO: check whether file is actually part of module graph
   -- TODO: properly merge compilation results
   st <- getSessionState sid
@@ -205,6 +202,7 @@ fileModified sid path = do
       modifySessionState sid $ \ss ->
         (ss{ sessionModuleGraph = graph
            , sessionLastCompilation = rslt }, ())
+    _ -> fail "fileModified: invalid answer"
 
 
 
@@ -230,7 +228,7 @@ setTargets sid _targets = do
 
 sessionTargets :: SessionConfig -> [Target]
 sessionTargets FileConfig{ sc_fileName = f} = [FileTarget f]
-sessionTargets CabalConfig{} = [] 
+sessionTargets _ = []
 
 -- -------------------------------------------------------------------
 
@@ -249,7 +247,7 @@ startWorker start_worker homedir conf = do
      \(inp, out, err, proc) -> do
        hSetBinaryMode inp True
        hSetBinaryMode out True
-       if verb >= deafening then forkIO (printFromHandle err) else return undefined
+       _ <- if verb >= deafening then forkIO (printFromHandle err) else return undefined
        -- Wait for worker to start up.
        wait_for_READY out
 
@@ -286,7 +284,7 @@ startWorker start_worker homedir conf = do
    printFromHandle hdl =
      handle (\(_e :: IOError) -> return ()) $ do
        forever $ do
-         hWaitForInput hdl (-1)
+         _ <- hWaitForInput hdl (-1)
          s <- S.hGetNonBlocking hdl 256
          hPutStr stderr (show hdl ++ ": ")
          S.hPutStr stderr s
@@ -349,7 +347,7 @@ collectLines h act = do
  where
    loop var =
      handle (\(_e :: IOError) -> return ()) $ do
-       hWaitForInput h (-1)
+       _ <- hWaitForInput h (-1)
        modifyMVar_ var $ \cs -> do
          chunk <- S.hGetNonBlocking h (2*4096)
          return (chunk:cs)

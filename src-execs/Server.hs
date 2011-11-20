@@ -11,7 +11,7 @@ import Scion.Cabal
 import Scion.Session
 
 import Control.Applicative
---import Control.Exception ( throwIO, handle, IOException )
+import Control.Exception ( catch )
 import Data.AttoLisp ( FromLisp(..), ToLisp(..) )
 import Data.Bits ( shiftL, (.|.) )
 import Data.Maybe ( isNothing )
@@ -22,6 +22,7 @@ import Network ( listenOn, PortID(..) )
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
 import Network.Socket.ByteString
 import Numeric ( showHex )
+import Prelude hiding (catch)
 import System.IO
 import System.FilePath.Canonical
 import qualified Network.Socket.ByteString.Lazy as NL
@@ -29,7 +30,8 @@ import qualified Data.AttoLisp as L
 import qualified Data.Attoparsec as A
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString.Char8 as S ( pack )
+import qualified Data.ByteString.Char8 as S ( pack, putStrLn )
+import qualified Data.ByteString.Lazy.Char8 as L ( putStrLn )
 import qualified Data.MultiSet as MS
 import qualified Data.Text as T
 
@@ -93,7 +95,7 @@ mainLoop sock Lisp = runScion $ do
        Just len -> do
          msg <- io $ recv sock len
          io $ putStr $ "==> [" ++ show len ++ "] "
-         io $ B.putStrLn msg
+         io $ S.putStrLn msg
          case parseRequest msg of
            Left err_msg -> do
              io $ putStrLn $ "ParseError: " ++ err_msg
@@ -123,7 +125,7 @@ sendResponse sock reqId resp =
   in do
     let len = (fromIntegral $ BL.length str)
     putStr $ "<== [" ++ show len ++ "] "
-    BL.putStrLn str
+    L.putStrLn str
     n <- send sock (encodeLen len)
     m <- NL.send sock str
     putStrLn $ " [Sent: " ++ show n ++ "+" ++ show m ++ "]"

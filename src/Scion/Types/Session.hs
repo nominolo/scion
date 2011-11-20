@@ -1,5 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, BangPatterns, DeriveDataTypeable,
              MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Scion.Types.Session
   ( module Scion.Types.Session
   , module Scion.Types.Core
@@ -57,6 +58,7 @@ instance Binary Component where
            case tag of
              1 -> return Library
              2 -> Executable <$> get
+             _ -> fail "Binary Component get: tag error"
 
 -- | A @WorkerHandle@ contains the state and data structures for
 -- communicating with a worker process.
@@ -152,6 +154,7 @@ instance Binary SessionConfig where
              1 -> FileConfig <$> get <*> get
              2 -> CabalConfig <$> get <*> get <*> get <*> get <*> get
              3 -> EmptyConfig <$> get
+             _ -> fail "Binary SessionConfig get: tag error"
 
 
 -- | The concept of \"a point in time\" that we use throughout Scion.
@@ -249,6 +252,7 @@ instance Binary CanonicalFilePath where
 data HsFileType 
   = HaskellFile
   | HaskellBootFile
+  | ExternalCoreFile
   deriving (Eq, Ord, Show, Enum)
 
 instance Binary HsFileType where
@@ -302,3 +306,4 @@ instance Binary Target where
              1 -> ModuleTarget <$> get
              2 -> FileTarget <$> get
              3 -> CabalTarget <$> get
+             _ -> fail "Binary Target get: tag error"

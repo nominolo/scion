@@ -13,10 +13,7 @@ import           Scion.Types.Core
 import           Control.Applicative
 import           Control.Monad ( when )
 import qualified Data.Map as M
-import qualified Data.Text as T
 import           Data.IORef
-import           MonadUtils -- from GHC
-import           Exception  -- from GHC
 import           System.IO ( hFlush, stdout )
 
 -- * The Scion Monad and Session State

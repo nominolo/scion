@@ -6,7 +6,6 @@ import System.IO
 import qualified Data.ByteString      as S
 import qualified Data.ByteString.Lazy as L
 import Control.Applicative
-import Data.Binary
 import Data.Binary.Get ( getWord32le, runGet )
 import Data.Binary.Put ( putWord32le, runPut )
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
@@ -94,7 +93,7 @@ hRecv h size = do
             return S.empty) $ do
     -- Note: hWaitForInput tries to decode its input, so we must make
     -- sure the handle is in binary mode.
-    hWaitForInput h (-1)
+    _ <- hWaitForInput h (-1)
     S.hGetNonBlocking h size
 
 die :: String -> a
