@@ -186,7 +186,7 @@ supportedLanguagesAndExtensions = do
           AvailExtensions exts' -> do
             setExtensions exts'
             return exts'
-          _ -> fail "supportedLanguagesAndExtensions: illegal answer"
+          _ -> fail "supportedLanguagesAndExtensions: invalid answer"
 
 -- | Notify the worker that a file has changed.  The worker will then
 -- update its internal state.
@@ -202,7 +202,7 @@ fileModified sid _path = do
       modifySessionState sid $ \ss ->
         (ss{ sessionModuleGraph = graph
            , sessionLastCompilation = rslt }, ())
-    _ -> fail "fileModified: illegal answer"
+    _ -> fail "fileModified: invalid answer"
 
 
 
