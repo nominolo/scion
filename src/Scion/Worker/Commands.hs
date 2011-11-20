@@ -95,7 +95,11 @@ load how_much = do
     <- withMeasuredTime $ \_stop_timer -> do
          Ghc.load how_much --WithLogger (my_logger msgs) how_much
            `gcatch` (\(e :: Ghc.SourceError) -> do
+#if __GLASGOW_HASKELL__ >= 702
                       Ghc.printException e
+#else
+                      Ghc.printExceptionAndWarnings e
+#endif
                       return Ghc.Failed
                     ) --handle_error msgs e)
 

@@ -34,6 +34,7 @@ import           System.FilePath.Canonical
 ghcSpanToLocation :: FilePath -- ^ Base directory
                   -> Ghc.SrcSpan
                   -> Location
+#if __GLASGOW_HASKELL__ >= 702
 ghcSpanToLocation baseDir sp@(Ghc.RealSrcSpan rsp)
   | Ghc.isGoodSrcSpan sp =
       mkLocation mkLocFile
@@ -48,6 +49,22 @@ ghcSpanToLocation baseDir sp@(Ghc.RealSrcSpan rsp)
          p -> FileSrc $ mkAbsFilePath baseDir p
 ghcSpanToLocation _baseDir sp =
   mkNoLoc (Ghc.showSDoc (Ghc.ppr sp))
+#else
+ghcSpanToLocation baseDir sp
+  | Ghc.isGoodSrcSpan sp =
+      mkLocation mkLocFile
+                 (Ghc.srcSpanStartLine sp)
+                 (ghcColToScionCol $ Ghc.srcSpanStartCol sp)
+                 (Ghc.srcSpanEndLine sp)
+                 (ghcColToScionCol $ Ghc.srcSpanEndCol sp)
+  | otherwise =
+      mkNoLoc (Ghc.showSDoc (Ghc.ppr sp))
+  where
+    mkLocFile =
+      case Ghc.unpackFS (Ghc.srcSpanFile sp) of
+         s@('<':_) -> OtherSrc s
+         p -> FileSrc $ mkAbsFilePath baseDir p
+#endif
 
 ghcErrMsgToNote :: FilePath -> Ghc.ErrMsg -> Note
 ghcErrMsgToNote = ghcMsgToNote ErrorNote
