@@ -29,7 +29,7 @@ fun! json#Encode(thing)
     return a:thing
   elseif type(a:thing) == type([])
     return '['.join(map(a:thing, "json#Encode(v:val)"),",").']'
-    return 
+    return
   elseif string(a:thing) == string(json#NULL())
     return "null"
   elseif string(a:thing) == string(json#True())

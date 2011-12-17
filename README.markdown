@@ -24,7 +24,7 @@ To install the library and server use:
 
     $ cd dir/to/scion
     $ cabal install
-   
+
 This will install the executable `scion_server` in the `bin` directory
 of `cabal-install`, typically `$HOME/.cabal/bin`.
 
@@ -115,7 +115,7 @@ something like the following to your `.emacs`:
 
 Once you have a running and connected Scion server, you can use the
 commands provided by scion-mode:
- 
+
   * `C-c C-x C-l` (`scion-load`) load the current file with Scion.  If
     the file is within a Cabal project this will prompt to use the
     settings from one of the components in the package description
@@ -141,15 +141,15 @@ The following commands offer completion for a few things.
 
   * `C-c i l` (`haskell-insert-language`) asks for a `LANGUAGE` pragma
     and adds it to the top of the file.
-  
+
   * `C-c i p` (`haskell-insert-pragma`) inserts a pragma at the
     current cursor position.  (At the moment this doesn't try to make
     sense of the selected pragma, however.)
-    
+
   * `C-c i m` (`haskell-insert-module-name`) inserts the name of an
     external module (external), i.e., a module _not_ from the current
     package.
-    
+
   * `C-c i f` (`haskell-insert-flag`) insert (GHC) command line flag
     at point.  (Really only makes sense within an `OPTIONS_GHC` pragma.)
 
@@ -172,7 +172,7 @@ The following should work most of the cases.
     Calling this command on `+` will print `Int -> Int -> Int` instead
     of `Num a => a -> a -> a`.
 
-    
+
 # Manually Connecting to Scion
 
 If you set the variable `scion-auto-connect` to `'ask` (the default is
@@ -184,7 +184,7 @@ You can start the server manually on the command line and then use
     M-x scion-connect
 
 to connect to that server.  However, most of the time it will be more
-convenient to start the server from within Emacs:  
+convenient to start the server from within Emacs:
 
     M-x scion
 
@@ -216,7 +216,7 @@ different Vim versions).  If Vim should start the Scion server itself
 
     " recommended: vim spawns a scion instance itself:
     let g:scion_connection_setting = [ 'scion', "<path/to/scion-server>"]
-    
+
 Note that there may be problems using "~" in the path, so better
 specify the absolute path.
 
@@ -275,10 +275,10 @@ You should see something like this, which is the (instantiated) type
 of the identifier at the point:
 
       {'Just': 'print :: [Char] -> IO ()'}
-    
+
 Have a look at `vim_runtime_path/ftplugin/haskell.vim` to see a list of all
 commands which are implemented yet.
-    
+
 `BackgroundTypecheckFileScion` should be called automatically after
 buf write.  If you don't like this set `g:dont_check_on_buf_write` or
 overwrite `g:haskell_qf_hook` to change open/close quickfix and jump to
