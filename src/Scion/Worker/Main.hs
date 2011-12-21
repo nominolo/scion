@@ -22,7 +22,6 @@ import qualified Outputable as O
 import qualified Distribution.Compiler as C
 import qualified Distribution.Simple.Configure as C
 import qualified Distribution.Simple.Build as C
-import qualified Distribution.Simple.PreProcess as C
 import qualified Distribution.PackageDescription as C
 import qualified Distribution.PackageDescription.Parse as C
 import qualified Distribution.Verbosity as C
@@ -47,6 +46,10 @@ import System.IO.Unsafe ( unsafePerformIO )
 import System.Directory hiding ( getModificationTime )
 import System.PosixCompat.Files ( getFileStatus, modificationTime )
 import System.FilePath.Canonical
+
+#if __GLASGOW_HASKELL__ < 702
+import qualified Distribution.Simple.PreProcess as C ( knownSuffixHandlers )
+#endif
 
 ------------------------------------------------------------------------
 --
@@ -225,7 +228,11 @@ initGhcSession targets args1 _debugMsg kont = do
   debugMsg $ "GHC Args: " ++ show (map Ghc.unLoc args1)
 
   -- handles Ctrl-C and GHC panics and suchlike
+#if __GLASGOW_HASKELL__ >= 702
+  Ghc.defaultErrorHandler Ghc.defaultLogAction $ do
+#else
   Ghc.defaultErrorHandler Ghc.defaultDynFlags $ do
+#endif
 
     -- 1. Initialise all the static flags
     debugMsg "Parsing static flags"
@@ -381,7 +388,11 @@ configureCabal cabal_file0 config_flags odir = do
   C.writePersistBuildConfig odir lcl_build_info
 
   C.initialBuildSteps odir (C.localPkgDescr lcl_build_info) lcl_build_info
+#if __GLASGOW_HASKELL__ >= 702
+                      C.normal
+#else
                       C.normal C.knownSuffixHandlers
+#endif
 
   -- Create timestamp *after* writing the file.  Thus if we later
   -- check if the file is up to date using this timestamp, it is

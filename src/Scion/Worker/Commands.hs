@@ -95,7 +95,11 @@ load how_much = do
     <- withMeasuredTime $ \_stop_timer -> do
          Ghc.load how_much --WithLogger (my_logger msgs) how_much
            `gcatch` (\(e :: Ghc.SourceError) -> do
+#if __GLASGOW_HASKELL__ >= 702
+                      Ghc.printException e
+#else
                       Ghc.printExceptionAndWarnings e
+#endif
                       return Ghc.Failed
                     ) --handle_error msgs e)
 
@@ -113,18 +117,6 @@ load how_much = do
           Ghc.Failed -> CompilationResult False notes time_diff
 
   return comp_rslt
-
- where
-   --my_logger :: IORef Messages -> Maybe Ghc.SourceError -> Worker ()
-   my_logger msgs err = do
-     let errs = case err of
-           Nothing -> emptyBag
-           Just exc -> Ghc.srcErrorMessages exc
-     warns <- Ghc.getWarnings
-     Ghc.clearWarnings
-     liftIO $ modifyIORef msgs (`mappend` Messages warns errs)
---     return Ghc.Failed
-     return ()
 
 moduleGraph :: Worker [ModuleSummary]
 moduleGraph = do
