@@ -30,7 +30,6 @@
 (require 'hideshow)
 (require 'thingatpt)
 (require 'comint)
-(require 'ido)
 (eval-when (compile)
   (require 'apropos)
   (require 'outline)
@@ -184,7 +183,7 @@ current state will be saved and later restored."
   `(progn . ,(mapcar (lambda (k-c) `(define-key ,keymap . ,k-c))
 		     key-command)))
 
-(put 'slime-define-keys 'lisp-indent-function 1)
+(put 'scion-define-keys 'lisp-indent-function 1)
 
 (defvar scion-completing-read-function 'completing-read
   "The completion function used by scion.
