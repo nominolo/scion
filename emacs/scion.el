@@ -310,6 +310,7 @@ to indicate which session the file should obtain.")
 (make-variable-buffer-local
  (defvar scion-modeline-string nil))
 
+;;;###autoload
 (define-minor-mode scion-mode
   "\\<scion-mode-map>\
 Scion: Smart Haskell mode.
