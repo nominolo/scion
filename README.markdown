@@ -1,4 +1,3 @@
-
 Introduction
 ============
 
@@ -23,7 +22,7 @@ is used by front-ends that are not written in Haskell.
 To install the library and server use:
 
     $ cd dir/to/scion
-    $ cabal install
+    $ cabal install scion
    
 This will install the executable `scion_server` in the `bin` directory
 of `cabal-install`, typically `$HOME/.cabal/bin`.
