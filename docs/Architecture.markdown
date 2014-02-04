@@ -6,15 +6,15 @@ caches some of their state).  This solves the following problems:
   - *Static Flags*.  Some of GHC's command line flags can only be set
     on start-up.  This is important mainly for flags that control the
     kind of compilation (profiled, threaded).
-    
+
   - *Other write-once state*.  GHC only reads the package database once
     on startup.  If new packages have been installed since startup
     they will not be visible.  Changing the database by force while a
     session is running is likely to cause problems.
-    
+
   - *Caches*.  There are a few caches in GHC that cannot be flushed.
     These include the name cache, and the package DB cache.
-    
+
   - *Multiple Compiler Versions*.  It is not possible to link to two
     different versions of GHC from within the same program.  If we
     want to make sure a program compiles with multiple versions of GHC
@@ -30,7 +30,7 @@ this, we:
   - cache some information on the library side, and
 
   - avoid sending too much data between library and worker.
-  
+
 Non-Haskell front-ends use a scion-server that takes the place of the
 library.
 

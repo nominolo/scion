@@ -73,7 +73,7 @@ fun! haskellcomplete#ScionResultToErrorList(action, func, result)
       call add(qflist, {'text': msgline})
     endfor
   endfor
-  
+
   call call(a:func, [qflist])
   if exists('g:haskell_qf_hook')
     exec g:haskell_qf_hook
@@ -282,7 +282,7 @@ class ScionServerConnectionStdinOut(ScionServerConnection):
       # throw away non "scion:" line and try again
       if scion_log_stdout:
         scion_stdout.append(s)
-        scion_stdout = scion_stdout[-200:]        
+        scion_stdout = scion_stdout[-200:]
       # should this be printed? It doesn't hurt much but might be useful when
       # trouble shooting..
       print "ignoring line", s
@@ -352,7 +352,7 @@ def evalscion(str):
 # str see EvalScion
 def evalscionAssign(str):
   global lastScionResult
-  """assigns scion result to g:scion_result, result should either be 
+  """assigns scion result to g:scion_result, result should either be
     { "result" : ..., "error" : [String] }"""
   vim.command("silent! unlet g:scion_result")
   lastScionResult = evalscion(str)

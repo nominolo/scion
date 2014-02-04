@@ -31,7 +31,7 @@ fun! s:FlagCompletion(A,L,P)
   let beforeC= a:L[:a:P-1]
   let word = matchstr(beforeC, '\zs\S*$')
   let list = haskellcomplete#List("supported-flags")
-  "allow glob patterns: 
+  "allow glob patterns:
   call filter(list, 'v:val =~ '.string('^'.substitute(word,'*','.*','g')))
   return list
 endf
@@ -113,7 +113,7 @@ command! -nargs=1 -complete=customlist,s:FlagCompletion -buffer AddCommandLineFl
 
 " ===== loading a cabal project: ============================
 
-" assuming pwd is current cabal directory containing the .cabal file 
+" assuming pwd is current cabal directory containing the .cabal file
 " optional argument specifies the cabal build (dist) directory
 command! -buffer -nargs=* -complete=file OpenCabalProjectScion
   \ echo haskellcomplete#OpenCabalProject('open-cabal-project',<f-args>)

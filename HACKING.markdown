@@ -5,7 +5,7 @@ works or should work.
 
   - [GHC API Haddock documentation][ghc-api]
   - [Hoogle][] for everything else
- 
+
  [ghc-api]: http://www.haskell.org/ghc/docs/latest/html/libraries/ghc/index.html
  [Hoogle]: http://www.haskell.org/hoogle/
 
@@ -14,7 +14,7 @@ works or should work.
 ## GHC Session State
 
  * **Static Flags**:  We cannot change these throughout a session.
- 
+
  * **Dynamic Flags**: May be set on a per-file basis and a per-project
    basis.  They contain all sorts of stuff including search paths and
    more.  The tricky bit here is resetting the old DynFlags when
@@ -28,7 +28,7 @@ works or should work.
 
  * **Interactive Context**: The context (set of visible modules and
    debugger state) of the byte code interpreter.
-   
+
 ## Scion Session State
 
 What we really need is some kind of abstraction of the GHC session
@@ -62,7 +62,7 @@ of setting up the information that makes up the GHC session state.
    The first case is obvious.  The second case may be triggered both
    when switching components within the same Cabal project, or when
    re-opening a project that we have been working on previously.
-    
+
 ### Configuring a Cabal project
 
 In addition to the Cabal file to configure, we also need
@@ -75,7 +75,7 @@ In addition to the Cabal file to configure, we also need
     so anyone using Scion only needs to edit the global file once.
 
   * Command line flags to the `configure` command.
-  
+
 In the future we could provide a mechanism to put this information in
 a special file, so the user does not have to provide this information
 over and over again.

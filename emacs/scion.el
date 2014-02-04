@@ -40,7 +40,7 @@
 
 ;;;---------------------------------------------------------------------------
 ;;;; Customize groups
-;; 
+;;
 ;;;;; scion
 
 (defgroup scion nil
@@ -172,7 +172,7 @@ current state will be saved and later restored."
 	     ,(mapcar (lambda (slot)
 			(etypecase slot
 			  (symbol `(,slot (,(reader slot) ,struct-var)))
-			  (cons `(,(first slot) (,(reader (second slot)) 
+			  (cons `(,(first slot) (,(reader (second slot))
 						 ,struct-var)))))
 		      slots)
 	   . ,body)))))
@@ -193,16 +193,16 @@ You might prefer `ido-completing-read' to the default, but that
 leads to problems on some versions of Emacs which are so severe
 that Emacs needs to be restarted. (You have been warned!)")
 
-(defun scion-completing-read (prompt collection 
+(defun scion-completing-read (prompt collection
                               &optional predicate require-match
                               initial-input hist def inherit-input-method)
   (if (eq scion-completing-read-function 'ido-completing-read)
       ;; ido-completing-read does not support the last argument.  What
       ;; a mess.
-      (funcall scion-completing-read-function 
+      (funcall scion-completing-read-function
 	   prompt collection predicate require-match initial-input
 	   hist def)
-    (funcall scion-completing-read-function 
+    (funcall scion-completing-read-function
 	   prompt collection predicate require-match initial-input
 	   hist def inherit-input-method)))
 
@@ -235,7 +235,7 @@ that Emacs needs to be restarted. (You have been warned!)")
 
 (defun scion-tree-insert-list (list prefix)
   "Insert a list of trees."
-  (loop for (elt . rest) on list 
+  (loop for (elt . rest) on list
 	do (cond (rest
 		  (insert prefix " |")
 		  (scion-tree-insert elt (concat prefix " |"))
@@ -397,7 +397,7 @@ some info about the current session is shown."
     (comint-mode)
     (setq scion-connect-buffer (current-buffer))
     (message "Connecting... (Abort with `M-x scion-abort-connect`.)")
-    (add-hook 'comint-output-filter-functions 
+    (add-hook 'comint-output-filter-functions
               'scion-check-server-ready nil t)
     (let ((process-environment (append env process-environment)))
       (comint-exec (current-buffer) "scion-emacs" program nil program-args))
@@ -413,7 +413,7 @@ some info about the current session is shown."
                  (when (re-search-forward regexp nil t)
                    (read (match-string 1)) ))))
     (when port
-      (remove-hook 'comint-output-filter-functions 
+      (remove-hook 'comint-output-filter-functions
                    'scion-check-server-ready t)
       (setq scion-connect-buffer nil)
       (sleep-for 0.1)  ;; give the server some time to get connected
@@ -523,7 +523,7 @@ line of the file."
 ;;     (emacs-mule-unix  t   "emacs-mule-unix")
 ;;     (euc-jp-unix      t   "euc-jp-unix")
     )
-  "A list of valid coding systems. 
+  "A list of valid coding systems.
 Each element is of the form: (NAME MULTIBYTEP CL-NAME)")
 
 (defun scion-find-coding-system (name)
@@ -537,11 +537,11 @@ or NIL."
         probe)))
 
 (defvar scion-net-coding-system
-  (find-if 'scion-find-coding-system 
+  (find-if 'scion-find-coding-system
            '(iso-latin-1-unix iso-8859-1-unix binary))
   "*Coding system used for network connections.
 See also `scion-net-valid-coding-systems'.")
-  
+
 (defun scion-check-coding-system (coding-system)
   "Signal an error if CODING-SYSTEM isn't a valid coding system."
   (interactive)
@@ -553,7 +553,7 @@ See also `scion-net-valid-coding-systems'.")
       (assert default-enable-multibyte-characters))
     t))
 
-(defcustom scion-repl-history-file-coding-system 
+(defcustom scion-repl-history-file-coding-system
   (cond ((scion-find-coding-system 'utf-8-unix) 'utf-8-unix)
         (t scion-net-coding-system))
   "*The coding system for the history file."
@@ -600,7 +600,7 @@ EVAL'd by Lisp."
   (setq scion-sessions nil)
   (when (eq process scion-default-connection)
     (setq scion-default-connection nil))
-  (cond (debug         
+  (cond (debug
          (set-process-sentinel process 'ignore)
          (set-process-filter process 'ignore)
          (delete-process process))
@@ -624,7 +624,7 @@ EVAL'd by Lisp."
 	  (goto-char (point-max))
 	  (insert string))
 	(scion-process-available-input process))
-    ('error 
+    ('error
      (message "Error in process filter: %s" ex)
      nil)))
 
@@ -650,8 +650,8 @@ EVAL'd by Lisp."
 
 (defun scion-run-when-idle (function &rest args)
   "Call FUNCTION as soon as Emacs is idle."
-  (apply #'run-at-time 
-         (if (featurep 'xemacs) itimer-short-interval 0) 
+  (apply #'run-at-time
+         (if (featurep 'xemacs) itimer-short-interval 0)
          nil function args))
 
 (defun scion-net-read-or-lose (process)
@@ -688,7 +688,7 @@ This is more compatible with the CL reader."
   (with-temp-buffer
     (let (print-escape-nonascii
           print-escape-newlines
-          print-length 
+          print-length
           print-level)
       (prin1 sexp (current-buffer))
       (buffer-string))))
@@ -716,7 +716,7 @@ This is more compatible with the CL reader."
 ;;; One connection is "current" at any given time. This is:
 ;;;   `scion-dispatching-connection' if dynamically bound, or
 ;;;   `scion-buffer-connection' if this is set buffer-local, or
-;;;   `scion-default-connection' otherwise. 
+;;;   `scion-default-connection' otherwise.
 ;;;
 ;;; When you're invoking commands in your source files you'll be using
 ;;; `scion-default-connection'. This connection can be interactively
@@ -796,7 +796,7 @@ Signal an error if there's no connection."
   (let* ((c0 (car scion-net-processes))
          (c (cond ((eq scion-auto-select-connection 'always) c0)
                   ((and (eq scion-auto-select-connection 'ask)
-                        (y-or-n-p 
+                        (y-or-n-p
                          (format "No default connection selected.  %s %s? "
                                  "Switch to" (scion-connection-name c0))))
                    c0))))
@@ -838,10 +838,10 @@ If PROCESS is not specified, `scion-connection' is used.
   (not (null scion-net-processes)))
 
 (defun scion-compute-connection-state (conn)
-  (cond ((null conn) :disconnected) 
+  (cond ((null conn) :disconnected)
         ;((scion-stale-connection-p conn) :stale)
         ;((scion-debugged-connection-p conn) :debugged)
-        ((and (scion-use-sigint-for-interrupt conn) 
+        ((and (scion-use-sigint-for-interrupt conn)
               (scion-busy-p conn)) :busy)
         ((eq scion-buffer-connection conn) :local)
         (t :connected)))
@@ -947,7 +947,7 @@ Bound in the connection's process-buffer.")
 (defun scion-check-version (version conn)
   (or (equal version scion-protocol-version)
       (equal scion-protocol-version 'ignore)
-      (y-or-n-p 
+      (y-or-n-p
        (format "Versions differ: %s (scion client) vs. %s (scion server). Continue? "
                scion-protocol-version version))
       (scion-net-close conn)
@@ -956,7 +956,7 @@ Bound in the connection's process-buffer.")
 (defun scion-generate-connection-name (lisp-name)
   (loop for i from 1
         for name = lisp-name then (format "%s<%d>" lisp-name i)
-        while (find name scion-net-processes 
+        while (find name scion-net-processes
                     :key #'scion-connection-name :test #'equal)
         finally (return name)))
 
@@ -988,12 +988,12 @@ Bound in the connection's process-buffer.")
 Can return nil if there's no process object for the connection."
   nil
   ;; (let ((proc (scion-inferior-process connection)))
-;;     (if (and proc 
+;;     (if (and proc
 ;;              (memq (process-status proc) '(run stop)))
 ;;         proc))
   )
 
-;; Non-macro version to keep the file byte-compilable. 
+;; Non-macro version to keep the file byte-compilable.
 ;; (defun scion-set-inferior-process (connection process)
 ;;   (setf (scion-inferior-process connection) process))
 
@@ -1046,7 +1046,7 @@ fixnum a specific session."))
 (defun scion-current-package ()
   nil)
 
-(defvar scion-accept-process-output-supports-floats 
+(defvar scion-accept-process-output-supports-floats
   (ignore-errors (accept-process-output nil 0.0) t))
 
 (defun scion-accept-process-output (&optional process timeout)
@@ -1054,7 +1054,7 @@ fixnum a specific session."))
   (cond (scion-accept-process-output-supports-floats
          (accept-process-output process timeout))
         (t
-         (accept-process-output process 
+         (accept-process-output process
                                 (if timeout (truncate timeout))
                                 ;; Emacs 21 uses microsecs; Emacs 22 millisecs
                                 (if timeout (truncate (* timeout 1000000)))))))
@@ -1072,7 +1072,7 @@ fixnum a specific session."))
 ;;; you need to, but the others are usually more convenient.
 
 (defmacro* scion-rex ((&rest saved-vars)
-                      (sexp &optional 
+                      (sexp &optional
                             (session 'scion-current-session))
                       &rest continuations)
   "(scion-rex (VAR ...) (SEXP &optional SESSION) CLAUSES ...)
@@ -1100,7 +1100,7 @@ deal with that."
                          collect (etypecase var
                                    (symbol (list var var))
                                    (cons var)))
-       (scion-dispatch-event 
+       (scion-dispatch-event
 	(list :emacs-rex ,sexp nil ,session
 	      (lambda (,result)
 		(destructure-case ,result
@@ -1109,11 +1109,11 @@ deal with that."
 (defun scion-eval (sexp &optional package)
   "Evaluate EXPR on the Scion server and return the result."
   (when (null package) (setq package (scion-current-package)))
-  (let* ((tag (gensym (format "scion-result-%d-" 
+  (let* ((tag (gensym (format "scion-result-%d-"
                               (1+ (scion-continuation-counter)))))
 	 (scion-stack-eval-tags (cons tag scion-stack-eval-tags)))
     (apply
-     #'funcall 
+     #'funcall
      (catch tag
        (scion-rex (tag sexp)
            (sexp package)
@@ -1129,7 +1129,7 @@ deal with that."
        (let ((debug-on-quit t)
              (inhibit-quit nil)
              (conn (scion-connection)))
-         (while t 
+         (while t
            (unless (eq (process-status conn) 'open)
              (error "Server connection closed unexpectedly"))
            (scion-accept-process-output nil 0.01)))))))
@@ -1341,12 +1341,12 @@ function was called."
   (scion-popup-buffer-mode 1)
   (setq scion-popup-buffer-saved-fingerprint
         (scion-current-emacs-snapshot-fingerprint))
-  (multiple-value-setq (scion-buffer-package 
+  (multiple-value-setq (scion-buffer-package
                         scion-buffer-connection
                         scion-popup-buffer-saved-emacs-snapshot)
     buffer-vars))
 
-(define-minor-mode scion-popup-buffer-mode 
+(define-minor-mode scion-popup-buffer-mode
   "Mode for displaying read only stuff"
   nil
   (" Scion-Tmp" scion-modeline-string)
@@ -1384,7 +1384,7 @@ last activated the buffer."
 
 (defun scion-popup-buffer-restore-snapshot ()
   (let ((snapshot scion-popup-buffer-saved-emacs-snapshot))
-    (assert snapshot) 
+    (assert snapshot)
     (scion-set-emacs-snapshot snapshot)))
 
 
@@ -1492,7 +1492,7 @@ last activated the buffer."
   :group 'scion-mode-faces)
 
 (defun scion-face-inheritance-possible-p ()
-  "Return true if the :inherit face attribute is supported." 
+  "Return true if the :inherit face attribute is supported."
   (assq :inherit custom-face-attributes))
 
 (defface scion-highlight-face
@@ -1581,7 +1581,7 @@ PREDICATE is executed in the buffer to test."
                  (buffer-list)))
 
 (defun scion-flash-region (start end &optional timeout)
-  (let ((overlay (make-overlay start end))) 
+  (let ((overlay (make-overlay start end)))
     (overlay-put overlay 'face 'secondary-selection)
     (run-with-timer (or timeout 0.2) nil 'delete-overlay overlay)))
 
@@ -1649,7 +1649,7 @@ TODO: Fix up locations if buffer has been modified in between."
 	  (forward-line (- end-line start-line))
 	  (move-to-column end-col)
 	  (let ((end (point)))
-	    (cond 
+	    (cond
 	     ((< end start)
 	      (list end start))
 	     ((= start end) ; span would be invisible
@@ -1725,7 +1725,7 @@ The overlay has several properties:
   (scion-next-note-in-buffer-aux t))
 
 (defun scion-next-note-in-buffer-aux (&optional backwards)
-  (flet ((my-next-overlay-change (p) (if backwards 
+  (flet ((my-next-overlay-change (p) (if backwards
 					 (previous-overlay-change p)
 				       (next-overlay-change p)))
 	 (my-eobp () (if backwards (bobp) (eobp))))
@@ -1885,7 +1885,7 @@ If NO-POPUP is non-NIL, only show the buffer if it is already visible."
 
 (defvar scion-compiler-notes-mode-map)
 
-(define-derived-mode scion-compiler-notes-mode fundamental-mode 
+(define-derived-mode scion-compiler-notes-mode fundamental-mode
   "Compiler-Notes"
   "\\<scion-compiler-notes-mode-map>\
 \\{scion-compiler-notes-mode-map}
@@ -1906,7 +1906,7 @@ If NO-POPUP is non-NIL, only show the buffer if it is already visible."
   (destructuring-bind (mouse-2 (w pos &rest _) &rest __) event
     (save-excursion
       (goto-char pos)
-      (let ((fn (get-text-property (point) 
+      (let ((fn (get-text-property (point)
                                    'scion-compiler-notes-default-action)))
 	(if fn (funcall fn) (scion-compiler-notes-show-details))))))
 
@@ -2054,7 +2054,7 @@ signals an error if multiple files are present."
       nil)))
 
 (defun scion-open-cabal-project (root-dir rel-dist-dir extra-args)
-  "Load project metadata from a Cabal description.  
+  "Load project metadata from a Cabal description.
 
 This does not load the project but merely loads the metadata.
 
@@ -2086,7 +2086,7 @@ EXTRA-ARGS is a string of command line flags."
 	   (read-from-minibuffer "Configure Flags: " ""))))
 
 (defun scion-configure-cabal-project (root-dir rel-dist-dir extra-args)
-  "Configure/Reconfigure a Cabal project.  
+  "Configure/Reconfigure a Cabal project.
 
 This does not load the project but merely loads the metadata and
 pre-processes files.
@@ -2121,7 +2121,7 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
 (defun scion-count-notes (notes)
   (let ((warns 0)
 	(errs 0))
-    (loop for n in notes 
+    (loop for n in notes
 	  when (eq (scion-note.severity n) :warning) do (incf warns)
 	  when (eq (scion-note.severity n) :error) do (incf errs))
     (list warns errs)))
@@ -2156,7 +2156,7 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
     (scion-list-sessions scion-sessions)
     ;; (scion-list-compiler-notes (scion-compiler-notes) t)
     ))
-    
+
 ;;     ((:ok warns)
 ;;      (setq scion-last-compilation-result
 ;; 	   (list 42 (mapc #'scion-canonicalise-note-location
@@ -2235,7 +2235,7 @@ Sets the GHC flags for the library from the current Cabal project and loads it."
 
 When called interactively tries to complete to modules of all
 installed packages (However, not of the current project.)"
-  (interactive 
+  (interactive
    (let ((mods (scion-exposed-modules)))
      (list (scion-completing-read "Module: " mods))))
   (insert mod))
@@ -2289,7 +2289,7 @@ installed packages (However, not of the current project.)"
 ;;;---------------------------------------------------------------------------
 ;;;; Flycheck (background type checking)
 
-(make-variable-buffer-local 
+(make-variable-buffer-local
  (defvar scion-flycheck-timer nil
    "The timer for starting background compilation"))
 
@@ -2347,7 +2347,7 @@ forces it to be off.  NIL toggles the current state."
   (interactive "P")
   (if (not scion-mode)
       (message "Background typechecking only supported inside scion-mode.")
-    (let ((new-state 
+    (let ((new-state
 	   (cond
 	    ((null arg) (not scion-flycheck-on-save-state))
 	    ((consp arg) nil)
@@ -2357,7 +2357,7 @@ forces it to be off.  NIL toggles the current state."
 	(if new-state
 	    (add-hook 'after-save-hook 'scion-after-save-hook nil t)
 	  (remove-hook 'after-save-hook 'scion-after-save-hook t))
-      
+
 	(setq scion-flycheck-on-save-state new-state)
 	(message (format "Typecheck-on-save has been turned %s"
 			 (if new-state "ON" "OFF")))))))
@@ -2373,7 +2373,7 @@ forces it to be off.  NIL toggles the current state."
 	     (not scion-flycheck-is-running))
     (setq scion-flycheck-last-change-time nil)
     (scion-flycheck-start-check)))
- 
+
 (defun scion-kill-buffer-hook ()
   (when scion-flycheck-timer
     (cancel-timer scion-flycheck-timer)
@@ -2404,7 +2404,7 @@ forces it to be off.  NIL toggles the current state."
 	   (setq scion-flycheck-is-running nil)
 	   (destructuring-bind (ok notes) result
 	     (if ok
-                 (scion-report-compilation-result 
+                 (scion-report-compilation-result
                   (list :succeeded t :notes notes :duration 0.42)
                   (current-buffer))
 	       (scion-report-status "[?]")))
@@ -2464,9 +2464,9 @@ If SESSION is nil, clears all buffer session."
   (let ((filename (buffer-file-name))
 	(line (line-number-at-pos))
 	(col (current-column)))
-    (message 
-     (let ((rslt (scion-eval `(thing-at-point :file ,filename 
-					      :line ,line 
+    (message
+     (let ((rslt (scion-eval `(thing-at-point :file ,filename
+					      :line ,line
 					      :column ,col))))
        (funcall (lambda (r) (format "%s" (cadr r))) rslt)))))
 
@@ -2493,7 +2493,7 @@ If the file is within a Cabal project, prompts the user which
 component to load, or whether only the current file should be
 loaded."
   (interactive (list (scion-select-component)))
-  (cond 
+  (cond
    ((null comp)
     (error "Invalid component"))
 
@@ -2567,7 +2567,7 @@ loaded."
 	(car options)
       ;; TODO: abstract this kludge into `scion-completing-read`
       (let* ((disp->comp (scion-makehash #'equal))
-	     (opts (loop for c in options 
+	     (opts (loop for c in options
 			 do (puthash (scion-format-component c) c disp->comp)
 			 collect (scion-format-component c))))
 	(gethash (scion-completing-read "Load Component: "
@@ -2610,12 +2610,12 @@ LIBRARY or (EXECUTABLE <name>)."
 (defun scion-ident-at-point ()
   ;; TODO: recognise proper haskell symbols
   (let ((s (thing-at-point 'symbol)))
-    (if s 
+    (if s
 	(substring-no-properties s)
       nil)))
 
 (defun scion-goto-definition (name)
-  (interactive 
+  (interactive
    (let ((names (scion-defined-names))
 	 (dflt (scion-ident-at-point)))
      (if (find dflt names :test #'string=)
@@ -2628,7 +2628,7 @@ LIBRARY or (EXECUTABLE <name>)."
 	     (dummy-note (list :kind "warning" :location loc :message "definition")))
 	(scion-goto-source-location dummy-note)))))
 
-;; Local Variables: 
+;; Local Variables:
 ;; outline-regexp: ";;;;+"
 ;; End:
 ;; indent-tabs-mode: nil
